@@ -33,6 +33,8 @@ All numbers are for 5M-parameter toy models on a synthetic language, on a deskto
 
 **Sudoku (E4–E16).** Best NCM (E15: stronger conditioning corruption, unique puzzles, 8.2M training sequences): 96.2 / 76.6 / 31.9% solved on the upstream easy/medium/hard sets (paper: 99.5 / 96.5 / 86.1% with a 4× larger model and 51M sequences). At E11's matched 2.05M-sequence budget, the same-size AR baseline reaches 20.5 / 4.9 / 0.5%, against NCM's 55.2 / 18.1 / 1.6%. Trains on Apple Silicon, NVIDIA (RTX 3080) and NVIDIA A40 GPUs.
 
+The separate E19-budget pilot is active on an A40 with a 23,895-update target; it has no held-out quality result yet. The original long-budget E19 recipe remains unstarted. See [EXPERIMENTS](EXPERIMENTS.md).
+
 ## Not done
 
 - The upstream Sudoku result is not reproduced. Width-512 runs E10/E12 did not close the gap; a paper-scale training budget remains pending.

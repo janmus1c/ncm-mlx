@@ -9,6 +9,16 @@ Every measured run, newest first. Unless a run specifies another device, hardwar
 
 **GPU contention.** Mac experiments generally ran alongside other local GPU services; per-run notes record exceptions and other hardware. `ioreg` reported 15% GPU utilisation from other processes just before the v0 benchmark started. Treat those latency numbers as "typical busy desktop" rather than an idle machine.
 
+## E19-budget — larger-corpus pilot, in progress
+
+**State checked 2026-10-24.** The training process has started preprocessing/encoding its corpus on an NVIDIA A40 48 GB. No held-out generation result or completed training time is available yet. This bounded pilot is separate from the original, unstarted long-budget E19 recipe.
+
+**Recipe and actual target.** `configs/sudoku-e19-budget.json`: frozen E6 codec, width-256 eight-layer generator, corruption 0.50 → 0.10, 200,000 base puzzles plus 8M cached unique puzzles (seeds 201–208), batch 128, seed 0, warmup 1,000, full-state checkpoints every 1,000 updates. The executed CLI overrides the config's 1,000,000-step ceiling with **23,895 updates**, at most **3,058,560 sequence exposures**. Generator time cap is 600 minutes in the config; the outer pipeline cap is six hours including corpus processing, training, evaluation and benchmarking. Neither ceiling is a measured duration. This pilot has less exposure than E15 and cannot establish a longer-budget improvement or an equal-budget comparison.
+
+**Preflight evidence.** MLX 0.32.3, Python 3.12.3, CUDA; 0% GPU utilisation, 0 MiB allocated and no compute applications observed before the checks. All 75 tests passed in 112.60 s, including exact CPU invariants and recovery tests on this host. A synthetic width-256/batch-128 training-step probe measured 542 ms/step and 236 sequences/s, with a 15.6 GB MLX-reported peak. The probe uses 3 warmups and 10 timed steps; it sizes the schedule to 90% of a four-hour allowance. It excludes dataset encoding and is not a measured end-to-end training or generation throughput.
+
+**Recovery and reporting.** The source snapshot is commit `0c9ce98a63f029105b7ec85f044f8885e143960b`. Inputs have recorded SHA-256 hashes, remote files are copied back every ten minutes and at exit, and the pipeline runs independently of a terminal. No optimizer-reset continuation or cross-device exact recovery is claimed. Record the actual completed step count, elapsed training and pipeline time, contention, checkpoint identity and full held-out evaluation here when the run ends. Raw outputs use `runs/sudoku-e19-budget-*` and `artifacts/sudoku-e19-budget/`.
+
 ## E18 — stronger corruption on the base dataset
 
 **Recipe.** `configs/sudoku-e18.json`: E14's 200,000 base training puzzles and 128,000 updates × batch 64 = 8.192M sequence exposures, with corruption changed from 0.30 → 0.05 to 0.50 → 0.10. The 6,440,128-value generator uses the frozen E6 codec (13,915,200 saved values including EMA state). No extra unique-puzzle corpus is added. NVIDIA RTX 3080 12 GB, MLX 0.32.3, Python 3.12.15, compiled generator training and uncompiled sampling.
