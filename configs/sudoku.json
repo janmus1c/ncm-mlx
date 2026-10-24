@@ -1,0 +1,65 @@
+{
+  "name": "sudoku",
+  "out_dir": "artifacts/sudoku",
+  "codec_checkpoint": null,
+  "data": {
+    "corpus": "sudoku",
+    "seq_len": 81,
+    "n_train": 200000,
+    "n_val": 1000,
+    "split_seed": 0,
+    "min_givens": 28,
+    "max_givens": 45
+  },
+  "codec": {
+    "dim": 128,
+    "n_head": 4,
+    "enc_layers": 2,
+    "dec_layers": 2,
+    "dropout": 0.1,
+    "levels": [
+      1,
+      3,
+      9,
+      27,
+      54,
+      81
+    ],
+    "codebook_sizes": [
+      32,
+      32,
+      32,
+      32,
+      32,
+      32
+    ],
+    "decay": 0.95,
+    "epsilon": 1e-05,
+    "commitment": 0.25,
+    "quant_resi_ratio": 0.5,
+    "restart_threshold": 0.05,
+    "fine_drop_prob": 0.5,
+    "fine_drop_min_keep": 1
+  },
+  "generator": {
+    "n_embd": 256,
+    "n_layer": 8,
+    "n_head": 8,
+    "dropout": 0.1,
+    "prefix_len": 81,
+    "prefix_vocab": 10,
+    "rope_base": 10000.0,
+    "attn_pattern": "block_diagonal"
+  },
+  "train": {
+    "seed": 0,
+    "codec_steps": 3000,
+    "codec_lr": 0.001,
+    "generator_steps": 5000,
+    "generator_lr": 0.0006,
+    "batch_size": 128,
+    "warmup": 100,
+    "weight_decay": 0.01,
+    "log_every": 500
+  }
+}

@@ -1,0 +1,1734 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article PUBLIC "-//NLM//DTD JATS (Z39.96) Journal Archiving and Interchange DTD v1.2 20190208//EN"
+                  "JATS-archivearticle1.dtd">
+<article xmlns:mml="http://www.w3.org/1998/Math/MathML" xmlns:xlink="http://www.w3.org/1999/xlink" dtd-version="1.2" article-type="other">
+<front>
+<journal-meta>
+<journal-id></journal-id>
+<journal-title-group>
+</journal-title-group>
+<issn></issn>
+<publisher>
+<publisher-name></publisher-name>
+</publisher>
+</journal-meta>
+<article-meta>
+<title-group>
+<article-title>Coarse-to-Fine Text Generation on a Laptop: A Native MLX
+Study of Next-Concept Modeling</article-title>
+</title-group>
+<contrib-group>
+<contrib contrib-type="author">
+<string-name>Jan Music</string-name>
+<aff id="aff-">
+<institution-wrap>
+<institution></institution>
+</institution-wrap>
+</aff>
+</contrib>
+</contrib-group>
+<permissions>
+</permissions>
+<abstract>
+<p>Next-concept modeling (NCM) writes a sequence the way a painter
+works: a rough sketch first, then finer and finer detail, with every
+piece of a level produced at once. We reimplement NCM from its paper and
+released configurations in MLX, Apple’s array framework, and study it on
+an Apple M5 Pro laptop and single NVIDIA GPUs. On a synthetic
+15,360-sentence language, a 5M-parameter NCM model is 4–5× faster than
+an equal-size word-by-word (autoregressive) model at small batch sizes
+but less accurate (89.8% vs 98.6% valid sentences). On the paper’s
+Sudoku benchmark our autoregressive baseline reproduces the published
+autoregressive result (13.8% vs 14.6% of easy boards solved), while our
+NCM, with conditioning corruption and unique-solution puzzles, solves
+96.2% of easy, 76.6% of medium and 31.9% of hard boards when trained on
+8M sequences (99.5%, 96.5% and 86.1% reported for the original’s 4×
+larger model trained on 51M), far more than the equal-size
+autoregressive model. We trace the path step by step: the level
+schedule, a learned first level, conditioning corruption and its
+strength, and above all training data. We also report that fp32 matrix
+products on Apple GPUs run at reduced precision and that computing
+block-diagonal attention per level speeds training by 1.35×.</p>
+</abstract>
+</article-meta>
+</front>
+<body>
+<disp-quote>
+  <p><bold>Status.</bold> Working paper, version 0.7. Every number here
+  is copied from a run in the code repository
+  (<monospace>runs/</monospace>, summarised in
+  <monospace>paper/data/results.json</monospace>) or quoted from the
+  cited paper and marked as quoted. Experiments still running are marked
+  <italic>in progress</italic> and never estimated. Appendix C lists the
+  changes between versions.</p>
+</disp-quote>
+<sec id="reading-guide">
+  <title>Reading guide</title>
+  <p>This paper has two audiences. <bold>If you are new to language
+  models</bold>, read Section 2 (the idea in plain language) and Section
+  3 (glossary), then the boxed summary at the start of each later
+  section. <bold>If you build models</bold>, Sections 5–7 give the
+  method with every formula explained, the Apple Silicon implementation
+  and the experiments. Section 8 tells the story of the project run by
+  run: what each experiment (E0, E1, …) asked, what changed and what we
+  learned.</p>
+</sec>
+<sec id="the-idea-in-plain-language">
+  <title>The idea in plain language</title>
+  <sec id="how-a-chat-model-writes">
+    <title>How a chat model writes</title>
+    <p>A chat model such as ChatGPT or Qwen writes one
+    <italic>token</italic> (a word or a piece of a word) at a time. To
+    write the 100th token it runs the whole model once, reads what it
+    has written so far and picks the next token. A 100-token answer
+    therefore needs 100 full runs of the model, one after the other. On
+    a laptop each run must read every weight of the model from memory,
+    so speed is limited by memory bandwidth, not by how fast the chip
+    can calculate.</p>
+  </sec>
+  <sec id="how-next-concept-modeling-writes">
+    <title>How next-concept modeling writes</title>
+    <p>NCM
+    (<xref alt="Kumbong et al. 2026" rid="ref-ncm2026" ref-type="bibr">Kumbong
+    et al. 2026</xref>) writes differently. It first produces a single,
+    very rough “concept” for the whole text, then refines it in a few
+    rounds. Each round adds roughly twice as much detail, and
+    <bold>every piece of detail in a round is produced at the same
+    time</bold>. Figure 1 shows a real example from this project: a
+    32-character sentence written in six rounds (levels). After level 0
+    the rough shape is there (“eue likes one oed egg.”); by level 2 the
+    words are settled; later levels only change single letters.</p>
+    <fig>
+      <caption><p>A real generation from experiment E1. Left: the codes
+      of each level; all codes in one row come from one model run.
+      Right: the text obtained by decoding everything up to that level.
+      Six model runs write the sentence; a word-by-word model needs 32.
+      The sample also shows a failure: level 3 turns “red” into “ret”,
+      and nothing later repairs it.</p></caption>
+      <graphic mimetype="image" mime-subtype="svg+xml" xlink:href="figures/overview.svg" />
+    </fig>
+    <p>The number of rounds is fixed (six here, twelve in the original
+    paper’s Sudoku model) and does not grow with the length of the text,
+    so NCM needs far fewer model runs than a word-by-word model. That is
+    where its speed comes from.</p>
+  </sec>
+  <sec id="two-parts-a-codec-and-a-generator">
+    <title>Two parts: a codec and a generator</title>
+    <p>NCM has two learned parts. An analogy from image files helps.</p>
+    <list list-type="bullet">
+      <list-item>
+        <p>The <bold>codec</bold> is like an image format with
+        progressive loading: a JPEG that first shows a blurry picture,
+        then sharpens. It learns to turn a sentence into a stack of
+        codes, from one coarse code to one code per letter, and to turn
+        the codes back into the sentence. It is trained first, on its
+        own, until it rebuilds sentences perfectly.</p>
+      </list-item>
+      <list-item>
+        <p>The <bold>generator</bold> is the creative part. It learns to
+        <italic>invent</italic> new code stacks one level at a time:
+        level 0, then level 1 given level 0, and so on. The codec then
+        turns the finished stack into text.</p>
+      </list-item>
+    </list>
+  </sec>
+  <sec id="why-it-matters-and-the-catch">
+    <title>Why it matters, and the catch</title>
+    <p>Fewer, wider model runs suit a laptop GPU: one run reads the
+    weights once and does a lot of arithmetic with them. The catch is
+    that all codes of a level are chosen at the same moment, so
+    neighbouring pieces cannot see each other’s choice. If two pieces of
+    a level disagree, the result can be wrong in a way a word-by-word
+    model would avoid. Much of this paper measures when that
+    matters.</p>
+  </sec>
+  <sec id="what-we-did">
+    <title>What we did</title>
+    <p>We rebuilt NCM from scratch for Apple’s MLX framework
+    (<xref alt="Hannun et al. 2023" rid="ref-mlx2023" ref-type="bibr">Hannun
+    et al. 2023</xref>), tested it on a small invented language and on
+    Sudoku puzzles (the original paper’s showcase), and compared it with
+    a word-by-word model of the same size and with a large chat model.
+    The speed advantage holds on a laptop. On Sudoku our best model
+    solves 96% of easy boards (the original: 99.5%) and beats a
+    word-by-word model of the same size; Section 8 tells how we got
+    there.</p>
+  </sec>
+</sec>
+<sec id="glossary">
+  <title>Glossary</title>
+  <table-wrap>
+    <caption>
+      <p>Terms used in this paper.</p>
+    </caption>
+    <table>
+      <colgroup>
+        <col width="50%" />
+        <col width="50%" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Term</th>
+          <th>Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Token</td>
+          <td>The unit a model reads and writes. Here: one character
+          (TinyWorld) or one Sudoku cell.</td>
+        </tr>
+        <tr>
+          <td>Autoregressive (AR) model</td>
+          <td>A model that writes one token at a time, each conditioned
+          on all previous ones. Chat models are AR models.</td>
+        </tr>
+        <tr>
+          <td>Forward pass, NFE</td>
+          <td>One run of a model on its input. NFE (number of function
+          evaluations) counts forward passes per generated sample.</td>
+        </tr>
+        <tr>
+          <td>Parameters</td>
+          <td>The learned numbers inside a model; “6.4M parameters”
+          means 6.4 million.</td>
+        </tr>
+        <tr>
+          <td>Embedding, latent vector</td>
+          <td>A list of numbers (128–512 here) that represents a token
+          or a position inside the model.</td>
+        </tr>
+        <tr>
+          <td>Vector quantisation (VQ)</td>
+          <td>Replacing a vector by the nearest entry of a fixed list,
+          the <italic>codebook</italic>, so it can be stored as one
+          integer, the <italic>code</italic>.</td>
+        </tr>
+        <tr>
+          <td>Codebook, code</td>
+          <td>The list of allowed vectors at one level (16 or 128
+          entries here) and the index of one entry.</td>
+        </tr>
+        <tr>
+          <td>Level</td>
+          <td>One round of refinement. Level
+          <inline-formula><alternatives>
+          <tex-math><![CDATA[k]]></tex-math>
+          <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>
+          has <inline-formula><alternatives>
+          <tex-math><![CDATA[l_k]]></tex-math>
+          <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>l</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+          codes; level 0 is the coarsest.</td>
+        </tr>
+        <tr>
+          <td>Residual</td>
+          <td>What is left over: the difference between the true vector
+          and the approximation built so far.</td>
+        </tr>
+        <tr>
+          <td>Codec (tokenizer, VQ-VAE)</td>
+          <td>Stage 1 of NCM: encoder, quantiser and decoder that turn
+          text into codes and back.</td>
+        </tr>
+        <tr>
+          <td>Generator</td>
+          <td>Stage 2 of NCM: the transformer that predicts the codes of
+          each level.</td>
+        </tr>
+        <tr>
+          <td>Transformer, attention, mask</td>
+          <td>The standard neural network for sequences.
+          <italic>Attention</italic> lets each position read information
+          from other positions; a <italic>mask</italic> says which
+          positions may be read.</td>
+        </tr>
+        <tr>
+          <td>Teacher forcing</td>
+          <td>Training on the <italic>true</italic> previous outputs
+          instead of the model’s own. Fast, but the model never
+          practises recovering from its own mistakes.</td>
+        </tr>
+        <tr>
+          <td>Conditioning corruption</td>
+          <td>Replacing some true inputs with wrong ones during training
+          so the model learns to cope with its own mistakes.</td>
+        </tr>
+        <tr>
+          <td>Cross-entropy (CE), nats</td>
+          <td>The training loss: how surprised the model is by the right
+          answer, in natural-log units. Lower is better;
+          <inline-formula><alternatives>
+          <tex-math><![CDATA[\ln 16 \approx 2.77]]></tex-math>
+          <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mrow><mml:mi mathvariant="normal">ln</mml:mi><mml:mo>&#8289;</mml:mo></mml:mrow><mml:mn>16</mml:mn><mml:mo>≈</mml:mo><mml:mn>2.77</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+          nats is a uniform guess among 16 codes.</td>
+        </tr>
+        <tr>
+          <td>Perplexity</td>
+          <td><inline-formula><alternatives>
+          <tex-math><![CDATA[e^{\mathrm{CE}}]]></tex-math>
+          <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msup><mml:mi>e</mml:mi><mml:mrow><mml:mi mathvariant="normal">C</mml:mi><mml:mi mathvariant="normal">E</mml:mi></mml:mrow></mml:msup></mml:math></alternatives></inline-formula>,
+          the effective number of choices. Code perplexity 1 means a
+          level always uses the same code and carries no
+          information.</td>
+        </tr>
+        <tr>
+          <td>Temperature, greedy</td>
+          <td>Sampling randomness. Temperature 0 (greedy) always takes
+          the most likely choice.</td>
+        </tr>
+        <tr>
+          <td>Batch, latency, p50</td>
+          <td>A batch is several samples generated together; latency is
+          the time for one batch; p50 is the median over repeated
+          runs.</td>
+        </tr>
+        <tr>
+          <td>KV cache</td>
+          <td>A store of past attention values that speeds up AR
+          generation.</td>
+        </tr>
+        <tr>
+          <td>EMA</td>
+          <td>Exponential moving average: a running average that slowly
+          forgets old values. Used to update codebooks.</td>
+        </tr>
+        <tr>
+          <td>Straight-through estimator</td>
+          <td>A trick to train through a step that has no gradient (like
+          picking the nearest code) by treating it, for the gradient
+          only, as the identity.</td>
+        </tr>
+        <tr>
+          <td>MLX, Metal</td>
+          <td>Apple’s machine-learning array framework, and the GPU
+          interface it runs on.</td>
+        </tr>
+        <tr>
+          <td>fp32, bf16</td>
+          <td>32-bit and 16-bit (bfloat16) floating-point formats.</td>
+        </tr>
+        <tr>
+          <td>E0, E1, …</td>
+          <td>Experiment numbers, in the order the experiments were run
+          (Section 8).</td>
+        </tr>
+      </tbody>
+    </table>
+  </table-wrap>
+</sec>
+<sec id="background">
+  <title>Background</title>
+  <p><bold>Residual vector quantisation.</bold> A vector quantiser maps
+  a continuous vector to the nearest of <inline-formula><alternatives>
+  <tex-math><![CDATA[V]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>V</mml:mi></mml:math></alternatives></inline-formula>
+  codebook entries
+  (<xref alt="Oord et al. 2017" rid="ref-vqvae2017" ref-type="bibr">Oord
+  et al. 2017</xref>). Residual quantisation applies several quantisers
+  in sequence, each to what the previous ones left over
+  (<xref alt="Lee et al. 2022" rid="ref-rqvae2022" ref-type="bibr">Lee
+  et al. 2022</xref>;
+  <xref alt="Zeghidour et al. 2021" rid="ref-soundstream2021" ref-type="bibr">Zeghidour
+  et al. 2021</xref>); it underlies modern neural audio codecs.</p>
+  <p><bold>Next-scale prediction.</bold> VAR
+  (<xref alt="Tian et al. 2024" rid="ref-var2024" ref-type="bibr">Tian
+  et al. 2024</xref>) combines residual quantisation with resolution:
+  the first quantiser sees a <inline-formula><alternatives>
+  <tex-math><![CDATA[1\times1]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mn>1</mml:mn><mml:mo>×</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+  summary of an image, later ones <inline-formula><alternatives>
+  <tex-math><![CDATA[2\times2]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mn>2</mml:mn><mml:mo>×</mml:mo><mml:mn>2</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>,
+  <inline-formula><alternatives>
+  <tex-math><![CDATA[3\times3]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mn>3</mml:mn><mml:mo>×</mml:mo><mml:mn>3</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>,
+  up to full resolution, and a transformer generates one scale per step.
+  NCM applies the idea to 1-D token sequences
+  (<xref alt="Kumbong et al. 2026" rid="ref-ncm2026" ref-type="bibr">Kumbong
+  et al. 2026</xref>).</p>
+  <p><bold>Diffusion language models</bold> refine all positions of a
+  sequence over <inline-formula><alternatives>
+  <tex-math><![CDATA[T]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>T</mml:mi></mml:math></alternatives></inline-formula>
+  denoising steps
+  (<xref alt="Sahoo et al. 2024" rid="ref-mdlm2024" ref-type="bibr">Sahoo
+  et al. 2024</xref>). Each step processes the full length
+  <inline-formula><alternatives>
+  <tex-math><![CDATA[L]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>L</mml:mi></mml:math></alternatives></inline-formula>;
+  NCM’s coarse levels are short, so its total work is closer to one pass
+  over <inline-formula><alternatives>
+  <tex-math><![CDATA[L]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>L</mml:mi></mml:math></alternatives></inline-formula>
+  positions spread across <inline-formula><alternatives>
+  <tex-math><![CDATA[K]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>K</mml:mi></mml:math></alternatives></inline-formula>
+  steps. The NCM paper reports quality at or above strong diffusion
+  language models with 10–31× faster generation on an H100 GPU
+  (<xref alt="Kumbong et al. 2026" rid="ref-ncm2026" ref-type="bibr">Kumbong
+  et al. 2026</xref>).</p>
+</sec>
+<sec id="method">
+  <title>Method</title>
+  <disp-quote>
+    <p><bold>In short.</bold> The codec learns to describe a sequence
+    with a stack of codes, coarse to fine. The generator learns to
+    predict each level’s codes from the levels above it. Generation runs
+    the generator once per level, then decodes.</p>
+  </disp-quote>
+  <p>We follow the NCM design
+  (<xref alt="Kumbong et al. 2026" rid="ref-ncm2026" ref-type="bibr">Kumbong
+  et al. 2026</xref>) and its released Sudoku configuration; Table 2
+  lists where we differ. A running toy example uses a sequence of
+  <inline-formula><alternatives>
+  <tex-math><![CDATA[L = 8]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>L</mml:mi><mml:mo>=</mml:mo><mml:mn>8</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+  tokens, levels <inline-formula><alternatives>
+  <tex-math><![CDATA[l = (1, 2, 4, 8)]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>l</mml:mi><mml:mo>=</mml:mo><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:mn>1</mml:mn><mml:mo>,</mml:mo><mml:mn>2</mml:mn><mml:mo>,</mml:mo><mml:mn>4</mml:mn><mml:mo>,</mml:mo><mml:mn>8</mml:mn><mml:mo stretchy="false" form="postfix">)</mml:mo></mml:mrow></mml:math></alternatives></inline-formula>
+  and vectors of width <inline-formula><alternatives>
+  <tex-math><![CDATA[C = 2]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>C</mml:mi><mml:mo>=</mml:mo><mml:mn>2</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>.</p>
+  <sec id="codec-from-tokens-to-a-stack-of-codes">
+    <title>Codec: from tokens to a stack of codes</title>
+    <p><bold>Encoder.</bold> Each token <inline-formula><alternatives>
+    <tex-math><![CDATA[x_i]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>x</mml:mi><mml:mi>i</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    and its position <inline-formula><alternatives>
+    <tex-math><![CDATA[i]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>i</mml:mi></mml:math></alternatives></inline-formula>
+    are looked up in two tables, added and normalised:</p>
+    <p><disp-formula><alternatives>
+    <tex-math><![CDATA[z_i = \mathrm{Norm}\big(W_{\mathrm{tok}}[x_i] + W_{\mathrm{pos}}[i]\big), \qquad z \in \mathbb{R}^{L \times C}.]]></tex-math>
+    <mml:math display="block" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi>z</mml:mi><mml:mi>i</mml:mi></mml:msub><mml:mo>=</mml:mo><mml:mrow><mml:mi mathvariant="normal">N</mml:mi><mml:mi mathvariant="normal">o</mml:mi><mml:mi mathvariant="normal">r</mml:mi><mml:mi mathvariant="normal">m</mml:mi></mml:mrow><mml:mo minsize="120%" maxsize="120%" stretchy="true" form="prefix">(</mml:mo><mml:msub><mml:mi>W</mml:mi><mml:mrow><mml:mi mathvariant="normal">t</mml:mi><mml:mi mathvariant="normal">o</mml:mi><mml:mi mathvariant="normal">k</mml:mi></mml:mrow></mml:msub><mml:mo stretchy="false" form="prefix">[</mml:mo><mml:msub><mml:mi>x</mml:mi><mml:mi>i</mml:mi></mml:msub><mml:mo stretchy="false" form="postfix">]</mml:mo><mml:mo>+</mml:mo><mml:msub><mml:mi>W</mml:mi><mml:mrow><mml:mi mathvariant="normal">p</mml:mi><mml:mi mathvariant="normal">o</mml:mi><mml:mi mathvariant="normal">s</mml:mi></mml:mrow></mml:msub><mml:mo stretchy="false" form="prefix">[</mml:mo><mml:mi>i</mml:mi><mml:mo stretchy="false" form="postfix">]</mml:mo><mml:mo minsize="120%" maxsize="120%" stretchy="true" form="postfix">)</mml:mo><mml:mo>,</mml:mo><mml:mspace width="2.0em"></mml:mspace><mml:mi>z</mml:mi><mml:mo>∈</mml:mo><mml:msup><mml:mi mathvariant="double-struck">ℝ</mml:mi><mml:mrow><mml:mi>L</mml:mi><mml:mo>×</mml:mo><mml:mi>C</mml:mi></mml:mrow></mml:msup><mml:mi>.</mml:mi></mml:mrow></mml:math></alternatives></disp-formula></p>
+    <p><italic>Reading it:</italic> <inline-formula><alternatives>
+    <tex-math><![CDATA[W_{\mathrm{tok}}]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>W</mml:mi><mml:mrow><mml:mi mathvariant="normal">t</mml:mi><mml:mi mathvariant="normal">o</mml:mi><mml:mi mathvariant="normal">k</mml:mi></mml:mrow></mml:msub></mml:math></alternatives></inline-formula>
+    has one learned row per possible token and
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[W_{\mathrm{pos}}]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>W</mml:mi><mml:mrow><mml:mi mathvariant="normal">p</mml:mi><mml:mi mathvariant="normal">o</mml:mi><mml:mi mathvariant="normal">s</mml:mi></mml:mrow></mml:msub></mml:math></alternatives></inline-formula>
+    one per position; <inline-formula><alternatives>
+    <tex-math><![CDATA[z]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>z</mml:mi></mml:math></alternatives></inline-formula>
+    is the whole sequence as <inline-formula><alternatives>
+    <tex-math><![CDATA[L]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>L</mml:mi></mml:math></alternatives></inline-formula>
+    vectors of <inline-formula><alternatives>
+    <tex-math><![CDATA[C]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>C</mml:mi></mml:math></alternatives></inline-formula>
+    numbers. “Norm” rescales each vector (LayerNorm), or groups of
+    channels across the sequence (GroupNorm, as upstream), without a
+    learned scale, because the quantiser compares squared distances and
+    a learned scale could grow without bound. In the toy example
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[z]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>z</mml:mi></mml:math></alternatives></inline-formula>
+    is an <inline-formula><alternatives>
+    <tex-math><![CDATA[8 \times 2]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mn>8</mml:mn><mml:mo>×</mml:mo><mml:mn>2</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+    table of numbers.</p>
+    <p><bold>Quantisation, level by level.</bold> The quantiser keeps a
+    <italic>residual</italic> <inline-formula><alternatives>
+    <tex-math><![CDATA[r]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>r</mml:mi></mml:math></alternatives></inline-formula>,
+    initially all of <inline-formula><alternatives>
+    <tex-math><![CDATA[z]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>z</mml:mi></mml:math></alternatives></inline-formula>,
+    and for each level <inline-formula><alternatives>
+    <tex-math><![CDATA[k = 0, \dots, K-1]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>k</mml:mi><mml:mo>=</mml:mo><mml:mn>0</mml:mn><mml:mo>,</mml:mo><mml:mi>…</mml:mi><mml:mo>,</mml:mo><mml:mi>K</mml:mi><mml:mo>−</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+    does four things:</p>
+    <p><disp-formula><alternatives>
+    <tex-math><![CDATA[\underbrace{x_k = D_k\, r_k}_{\text{1. shrink}} ,\qquad
+    \underbrace{c_k = \arg\min_j \lVert x_k - E_k[j] \rVert^2}_{\text{2. pick nearest codes}},]]></tex-math>
+    <mml:math display="block" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:munder><mml:munder><mml:mrow><mml:msub><mml:mi>x</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo>=</mml:mo><mml:msub><mml:mi>D</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mspace width="0.167em"></mml:mspace><mml:msub><mml:mi>r</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:mrow><mml:mo accent="true">⏟</mml:mo></mml:munder><mml:mtext mathvariant="normal">1. shrink</mml:mtext></mml:munder><mml:mo>,</mml:mo><mml:mspace width="2.0em"></mml:mspace><mml:munder><mml:munder><mml:mrow><mml:msub><mml:mi>c</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo>=</mml:mo><mml:mrow><mml:mi mathvariant="normal">arg</mml:mi><mml:mo>&#8289;</mml:mo></mml:mrow><mml:munder><mml:mi mathvariant="normal">min</mml:mi><mml:mi>j</mml:mi></mml:munder><mml:msup><mml:mrow><mml:mo stretchy="true" form="prefix">‖</mml:mo><mml:msub><mml:mi>x</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo>−</mml:mo><mml:msub><mml:mi>E</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo stretchy="false" form="prefix">[</mml:mo><mml:mi>j</mml:mi><mml:mo stretchy="false" form="postfix">]</mml:mo><mml:mo stretchy="true" form="postfix">‖</mml:mo></mml:mrow><mml:mn>2</mml:mn></mml:msup></mml:mrow><mml:mo accent="true">⏟</mml:mo></mml:munder><mml:mtext mathvariant="normal">2. pick nearest codes</mml:mtext></mml:munder><mml:mo>,</mml:mo></mml:mrow></mml:math></alternatives></disp-formula>
+    <disp-formula><alternatives>
+    <tex-math><![CDATA[\underbrace{q_k = \phi_k\big(U_k\, E_k[c_k]\big)}_{\text{3. expand and refine}},\qquad
+    \underbrace{r_{k+1} = r_k - \mathrm{sg}(q_k)}_{\text{4. subtract}} .]]></tex-math>
+    <mml:math display="block" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:munder><mml:munder><mml:mrow><mml:msub><mml:mi>q</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo>=</mml:mo><mml:msub><mml:mi>ϕ</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo minsize="120%" maxsize="120%" stretchy="true" form="prefix">(</mml:mo><mml:msub><mml:mi>U</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mspace width="0.167em"></mml:mspace><mml:msub><mml:mi>E</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo stretchy="false" form="prefix">[</mml:mo><mml:msub><mml:mi>c</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo stretchy="false" form="postfix">]</mml:mo><mml:mo minsize="120%" maxsize="120%" stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo accent="true">⏟</mml:mo></mml:munder><mml:mtext mathvariant="normal">3. expand and refine</mml:mtext></mml:munder><mml:mo>,</mml:mo><mml:mspace width="2.0em"></mml:mspace><mml:munder><mml:munder><mml:mrow><mml:msub><mml:mi>r</mml:mi><mml:mrow><mml:mi>k</mml:mi><mml:mo>+</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:msub><mml:mo>=</mml:mo><mml:msub><mml:mi>r</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo>−</mml:mo><mml:mrow><mml:mi mathvariant="normal">s</mml:mi><mml:mi mathvariant="normal">g</mml:mi></mml:mrow><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:msub><mml:mi>q</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo stretchy="false" form="postfix">)</mml:mo></mml:mrow><mml:mo accent="true">⏟</mml:mo></mml:munder><mml:mtext mathvariant="normal">4. subtract</mml:mtext></mml:munder><mml:mi>.</mml:mi></mml:mrow></mml:math></alternatives></disp-formula></p>
+    <p><italic>Reading it:</italic></p>
+    <list list-type="order">
+      <list-item>
+        <p><bold>Shrink.</bold> <inline-formula><alternatives>
+        <tex-math><![CDATA[D_k]]></tex-math>
+        <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>D</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+        averages the residual down to <inline-formula><alternatives>
+        <tex-math><![CDATA[l_k]]></tex-math>
+        <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>l</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+        positions (area pooling). Toy example: for level 1
+        (<inline-formula><alternatives>
+        <tex-math><![CDATA[l_1 = 2]]></tex-math>
+        <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi>l</mml:mi><mml:mn>1</mml:mn></mml:msub><mml:mo>=</mml:mo><mml:mn>2</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>),
+        positions 1–4 are averaged into one vector and 5–8 into
+        another.</p>
+      </list-item>
+      <list-item>
+        <p><bold>Pick.</bold> For each of the
+        <inline-formula><alternatives>
+        <tex-math><![CDATA[l_k]]></tex-math>
+        <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>l</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+        shrunk vectors, find the nearest of the
+        <inline-formula><alternatives>
+        <tex-math><![CDATA[V]]></tex-math>
+        <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>V</mml:mi></mml:math></alternatives></inline-formula>
+        codebook entries <inline-formula><alternatives>
+        <tex-math><![CDATA[E_k[1..V]]]></tex-math>
+        <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi>E</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo stretchy="false" form="prefix">[</mml:mo><mml:mn>1</mml:mn><mml:mi>.</mml:mi><mml:mi>.</mml:mi><mml:mi>V</mml:mi><mml:mo stretchy="false" form="postfix">]</mml:mo></mml:mrow></mml:math></alternatives></inline-formula>;
+        its index is the code. <inline-formula><alternatives>
+        <tex-math><![CDATA[c_k]]></tex-math>
+        <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>c</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+        is a list of <inline-formula><alternatives>
+        <tex-math><![CDATA[l_k]]></tex-math>
+        <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>l</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+        integers, for example <inline-formula><alternatives>
+        <tex-math><![CDATA[(5, 12)]]></tex-math>
+        <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:mn>5</mml:mn><mml:mo>,</mml:mo><mml:mn>12</mml:mn><mml:mo stretchy="false" form="postfix">)</mml:mo></mml:mrow></mml:math></alternatives></inline-formula>.</p>
+      </list-item>
+      <list-item>
+        <p><bold>Expand and refine.</bold> Look the codes back up,
+        stretch them to <inline-formula><alternatives>
+        <tex-math><![CDATA[L]]></tex-math>
+        <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>L</mml:mi></mml:math></alternatives></inline-formula>
+        positions by linear interpolation
+        (<inline-formula><alternatives>
+        <tex-math><![CDATA[U_k]]></tex-math>
+        <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>U</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>),
+        and apply <inline-formula><alternatives>
+        <tex-math><![CDATA[\phi_k(h) = (1-\rho)\,h + \rho\,\mathrm{conv}_k(h)]]></tex-math>
+        <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi>ϕ</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:mi>h</mml:mi><mml:mo stretchy="false" form="postfix">)</mml:mo><mml:mo>=</mml:mo><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:mn>1</mml:mn><mml:mo>−</mml:mo><mml:mi>ρ</mml:mi><mml:mo stretchy="false" form="postfix">)</mml:mo><mml:mspace width="0.167em"></mml:mspace><mml:mi>h</mml:mi><mml:mo>+</mml:mo><mml:mi>ρ</mml:mi><mml:mspace width="0.167em"></mml:mspace><mml:msub><mml:mrow><mml:mi mathvariant="normal">c</mml:mi><mml:mi mathvariant="normal">o</mml:mi><mml:mi mathvariant="normal">n</mml:mi><mml:mi mathvariant="normal">v</mml:mi></mml:mrow><mml:mi>k</mml:mi></mml:msub><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:mi>h</mml:mi><mml:mo stretchy="false" form="postfix">)</mml:mo></mml:mrow></mml:math></alternatives></inline-formula>:
+        a small learned convolution blended half and half
+        (<inline-formula><alternatives>
+        <tex-math><![CDATA[\rho = 0.5]]></tex-math>
+        <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>ρ</mml:mi><mml:mo>=</mml:mo><mml:mn>0.5</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>)
+        with its input, which smooths the blocky stretched result.</p>
+      </list-item>
+      <list-item>
+        <p><bold>Subtract.</bold> Remove what this level explained, so
+        the next level only describes what is left.
+        <inline-formula><alternatives>
+        <tex-math><![CDATA[\mathrm{sg}]]></tex-math>
+        <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi mathvariant="normal">s</mml:mi><mml:mi mathvariant="normal">g</mml:mi></mml:mrow></mml:math></alternatives></inline-formula>
+        (stop-gradient) means the subtraction is not differentiated.</p>
+      </list-item>
+    </list>
+    <p>The reconstruction after level <inline-formula><alternatives>
+    <tex-math><![CDATA[k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>
+    is the sum of everything explained so far:</p>
+    <p><disp-formula><alternatives>
+    <tex-math><![CDATA[\hat z_k = \sum_{j \le k} q_j, \qquad \hat z = \hat z_{K-1} \approx z .]]></tex-math>
+    <mml:math display="block" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̂</mml:mo></mml:mover><mml:mi>k</mml:mi></mml:msub><mml:mo>=</mml:mo><mml:munder><mml:mo>∑</mml:mo><mml:mrow><mml:mi>j</mml:mi><mml:mo>≤</mml:mo><mml:mi>k</mml:mi></mml:mrow></mml:munder><mml:msub><mml:mi>q</mml:mi><mml:mi>j</mml:mi></mml:msub><mml:mo>,</mml:mo><mml:mspace width="2.0em"></mml:mspace><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̂</mml:mo></mml:mover><mml:mo>=</mml:mo><mml:msub><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̂</mml:mo></mml:mover><mml:mrow><mml:mi>K</mml:mi><mml:mo>−</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:msub><mml:mo>≈</mml:mo><mml:mi>z</mml:mi><mml:mi>.</mml:mi></mml:mrow></mml:math></alternatives></disp-formula></p>
+    <p>Decoding <inline-formula><alternatives>
+    <tex-math><![CDATA[\hat z_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̂</mml:mo></mml:mover><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    for <inline-formula><alternatives>
+    <tex-math><![CDATA[k < K-1]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>k</mml:mi><mml:mo>&lt;</mml:mo><mml:mi>K</mml:mi><mml:mo>−</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+    gives the “after level <inline-formula><alternatives>
+    <tex-math><![CDATA[k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>”
+    texts of Figure 1.</p>
+    <p><bold>Codebook updates.</bold> Codebooks are not trained by
+    gradients. After each step every entry moves towards the average of
+    the vectors assigned to it:</p>
+    <p><disp-formula><alternatives>
+    <tex-math><![CDATA[N_j \leftarrow \gamma N_j + (1-\gamma)\, n_j, \qquad m_j \leftarrow \gamma m_j + (1-\gamma) \sum_{i:\,c_i = j} x_i, \qquad E[j] = m_j / \tilde N_j .]]></tex-math>
+    <mml:math display="block" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi>N</mml:mi><mml:mi>j</mml:mi></mml:msub><mml:mo>←</mml:mo><mml:mi>γ</mml:mi><mml:msub><mml:mi>N</mml:mi><mml:mi>j</mml:mi></mml:msub><mml:mo>+</mml:mo><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:mn>1</mml:mn><mml:mo>−</mml:mo><mml:mi>γ</mml:mi><mml:mo stretchy="false" form="postfix">)</mml:mo><mml:mspace width="0.167em"></mml:mspace><mml:msub><mml:mi>n</mml:mi><mml:mi>j</mml:mi></mml:msub><mml:mo>,</mml:mo><mml:mspace width="2.0em"></mml:mspace><mml:msub><mml:mi>m</mml:mi><mml:mi>j</mml:mi></mml:msub><mml:mo>←</mml:mo><mml:mi>γ</mml:mi><mml:msub><mml:mi>m</mml:mi><mml:mi>j</mml:mi></mml:msub><mml:mo>+</mml:mo><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:mn>1</mml:mn><mml:mo>−</mml:mo><mml:mi>γ</mml:mi><mml:mo stretchy="false" form="postfix">)</mml:mo><mml:munder><mml:mo>∑</mml:mo><mml:mrow><mml:mi>i</mml:mi><mml:mo>:</mml:mo><mml:mspace width="0.167em"></mml:mspace><mml:msub><mml:mi>c</mml:mi><mml:mi>i</mml:mi></mml:msub><mml:mo>=</mml:mo><mml:mi>j</mml:mi></mml:mrow></mml:munder><mml:msub><mml:mi>x</mml:mi><mml:mi>i</mml:mi></mml:msub><mml:mo>,</mml:mo><mml:mspace width="2.0em"></mml:mspace><mml:mi>E</mml:mi><mml:mo stretchy="false" form="prefix">[</mml:mo><mml:mi>j</mml:mi><mml:mo stretchy="false" form="postfix">]</mml:mo><mml:mo>=</mml:mo><mml:msub><mml:mi>m</mml:mi><mml:mi>j</mml:mi></mml:msub><mml:mi>/</mml:mi><mml:msub><mml:mover><mml:mi>N</mml:mi><mml:mo accent="true">̃</mml:mo></mml:mover><mml:mi>j</mml:mi></mml:msub><mml:mi>.</mml:mi></mml:mrow></mml:math></alternatives></disp-formula></p>
+    <p><italic>Reading it:</italic> <inline-formula><alternatives>
+    <tex-math><![CDATA[n_j]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>n</mml:mi><mml:mi>j</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    counts how many vectors picked entry <inline-formula><alternatives>
+    <tex-math><![CDATA[j]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>j</mml:mi></mml:math></alternatives></inline-formula>
+    in this batch, <inline-formula><alternatives>
+    <tex-math><![CDATA[N_j]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>N</mml:mi><mml:mi>j</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    is its running average with decay <inline-formula><alternatives>
+    <tex-math><![CDATA[\gamma = 0.99]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>γ</mml:mi><mml:mo>=</mml:mo><mml:mn>0.99</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>,
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[m_j]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>m</mml:mi><mml:mi>j</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    the running sum of those vectors, and <inline-formula><alternatives>
+    <tex-math><![CDATA[\tilde N_j]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mover><mml:mi>N</mml:mi><mml:mo accent="true">̃</mml:mo></mml:mover><mml:mi>j</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    is <inline-formula><alternatives>
+    <tex-math><![CDATA[N_j]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>N</mml:mi><mml:mi>j</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    with a tiny amount added to every count (Laplace smoothing) so
+    nothing is divided by zero. Entries nobody uses
+    (<inline-formula><alternatives>
+    <tex-math><![CDATA[N_j]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>N</mml:mi><mml:mi>j</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    below a threshold) restart at a random input vector.</p>
+    <p><bold>Losses.</bold> The decoder, one transformer block, reads
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[\tilde z = z + \mathrm{sg}(\hat z - z)]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̃</mml:mo></mml:mover><mml:mo>=</mml:mo><mml:mi>z</mml:mi><mml:mo>+</mml:mo><mml:mrow><mml:mi mathvariant="normal">s</mml:mi><mml:mi mathvariant="normal">g</mml:mi></mml:mrow><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̂</mml:mo></mml:mover><mml:mo>−</mml:mo><mml:mi>z</mml:mi><mml:mo stretchy="false" form="postfix">)</mml:mo></mml:mrow></mml:math></alternatives></inline-formula>.
+    Numerically this <italic>is</italic> <inline-formula><alternatives>
+    <tex-math><![CDATA[\hat z]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̂</mml:mo></mml:mover></mml:math></alternatives></inline-formula>,
+    but its gradient flows into <inline-formula><alternatives>
+    <tex-math><![CDATA[z]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>z</mml:mi></mml:math></alternatives></inline-formula>
+    as if quantisation were the identity (the straight-through
+    estimator), so the encoder learns. The training loss is</p>
+    <p><disp-formula><alternatives>
+    <tex-math><![CDATA[\mathcal{L}_{\mathrm{codec}} = \underbrace{\mathrm{CE}\big(\mathrm{Dec}(\tilde z), x\big)}_{\text{rebuild the tokens}} + \underbrace{\frac{1}{K}\sum_k \Big(\beta\,\lVert \mathrm{sg}(\hat z_k) - z\rVert^2 + \lVert \hat z_k - \mathrm{sg}(z) \rVert^2\Big)}_{\text{VQ loss}}, \quad \beta = 0.25 .]]></tex-math>
+    <mml:math display="block" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi mathvariant="script">ℒ</mml:mi><mml:mrow><mml:mi mathvariant="normal">c</mml:mi><mml:mi mathvariant="normal">o</mml:mi><mml:mi mathvariant="normal">d</mml:mi><mml:mi mathvariant="normal">e</mml:mi><mml:mi mathvariant="normal">c</mml:mi></mml:mrow></mml:msub><mml:mo>=</mml:mo><mml:munder><mml:munder><mml:mrow><mml:mrow><mml:mi mathvariant="normal">C</mml:mi><mml:mi mathvariant="normal">E</mml:mi></mml:mrow><mml:mo minsize="120%" maxsize="120%" stretchy="true" form="prefix">(</mml:mo><mml:mrow><mml:mi mathvariant="normal">D</mml:mi><mml:mi mathvariant="normal">e</mml:mi><mml:mi mathvariant="normal">c</mml:mi></mml:mrow><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̃</mml:mo></mml:mover><mml:mo stretchy="false" form="postfix">)</mml:mo><mml:mo>,</mml:mo><mml:mi>x</mml:mi><mml:mo minsize="120%" maxsize="120%" stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo accent="true">⏟</mml:mo></mml:munder><mml:mtext mathvariant="normal">rebuild the tokens</mml:mtext></mml:munder><mml:mo>+</mml:mo><mml:munder><mml:munder><mml:mrow><mml:mfrac><mml:mn>1</mml:mn><mml:mi>K</mml:mi></mml:mfrac><mml:munder><mml:mo>∑</mml:mo><mml:mi>k</mml:mi></mml:munder><mml:mo minsize="180%" maxsize="180%" stretchy="true" form="prefix">(</mml:mo><mml:mi>β</mml:mi><mml:mspace width="0.167em"></mml:mspace><mml:msup><mml:mrow><mml:mo stretchy="true" form="prefix">‖</mml:mo><mml:mrow><mml:mi mathvariant="normal">s</mml:mi><mml:mi mathvariant="normal">g</mml:mi></mml:mrow><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:msub><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̂</mml:mo></mml:mover><mml:mi>k</mml:mi></mml:msub><mml:mo stretchy="false" form="postfix">)</mml:mo><mml:mo>−</mml:mo><mml:mi>z</mml:mi><mml:mo stretchy="true" form="postfix">‖</mml:mo></mml:mrow><mml:mn>2</mml:mn></mml:msup><mml:mo>+</mml:mo><mml:msup><mml:mrow><mml:mo stretchy="true" form="prefix">‖</mml:mo><mml:msub><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̂</mml:mo></mml:mover><mml:mi>k</mml:mi></mml:msub><mml:mo>−</mml:mo><mml:mrow><mml:mi mathvariant="normal">s</mml:mi><mml:mi mathvariant="normal">g</mml:mi></mml:mrow><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:mi>z</mml:mi><mml:mo stretchy="false" form="postfix">)</mml:mo><mml:mo stretchy="true" form="postfix">‖</mml:mo></mml:mrow><mml:mn>2</mml:mn></mml:msup><mml:mo minsize="180%" maxsize="180%" stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo accent="true">⏟</mml:mo></mml:munder><mml:mtext mathvariant="normal">VQ loss</mml:mtext></mml:munder><mml:mo>,</mml:mo><mml:mspace width="1.0em"></mml:mspace><mml:mi>β</mml:mi><mml:mo>=</mml:mo><mml:mn>0.25</mml:mn><mml:mi>.</mml:mi></mml:mrow></mml:math></alternatives></disp-formula></p>
+    <p><italic>Reading it:</italic> the first term asks the decoder to
+    rebuild the exact tokens. The <italic>commitment</italic> term
+    (<inline-formula><alternatives>
+    <tex-math><![CDATA[\beta]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>β</mml:mi></mml:math></alternatives></inline-formula>)
+    pulls the encoder output towards what the codes can express; the
+    <italic>fit</italic> term trains the refinement convolutions
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[\phi_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>ϕ</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    so each partial sum <inline-formula><alternatives>
+    <tex-math><![CDATA[\hat z_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̂</mml:mo></mml:mover><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    is as close to <inline-formula><alternatives>
+    <tex-math><![CDATA[z]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>z</mml:mi></mml:math></alternatives></inline-formula>
+    as possible.</p>
+    <p><bold>Fine-level dropout.</bold> Half of the time the decoder
+    receives <inline-formula><alternatives>
+    <tex-math><![CDATA[\hat z_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̂</mml:mo></mml:mover><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    for a random <inline-formula><alternatives>
+    <tex-math><![CDATA[k < K-1]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>k</mml:mi><mml:mo>&lt;</mml:mo><mml:mi>K</mml:mi><mml:mo>−</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+    instead of the full <inline-formula><alternatives>
+    <tex-math><![CDATA[\hat z]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̂</mml:mo></mml:mover></mml:math></alternatives></inline-formula>.
+    It must then make sense of a coarse-only description, which is why
+    every prefix of levels decodes to a plausible sequence: a form of
+    nested dropout
+    (<xref alt="Rippel et al. 2014" rid="ref-nested2014" ref-type="bibr">Rippel
+    et al. 2014</xref>).</p>
+    <p><bold>Learned level 0.</bold> Averaging an entire Sudoku grid
+    into one vector gives nearly the same vector for every grid, so
+    level 0 carries no information (Section 7.2). Upstream replaces
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[D_0]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>D</mml:mi><mml:mn>0</mml:mn></mml:msub></mml:math></alternatives></inline-formula>
+    and <inline-formula><alternatives>
+    <tex-math><![CDATA[U_0]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>U</mml:mi><mml:mn>0</mml:mn></mml:msub></mml:math></alternatives></inline-formula>
+    by a strided convolution and a transposed convolution initialised to
+    behave like pooling and repetition. Picking a code has no gradient,
+    so the gradient reaches them through a straight-through estimator:
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[q_0]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>q</mml:mi><mml:mn>0</mml:mn></mml:msub></mml:math></alternatives></inline-formula>
+    is built from <inline-formula><alternatives>
+    <tex-math><![CDATA[x_0 + \mathrm{sg}(E_0[c_0] - x_0)]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi>x</mml:mi><mml:mn>0</mml:mn></mml:msub><mml:mo>+</mml:mo><mml:mrow><mml:mi mathvariant="normal">s</mml:mi><mml:mi mathvariant="normal">g</mml:mi></mml:mrow><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:msub><mml:mi>E</mml:mi><mml:mn>0</mml:mn></mml:msub><mml:mo stretchy="false" form="prefix">[</mml:mo><mml:msub><mml:mi>c</mml:mi><mml:mn>0</mml:mn></mml:msub><mml:mo stretchy="false" form="postfix">]</mml:mo><mml:mo>−</mml:mo><mml:msub><mml:mi>x</mml:mi><mml:mn>0</mml:mn></mml:msub><mml:mo stretchy="false" form="postfix">)</mml:mo></mml:mrow></mml:math></alternatives></inline-formula>,
+    whose value is the code vector and whose gradient is that of
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[x_0]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>x</mml:mi><mml:mn>0</mml:mn></mml:msub></mml:math></alternatives></inline-formula>.</p>
+  </sec>
+  <sec id="generator-predicting-one-level-from-the-levels-above">
+    <title>Generator: predicting one level from the levels above</title>
+    <p>The generator is a transformer that reads one long row of
+    vectors:</p>
+    <p><disp-formula><alternatives>
+    <tex-math><![CDATA[[\;\text{prefix } (P)\;|\;\text{level-0 queries } (l_0)\;|\;\text{input}_1\, (l_1)\;|\;\dots\;|\;\text{input}_{K-1}\,(l_{K-1})\;],
+    \qquad \text{input}_k = D_k\, \hat z_{k-1} .]]></tex-math>
+    <mml:math display="block" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mo stretchy="false" form="prefix">[</mml:mo><mml:mspace width="0.278em"></mml:mspace><mml:mrow><mml:mtext mathvariant="normal">prefix </mml:mtext><mml:mspace width="0.333em"></mml:mspace></mml:mrow><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:mi>P</mml:mi><mml:mo stretchy="false" form="postfix">)</mml:mo><mml:mspace width="0.278em"></mml:mspace><mml:mo stretchy="false" form="prefix">|</mml:mo><mml:mspace width="0.278em"></mml:mspace><mml:mrow><mml:mtext mathvariant="normal">level-0 queries </mml:mtext><mml:mspace width="0.333em"></mml:mspace></mml:mrow><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:msub><mml:mi>l</mml:mi><mml:mn>0</mml:mn></mml:msub><mml:mo stretchy="false" form="postfix">)</mml:mo><mml:mspace width="0.278em"></mml:mspace><mml:mo stretchy="false" form="prefix">|</mml:mo><mml:mspace width="0.278em"></mml:mspace><mml:msub><mml:mtext mathvariant="normal">input</mml:mtext><mml:mn>1</mml:mn></mml:msub><mml:mspace width="0.167em"></mml:mspace><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:msub><mml:mi>l</mml:mi><mml:mn>1</mml:mn></mml:msub><mml:mo stretchy="false" form="postfix">)</mml:mo><mml:mspace width="0.278em"></mml:mspace><mml:mo stretchy="false" form="prefix">|</mml:mo><mml:mspace width="0.278em"></mml:mspace><mml:mi>…</mml:mi><mml:mspace width="0.278em"></mml:mspace><mml:mo stretchy="false" form="prefix">|</mml:mo><mml:mspace width="0.278em"></mml:mspace><mml:msub><mml:mtext mathvariant="normal">input</mml:mtext><mml:mrow><mml:mi>K</mml:mi><mml:mo>−</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:msub><mml:mspace width="0.167em"></mml:mspace><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:msub><mml:mi>l</mml:mi><mml:mrow><mml:mi>K</mml:mi><mml:mo>−</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:msub><mml:mo stretchy="false" form="postfix">)</mml:mo><mml:mspace width="0.278em"></mml:mspace><mml:mo stretchy="false" form="postfix">]</mml:mo><mml:mo>,</mml:mo><mml:mspace width="2.0em"></mml:mspace><mml:msub><mml:mtext mathvariant="normal">input</mml:mtext><mml:mi>k</mml:mi></mml:msub><mml:mo>=</mml:mo><mml:msub><mml:mi>D</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mspace width="0.167em"></mml:mspace><mml:msub><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̂</mml:mo></mml:mover><mml:mrow><mml:mi>k</mml:mi><mml:mo>−</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:msub><mml:mi>.</mml:mi></mml:mrow></mml:math></alternatives></disp-formula></p>
+    <p><italic>Reading it:</italic> the <italic>prefix</italic> holds
+    the conditioning, for Sudoku the 81 cells of the puzzle (blanks as
+    0). Level 0 has nothing above it, so it reads learned query vectors.
+    Every other level reads the reconstruction from all coarser levels,
+    shrunk to its own length. Toy example:
+    input<inline-formula><alternatives>
+    <tex-math><![CDATA[_2]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi></mml:mi><mml:mn>2</mml:mn></mml:msub></mml:math></alternatives></inline-formula>
+    is <inline-formula><alternatives>
+    <tex-math><![CDATA[\hat z_1]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̂</mml:mo></mml:mover><mml:mn>1</mml:mn></mml:msub></mml:math></alternatives></inline-formula>
+    (levels 0 and 1 combined) averaged down to 4 positions. Head
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>
+    turns each of the <inline-formula><alternatives>
+    <tex-math><![CDATA[l_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>l</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    positions of its block into a probability for each of the
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[V]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>V</mml:mi></mml:math></alternatives></inline-formula>
+    codes of level <inline-formula><alternatives>
+    <tex-math><![CDATA[k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>.</p>
+    <p><bold>Training loss.</bold> With the true codes
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[c_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>c</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    of a training example,</p>
+    <p><disp-formula><alternatives>
+    <tex-math><![CDATA[\mathcal{L}_{\mathrm{gen}} = \frac{\sum_k l_k \cdot \mathrm{CE}_k}{\sum_k l_k}, \qquad \mathrm{CE}_k = -\frac{1}{l_k}\sum_{i=1}^{l_k} \log p_\theta\big(c_{k,i} \mid \text{input}_k, \text{prefix}\big).]]></tex-math>
+    <mml:math display="block" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi mathvariant="script">ℒ</mml:mi><mml:mrow><mml:mi mathvariant="normal">g</mml:mi><mml:mi mathvariant="normal">e</mml:mi><mml:mi mathvariant="normal">n</mml:mi></mml:mrow></mml:msub><mml:mo>=</mml:mo><mml:mfrac><mml:mrow><mml:munder><mml:mo>∑</mml:mo><mml:mi>k</mml:mi></mml:munder><mml:msub><mml:mi>l</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo>⋅</mml:mo><mml:msub><mml:mrow><mml:mi mathvariant="normal">C</mml:mi><mml:mi mathvariant="normal">E</mml:mi></mml:mrow><mml:mi>k</mml:mi></mml:msub></mml:mrow><mml:mrow><mml:munder><mml:mo>∑</mml:mo><mml:mi>k</mml:mi></mml:munder><mml:msub><mml:mi>l</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:mrow></mml:mfrac><mml:mo>,</mml:mo><mml:mspace width="2.0em"></mml:mspace><mml:msub><mml:mrow><mml:mi mathvariant="normal">C</mml:mi><mml:mi mathvariant="normal">E</mml:mi></mml:mrow><mml:mi>k</mml:mi></mml:msub><mml:mo>=</mml:mo><mml:mi>−</mml:mi><mml:mfrac><mml:mn>1</mml:mn><mml:msub><mml:mi>l</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:mfrac><mml:munderover><mml:mo>∑</mml:mo><mml:mrow><mml:mi>i</mml:mi><mml:mo>=</mml:mo><mml:mn>1</mml:mn></mml:mrow><mml:msub><mml:mi>l</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:munderover><mml:mrow><mml:mi mathvariant="normal">log</mml:mi><mml:mo>&#8289;</mml:mo></mml:mrow><mml:msub><mml:mi>p</mml:mi><mml:mi>θ</mml:mi></mml:msub><mml:mo minsize="120%" maxsize="120%" stretchy="true" form="prefix">(</mml:mo><mml:msub><mml:mi>c</mml:mi><mml:mrow><mml:mi>k</mml:mi><mml:mo>,</mml:mo><mml:mi>i</mml:mi></mml:mrow></mml:msub><mml:mo>∣</mml:mo><mml:msub><mml:mtext mathvariant="normal">input</mml:mtext><mml:mi>k</mml:mi></mml:msub><mml:mo>,</mml:mo><mml:mtext mathvariant="normal">prefix</mml:mtext><mml:mo minsize="120%" maxsize="120%" stretchy="true" form="postfix">)</mml:mo><mml:mi>.</mml:mi></mml:mrow></mml:math></alternatives></disp-formula></p>
+    <p><italic>Reading it:</italic> <inline-formula><alternatives>
+    <tex-math><![CDATA[\mathrm{CE}_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mrow><mml:mi mathvariant="normal">C</mml:mi><mml:mi mathvariant="normal">E</mml:mi></mml:mrow><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    is the average surprise at the true codes of level
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>;
+    weighting by <inline-formula><alternatives>
+    <tex-math><![CDATA[l_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>l</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    makes every code count equally (the paper’s
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[\alpha = 0]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>α</mml:mi><mml:mo>=</mml:mo><mml:mn>0</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+    setting
+    (<xref alt="Kumbong et al. 2026" rid="ref-ncm2026" ref-type="bibr">Kumbong
+    et al. 2026</xref>, App. F.2.3)). A uniform guess among 16 codes
+    scores <inline-formula><alternatives>
+    <tex-math><![CDATA[\ln 16 \approx 2.77]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mrow><mml:mi mathvariant="normal">ln</mml:mi><mml:mo>&#8289;</mml:mo></mml:mrow><mml:mn>16</mml:mn><mml:mo>≈</mml:mo><mml:mn>2.77</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>.</p>
+    <p><bold>Attention pattern.</bold> Positions of level
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>
+    may read the prefix and the other positions of level
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>,
+    nothing else (<italic>block-diagonal</italic> attention); coarser
+    levels reach level <inline-formula><alternatives>
+    <tex-math><![CDATA[k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>
+    only through input<inline-formula><alternatives>
+    <tex-math><![CDATA[_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi></mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>.
+    Two consequences follow. Training on the whole row at once computes
+    exactly what level-by-level generation computes (tested, Section
+    6.2). And each level’s codes are chosen without seeing each other’s
+    choices, the source of both the speed and errors like “red” → “ret”.
+    RoPE
+    (<xref alt="Su et al. 2021" rid="ref-rope2021" ref-type="bibr">Su et
+    al. 2021</xref>) positions restart at zero in every level, a learned
+    level embedding tells levels apart, and queries and keys are
+    RMS-normalised.</p>
+    <p><bold>Conditioning corruption.</bold> In training the generator
+    reads true coarser codes; in generation it reads its own, sometimes
+    wrong, codes. Upstream narrows this gap by replacing a fraction
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[p_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>p</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    of the conditioning codes of level <inline-formula><alternatives>
+    <tex-math><![CDATA[k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>
+    with random codes of the same level, keeping the true codes as
+    targets, with <inline-formula><alternatives>
+    <tex-math><![CDATA[p_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>p</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    falling linearly across levels
+    (<xref alt="Kumbong et al. 2026" rid="ref-ncm2026" ref-type="bibr">Kumbong
+    et al. 2026</xref>, Sec. 3.4):</p>
+    <p><disp-formula><alternatives>
+    <tex-math><![CDATA[p_k = p_{\mathrm{first}} + (p_{\mathrm{last}} - p_{\mathrm{first}})\,\frac{k}{K-2}, \qquad k = 0, \dots, K-2 .]]></tex-math>
+    <mml:math display="block" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi>p</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo>=</mml:mo><mml:msub><mml:mi>p</mml:mi><mml:mrow><mml:mi mathvariant="normal">f</mml:mi><mml:mi mathvariant="normal">i</mml:mi><mml:mi mathvariant="normal">r</mml:mi><mml:mi mathvariant="normal">s</mml:mi><mml:mi mathvariant="normal">t</mml:mi></mml:mrow></mml:msub><mml:mo>+</mml:mo><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:msub><mml:mi>p</mml:mi><mml:mrow><mml:mi mathvariant="normal">l</mml:mi><mml:mi mathvariant="normal">a</mml:mi><mml:mi mathvariant="normal">s</mml:mi><mml:mi mathvariant="normal">t</mml:mi></mml:mrow></mml:msub><mml:mo>−</mml:mo><mml:msub><mml:mi>p</mml:mi><mml:mrow><mml:mi mathvariant="normal">f</mml:mi><mml:mi mathvariant="normal">i</mml:mi><mml:mi mathvariant="normal">r</mml:mi><mml:mi mathvariant="normal">s</mml:mi><mml:mi mathvariant="normal">t</mml:mi></mml:mrow></mml:msub><mml:mo stretchy="false" form="postfix">)</mml:mo><mml:mspace width="0.167em"></mml:mspace><mml:mfrac><mml:mi>k</mml:mi><mml:mrow><mml:mi>K</mml:mi><mml:mo>−</mml:mo><mml:mn>2</mml:mn></mml:mrow></mml:mfrac><mml:mo>,</mml:mo><mml:mspace width="2.0em"></mml:mspace><mml:mi>k</mml:mi><mml:mo>=</mml:mo><mml:mn>0</mml:mn><mml:mo>,</mml:mo><mml:mi>…</mml:mi><mml:mo>,</mml:mo><mml:mi>K</mml:mi><mml:mo>−</mml:mo><mml:mn>2</mml:mn><mml:mi>.</mml:mi></mml:mrow></mml:math></alternatives></disp-formula></p>
+    <p>This is the coarse-to-fine analogue of scheduled sampling
+    (<xref alt="Bengio et al. 2015" rid="ref-ss2015" ref-type="bibr">Bengio
+    et al. 2015</xref>). The paper notes that corruption “based on the
+    model’s actual errors may better match inference conditions” but
+    does not test it; experiment E9 tests it and finds no gain at our
+    scale (Section 8).</p>
+  </sec>
+  <sec id="generation">
+    <title>Generation</title>
+    <p>For <inline-formula><alternatives>
+    <tex-math><![CDATA[k = 0, \dots, K-1]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>k</mml:mi><mml:mo>=</mml:mo><mml:mn>0</mml:mn><mml:mo>,</mml:mo><mml:mi>…</mml:mi><mml:mo>,</mml:mo><mml:mi>K</mml:mi><mml:mo>−</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>:
+    run the generator on input<inline-formula><alternatives>
+    <tex-math><![CDATA[_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi></mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    and the prefix, sample all <inline-formula><alternatives>
+    <tex-math><![CDATA[l_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>l</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    codes of level <inline-formula><alternatives>
+    <tex-math><![CDATA[k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>
+    at once, add their contribution <inline-formula><alternatives>
+    <tex-math><![CDATA[q_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>q</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    to the reconstruction and shrink it into
+    input<inline-formula><alternatives>
+    <tex-math><![CDATA[_{k+1}]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi></mml:mi><mml:mrow><mml:mi>k</mml:mi><mml:mo>+</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:msub></mml:math></alternatives></inline-formula>.
+    Finally decode <inline-formula><alternatives>
+    <tex-math><![CDATA[\hat z_{K-1}]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̂</mml:mo></mml:mover><mml:mrow><mml:mi>K</mml:mi><mml:mo>−</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:msub></mml:math></alternatives></inline-formula>
+    to tokens. Cost: <inline-formula><alternatives>
+    <tex-math><![CDATA[K]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>K</mml:mi></mml:math></alternatives></inline-formula>
+    generator passes and one decoder pass, independent of how long each
+    level is.</p>
+    <table-wrap>
+      <caption>
+        <p>Differences between this implementation and the released NCM
+        Sudoku setting
+        (<xref alt="Kumbong et al. 2026" rid="ref-ncm2026" ref-type="bibr">Kumbong
+        et al. 2026</xref>, Tables 5–6).</p>
+      </caption>
+      <table>
+        <colgroup>
+          <col width="33%" />
+          <col width="33%" />
+          <col width="33%" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>Upstream</th>
+            <th>This work</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Tokens per board</td>
+            <td>89 (cells and separators)</td>
+            <td>81 (cells)</td>
+          </tr>
+          <tr>
+            <td>Levels × codes</td>
+            <td>12 × 16, <inline-formula><alternatives>
+            <tex-math><![CDATA[l_{K-1} = 89]]></tex-math>
+            <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi>l</mml:mi><mml:mrow><mml:mi>K</mml:mi><mml:mo>−</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:msub><mml:mo>=</mml:mo><mml:mn>89</mml:mn></mml:mrow></mml:math></alternatives></inline-formula></td>
+            <td>12 × 16, <inline-formula><alternatives>
+            <tex-math><![CDATA[l_{K-1} = 81]]></tex-math>
+            <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi>l</mml:mi><mml:mrow><mml:mi>K</mml:mi><mml:mo>−</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:msub><mml:mo>=</mml:mo><mml:mn>81</mml:mn></mml:mrow></mml:math></alternatives></inline-formula></td>
+          </tr>
+          <tr>
+            <td>Level-0 sampler</td>
+            <td>learned (one layer, as 89 is prime)</td>
+            <td>learned from E6, one layer</td>
+          </tr>
+          <tr>
+            <td>Codec training</td>
+            <td>10,000 updates × batch 1,024, lr 5e-4</td>
+            <td>3,000 × 128, lr 2e-4</td>
+          </tr>
+          <tr>
+            <td>Generator</td>
+            <td>8 × 512 (25.5M), 50,000 updates × 1,024, lr 3e-4</td>
+            <td>8 × 256 (6.4M), 4,000 × 128, lr 6e-4</td>
+          </tr>
+          <tr>
+            <td>Conditioning corruption</td>
+            <td>yes, linear schedule</td>
+            <td>from E8 (0.30 → 0.05)</td>
+          </tr>
+          <tr>
+            <td>Models</td>
+            <td>one per difficulty</td>
+            <td>one for all difficulties</td>
+          </tr>
+        </tbody>
+      </table>
+    </table-wrap>
+  </sec>
+</sec>
+<sec id="implementation-on-apple-silicon">
+  <title>Implementation on Apple Silicon</title>
+  <disp-quote>
+    <p><bold>In short.</bold> Pure MLX and NumPy, no code copied from
+    upstream. Two findings matter beyond this project: Apple GPUs
+    compute fp32 matrix products at reduced precision, and
+    block-diagonal attention is faster computed per level than through a
+    mask.</p>
+  </disp-quote>
+  <sec id="framework-mapping">
+    <title>Framework mapping</title>
+    <p>Codebooks and their running averages are frozen MLX arrays
+    updated outside automatic differentiation; the shrink and stretch
+    operators <inline-formula><alternatives>
+    <tex-math><![CDATA[D_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>D</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>,
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[U_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>U</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    are precomputed matrices; attention uses MLX’s fused
+    <monospace>scaled_dot_product_attention</monospace>. Weights are
+    stored as safetensors. The correspondence to upstream is documented
+    component by component in
+    <monospace>docs/research/upstream-map.md</monospace>.</p>
+  </sec>
+  <sec id="exactness-and-metal-precision">
+    <title>Exactness and Metal precision</title>
+    <p>A test asserts that level-by-level generation produces the same
+    logits as the training forward. On the Metal GPU the two disagreed
+    by about <inline-formula><alternatives>
+    <tex-math><![CDATA[5 \times 10^{-4}]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mn>5</mml:mn><mml:mo>×</mml:mo><mml:msup><mml:mn>10</mml:mn><mml:mrow><mml:mi>−</mml:mi><mml:mn>4</mml:mn></mml:mrow></mml:msup></mml:mrow></mml:math></alternatives></inline-formula>.
+    Against a float64 NumPy reference, the same fp32 computation had an
+    error of <inline-formula><alternatives>
+    <tex-math><![CDATA[1.4 \times 10^{-2}]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mn>1.4</mml:mn><mml:mo>×</mml:mo><mml:msup><mml:mn>10</mml:mn><mml:mrow><mml:mi>−</mml:mi><mml:mn>2</mml:mn></mml:mrow></mml:msup></mml:mrow></mml:math></alternatives></inline-formula>
+    on the GPU and <inline-formula><alternatives>
+    <tex-math><![CDATA[2 \times 10^{-6}]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mn>2</mml:mn><mml:mo>×</mml:mo><mml:msup><mml:mn>10</mml:mn><mml:mrow><mml:mi>−</mml:mi><mml:mn>6</mml:mn></mml:mrow></mml:msup></mml:mrow></mml:math></alternatives></inline-formula>
+    on the CPU: fp32 matrix products on Metal run at reduced internal
+    precision, about <inline-formula><alternatives>
+    <tex-math><![CDATA[10^{-3}]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msup><mml:mn>10</mml:mn><mml:mrow><mml:mi>−</mml:mi><mml:mn>3</mml:mn></mml:mrow></mml:msup></mml:math></alternatives></inline-formula>
+    relative. Exactness tests therefore run on the CPU, and a separate
+    test checks the GPU path within <inline-formula><alternatives>
+    <tex-math><![CDATA[5 \times 10^{-3}]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mn>5</mml:mn><mml:mo>×</mml:mo><mml:msup><mml:mn>10</mml:mn><mml:mrow><mml:mi>−</mml:mi><mml:mn>3</mml:mn></mml:mrow></mml:msup></mml:mrow></mml:math></alternatives></inline-formula>.
+    This matters for anyone writing equivalence tests for MLX models; it
+    does not affect sampling quality.</p>
+  </sec>
+  <sec id="segmented-block-diagonal-attention">
+    <title>Segmented block-diagonal attention</title>
+    <p>With a mask, attention over the full Sudoku row forms a
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[395 \times 395]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mn>395</mml:mn><mml:mo>×</mml:mo><mml:mn>395</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+    score matrix per head, most of it masked out. Computing attention
+    separately for the prefix and for each level (keys and values:
+    prefix plus that level) gives the same result with
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[P^2 + \sum_k l_k (P + l_k) \approx 48{,}000]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msup><mml:mi>P</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mo>+</mml:mo><mml:msub><mml:mo>∑</mml:mo><mml:mi>k</mml:mi></mml:msub><mml:msub><mml:mi>l</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo stretchy="false" form="prefix">(</mml:mo><mml:mi>P</mml:mi><mml:mo>+</mml:mo><mml:msub><mml:mi>l</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo stretchy="false" form="postfix">)</mml:mo><mml:mo>≈</mml:mo><mml:mn>48</mml:mn><mml:mo>,</mml:mo><mml:mn>000</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+    scores instead of <inline-formula><alternatives>
+    <tex-math><![CDATA[156{,}000]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mn>156</mml:mn><mml:mo>,</mml:mo><mml:mn>000</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>.
+    In training (width 256, batch 128, compiled) step time fell from
+    1.59 s to 1.18 s and peak memory from 18.7 GB to 16.4 GB, measured
+    back to back. A test checks equality with the masked
+    computation.</p>
+  </sec>
+  <sec id="compilation-and-precision">
+    <title>Compilation and precision</title>
+    <p>Compiling the training step with
+    <monospace>mx.compile</monospace> cut step time by about 1.3× (1.22
+    s → 0.92 s at width 256, batch 128). Casting the generator to
+    bfloat16 gave a further 1.4–1.8× in a first test but saved no
+    memory, because the frozen fp32 codec promotes the generator’s
+    inputs back to fp32; mixed precision is not used in the experiments
+    reported here.</p>
+  </sec>
+  <sec id="interrupted-training-and-reproducibility">
+    <title>Interrupted training and reproducibility</title>
+    <p>Long runs need recoverable training state as well as model
+    weights. Codec and generator snapshots now store optimizer moments
+    and step, random state, shuffled-batch position, elapsed training
+    time and model parameters; codec snapshots include VQ running
+    averages and generator snapshots retain the best-validation model.
+    Files are replaced atomically, with a preceding snapshot retained. A
+    pause signal saves after the current step; a hard crash recovers
+    from the last completed snapshot. Short CPU tests give identical
+    saved state for uninterrupted and resumed training, including the
+    compiled generator path. This does not establish equality across
+    hardware or backends. Rented-pod recovery also depends on copying
+    snapshots outside the container before it disappears.</p>
+    <p>E17 exposed the distinction: closing its terminal killed training
+    after the last saved step, 30,000 of 32,000. That legacy checkpoint
+    contained weights alone. Its continuation retains the learning-rate
+    and batch positions but resets optimizer moments and random state,
+    so it must be reported as a weights-only recovery. The recovered
+    model solves 71.25 / 31.75 / 3.70% of easy/medium/hard boards, close
+    to E13, after 2,000 continuation steps taking 1,247.53 s. This is
+    consistent with puzzle construction affecting transfer, but the
+    reset prevents a controlled causal conclusion. The operational
+    procedure is documented in
+    <monospace>docs/RECOVERY.md</monospace>.</p>
+  </sec>
+</sec>
+<sec id="experiments">
+  <title>Experiments</title>
+  <disp-quote>
+    <p><bold>In short.</bold> On a small invented language NCM is faster
+    and somewhat less accurate than an equal-size AR model. On Sudoku
+    our AR baseline matches the paper’s AR result; our NCM does not
+    match the paper’s NCM.</p>
+  </disp-quote>
+  <p>Runs use an Apple M5 Pro (64 GB unified memory, macOS 26.5), an RTX
+  3080 or a rented A40, as labelled for each experiment, with MLX
+  0.32.3. Other GPU workloads often ran on the Mac; timings this affects
+  are marked.</p>
+  <sec id="tinyworld-an-invented-language">
+    <title>TinyWorld: an invented language</title>
+    <p>TinyWorld has 15,360 sentences of the form <italic>name verb
+    count adjective noun</italic>, with number agreement (“one red cat”,
+    “two red cats”), at most 32 characters. 12,000 sentences train the
+    models; the rest are held out. A sentence is <italic>valid</italic>
+    if it parses and agrees. The codec (6 levels,
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[l = 1, 2, 4, 8, 16, 32]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>l</mml:mi><mml:mo>=</mml:mo><mml:mn>1</mml:mn><mml:mo>,</mml:mo><mml:mn>2</mml:mn><mml:mo>,</mml:mo><mml:mn>4</mml:mn><mml:mo>,</mml:mo><mml:mn>8</mml:mn><mml:mo>,</mml:mo><mml:mn>16</mml:mn><mml:mo>,</mml:mo><mml:mn>32</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>,
+    128 codes each, 1.3M parameters) rebuilds 100% of held-out sentences
+    exactly. The NCM generator (5.0M parameters) is compared with a
+    character-level AR transformer of the same width and depth (4.8M
+    parameters) with a KV cache.</p>
+    <table-wrap>
+      <caption>
+        <p>TinyWorld, equal-size NCM and AR models (E1).</p>
+      </caption>
+      <table>
+        <colgroup>
+          <col width="33%" />
+          <col width="33%" />
+          <col width="33%" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th></th>
+            <th>NCM</th>
+            <th>AR</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Valid, temperature 1.0</td>
+            <td>89.8%</td>
+            <td>98.6%</td>
+          </tr>
+          <tr>
+            <td>Valid, temperature 0.7</td>
+            <td>95.8%</td>
+            <td>99.8%</td>
+          </tr>
+          <tr>
+            <td>Valid and not in the training set, temperature 1.0</td>
+            <td>16.3%</td>
+            <td>23.5%</td>
+          </tr>
+          <tr>
+            <td>Forward passes per sequence</td>
+            <td>6 + 1 decode</td>
+            <td>32</td>
+          </tr>
+          <tr>
+            <td>Median latency, batch 1 / 16 / 256</td>
+            <td>4.5 / 5.8 / 37.8 ms</td>
+            <td>30.5 / 22.9 / 49.8 ms</td>
+          </tr>
+        </tbody>
+      </table>
+    </table-wrap>
+    <fig>
+      <caption><p>Median latency per batch for NCM and AR models. Left:
+      TinyWorld. Right: Sudoku. Both axes logarithmic.</p></caption>
+      <graphic mimetype="image" mime-subtype="svg+xml" xlink:href="figures/latency.svg" />
+    </fig>
+    <p>NCM is less accurate and faster. Its errors are local spelling
+    slips; agreement, a sentence-wide rule, holds in 99.8% of
+    well-formed samples. Forcing the true codes for the first
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>
+    levels and sampling the rest (E2) shows that errors arise at every
+    level, not only the finest. Letting level
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>
+    also read coarser levels (block-causal attention, E3) raised
+    validity at temperature 1 from 89.8% to 92.2% (n = 1,024, standard
+    error about 0.9 points) at 1.5–1.9× the latency.</p>
+  </sec>
+  <sec id="sudoku">
+    <title>Sudoku</title>
+    <p>Each board is 81 digits; the puzzle (blanks as 0) is the prefix
+    and the solution is the target. Training uses 200,000 synthetic
+    puzzles from randomised backtracking with 28–45 givens. Test sets
+    are the 2,000 easy, medium and hard boards (40, 35 and 30 givens)
+    published with the NCM paper. A board counts as
+    <italic>solved</italic> if the output is a valid grid that keeps
+    every given. Decoding is greedy.</p>
+    <table-wrap>
+      <caption>
+        <p>Sudoku, share of boards solved. Paper rows are quoted from
+        (<xref alt="Kumbong et al. 2026" rid="ref-ncm2026" ref-type="bibr">Kumbong
+        et al. 2026</xref>, Table 3).</p>
+      </caption>
+      <table>
+        <colgroup>
+          <col width="20%" />
+          <col width="20%" />
+          <col width="20%" />
+          <col width="20%" />
+          <col width="20%" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Params</th>
+            <th>Easy</th>
+            <th>Medium</th>
+            <th>Hard</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>NCM, this work, E4–E6</td>
+            <td>6.4M</td>
+            <td>0.0%</td>
+            <td>0.0%</td>
+            <td>0.0%</td>
+          </tr>
+          <tr>
+            <td>NCM, this work, E8 (+ corruption)</td>
+            <td>6.4M</td>
+            <td>6.2%</td>
+            <td>0.35%</td>
+            <td>0.0%</td>
+          </tr>
+          <tr>
+            <td>NCM, this work, E11 (+ 4× data)</td>
+            <td>6.4M</td>
+            <td>55.2%</td>
+            <td>18.1%</td>
+            <td>1.6%</td>
+          </tr>
+          <tr>
+            <td>NCM, this work, E13 (+ stronger corruption)</td>
+            <td>6.4M</td>
+            <td>70.9%</td>
+            <td>31.2%</td>
+            <td>4.0%</td>
+          </tr>
+          <tr>
+            <td>NCM, this work, E14 (+ 16× data)</td>
+            <td>6.4M</td>
+            <td>87.4%</td>
+            <td>53.4%</td>
+            <td>11.2%</td>
+          </tr>
+          <tr>
+            <td><bold>NCM, this work, E15 (all levers)</bold></td>
+            <td>6.4M</td>
+            <td><bold>96.2%</bold></td>
+            <td><bold>76.6%</bold></td>
+            <td><bold>31.9%</bold></td>
+          </tr>
+          <tr>
+            <td>AR, this work</td>
+            <td>6.3M</td>
+            <td>13.8%</td>
+            <td>3.0%</td>
+            <td>0.4%</td>
+          </tr>
+          <tr>
+            <td>AR, this work, E11’s budget (2M sequences)</td>
+            <td>6.3M</td>
+            <td>20.5%</td>
+            <td>4.9%</td>
+            <td>0.5%</td>
+          </tr>
+          <tr>
+            <td>Qwen3.8 27B, 4-bit, no reasoning (50 boards each)</td>
+            <td>27B</td>
+            <td>0%</td>
+            <td>0%</td>
+            <td>0%</td>
+          </tr>
+          <tr>
+            <td>AR greedy, paper</td>
+            <td>25M</td>
+            <td>14.6%</td>
+            <td>5.1%</td>
+            <td>1.0%</td>
+          </tr>
+          <tr>
+            <td>MDLM, paper</td>
+            <td>29M</td>
+            <td>92.0%</td>
+            <td>77.1%</td>
+            <td>30.2%</td>
+          </tr>
+          <tr>
+            <td>NCM, paper</td>
+            <td>25M</td>
+            <td>99.5%</td>
+            <td>96.5%</td>
+            <td>86.1%</td>
+          </tr>
+        </tbody>
+      </table>
+    </table-wrap>
+    <p>The AR row matches the paper’s AR row to within two points, which
+    checks the boards, the scoring and the conditioning path. The NCM
+    rows do not match. Without conditioning corruption (E4–E6) our NCM
+    solves nothing; with it (E8) it solves 6.2% of easy boards and fills
+    74.7% of blank cells correctly, more than the AR model’s 71.0%,
+    while still solving fewer boards. With four times more training data
+    (E11) it solves 55.2% of easy boards and beats the AR model at every
+    difficulty; given the same 2M training sequences, the AR model
+    solves 20.5%, 4.9% and 0.5%, so the advantage is not a budget
+    artefact. Section 8 isolates the steps.</p>
+    <fig>
+      <caption><p>Cell accuracy when decoding from the first
+      <inline-formula><alternatives>
+      <tex-math><![CDATA[k]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>
+      levels of the codec, against the share of codes used. E4 stores
+      almost all information in one level; E5 and E6 refine
+      gradually.</p></caption>
+      <graphic mimetype="image" mime-subtype="svg+xml" xlink:href="figures/codec-refinement.svg" />
+    </fig>
+    <fig>
+      <caption><p>Validation cross-entropy per code during generator
+      training.</p></caption>
+      <graphic mimetype="image" mime-subtype="svg+xml" xlink:href="figures/sudoku-val-curves.svg" />
+    </fig>
+    <fig>
+      <caption><p>Blank cells filled with the reference digit, per test
+      set. Chance is about 11%.</p></caption>
+      <graphic mimetype="image" mime-subtype="svg+xml" xlink:href="figures/sudoku-blank-cells.svg" />
+    </fig>
+    <p><bold>Why per-cell gains do not become solved boards.</bold> A
+    board is about 300 codes. Teacher-forced accuracy per level in E6
+    ranges from 25% (level 0, which the puzzle barely determines) to
+    99.6% (the last level); generating greedily, an error at an early
+    level changes the inputs of every later level. E8’s corruption
+    training attacks exactly this compounding. Even 98% accuracy per
+    cell, with independent errors, would solve only
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[0.98^{41} \approx 44\%]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msup><mml:mn>0.98</mml:mn><mml:mn>41</mml:mn></mml:msup><mml:mo>≈</mml:mo><mml:mn>44</mml:mn><mml:mi>%</mml:mi></mml:mrow></mml:math></alternatives></inline-formula>
+    of easy boards, which have 41 blanks. The paper’s generator was
+    trained on about 51 million sequences; E6 saw 0.5 million.</p>
+  </sec>
+  <sec id="a-large-chat-model-as-reference">
+    <title>A large chat model as reference</title>
+    <p>Qwen3.8 27B (4-bit, served locally) answered each board in one
+    request at temperature 0 with reasoning disabled. It solved none of
+    150 boards; its blank-cell accuracy was 11–15%, near chance, and
+    about half its replies were not a 9 × 9 grid. With reasoning enabled
+    and up to 6,000 tokens per board it did not finish ten boards in 95
+    minutes on the shared GPU. This is a reference point, not a matched
+    comparison: the model is about 4,000 times larger and was not
+    trained on the task.</p>
+  </sec>
+</sec>
+<sec id="the-journey-experiment-by-experiment">
+  <title>The journey: experiment by experiment</title>
+  <disp-quote>
+    <p><bold>In short.</bold> Each experiment changed one thing.
+    Experiment numbers (E0, E1, …) follow the order in which they were
+    run; the full record with every number is in
+    <monospace>docs/EXPERIMENTS.md</monospace>.</p>
+  </disp-quote>
+  <table-wrap>
+    <caption>
+      <p>Experiments in order. Sudoku results are for the easy test
+      boards.</p>
+    </caption>
+    <table>
+      <colgroup>
+        <col width="20%" />
+        <col width="20%" />
+        <col width="20%" />
+        <col width="20%" />
+        <col width="20%" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Run</th>
+          <th>Question</th>
+          <th>Change from the previous run</th>
+          <th>Result</th>
+          <th>What we learned</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>E0</td>
+          <td>Does the pipeline work end to end?</td>
+          <td>First version, 4,000 TinyWorld sentences</td>
+          <td>94.6% valid; overfits</td>
+          <td>The codec rebuilds 99.4% of sentences; models need more
+          data</td>
+        </tr>
+        <tr>
+          <td>E1</td>
+          <td>NCM vs AR, fairly</td>
+          <td>12,000 sentences, best-validation checkpoints</td>
+          <td>NCM 89.8% vs AR 98.6% valid; 4–5× faster</td>
+          <td>Speed holds on a laptop; the accuracy gap is real</td>
+        </tr>
+        <tr>
+          <td>E2</td>
+          <td>Which level causes errors?</td>
+          <td>Force true codes for levels <inline-formula><alternatives>
+          <tex-math><![CDATA[0..k]]></tex-math>
+          <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mn>0</mml:mn><mml:mi>.</mml:mi><mml:mi>.</mml:mi><mml:mi>k</mml:mi></mml:mrow></mml:math></alternatives></inline-formula></td>
+          <td>Errors at every level</td>
+          <td>Not only the finest level is at fault</td>
+        </tr>
+        <tr>
+          <td>E3</td>
+          <td>Does reading coarser levels help?</td>
+          <td>Block-causal attention</td>
+          <td>92.2% valid, 1.5–1.9× slower</td>
+          <td>Small gain; kept as an option</td>
+        </tr>
+        <tr>
+          <td>E4</td>
+          <td>Does NCM solve Sudoku?</td>
+          <td>Puzzle as prefix, 6 levels</td>
+          <td>0% solved; AR 13.8%</td>
+          <td>One level holds all information: no real
+          coarse-to-fine</td>
+        </tr>
+        <tr>
+          <td>E5</td>
+          <td>Does upstream’s level schedule fix it?</td>
+          <td>12 levels × 16 codes, lookup encoder</td>
+          <td>0%; blank cells 52% (was 29%)</td>
+          <td>Gradual refinement, but level 0 is dead</td>
+        </tr>
+        <tr>
+          <td>E6</td>
+          <td>Does a learned level 0 fix it?</td>
+          <td>Learned level-0 sampler, GroupNorm, lower codec lr</td>
+          <td>0%; blank cells 54%</td>
+          <td>Level 0 now used; small gains; diverges at lr 1e-3</td>
+        </tr>
+        <tr>
+          <td>E7</td>
+          <td>Upstream’s generator width</td>
+          <td>8 × 512</td>
+          <td>stopped early</td>
+          <td>Recipe search showed corruption was missing; GPU time
+          moved to E8</td>
+        </tr>
+        <tr>
+          <td>E8</td>
+          <td>Does conditioning corruption help?</td>
+          <td>Uniform corruption 0.30 → 0.05</td>
+          <td>6.2% solved; blank cells 74.7%</td>
+          <td>The largest single gain: first solved boards; beats AR on
+          blank cells; validation loss gets worse while generation gets
+          better</td>
+        </tr>
+        <tr>
+          <td>E9</td>
+          <td>Does corruption from the model’s own samples help
+          more?</td>
+          <td>Replacements drawn from the generator</td>
+          <td>3.0% solved; blank cells 74.7%</td>
+          <td>No: same blank cells, fewer solved boards, 1.56× training
+          time</td>
+        </tr>
+        <tr>
+          <td>E10</td>
+          <td>Upstream’s width</td>
+          <td>8 × 512, lr 3e-4, 1.5M sequences, on the Mac</td>
+          <td>55.9% / 18.4% / 2.0%</td>
+          <td>Width alone does not help at this budget: matches the
+          256-wide E11</td>
+        </tr>
+        <tr>
+          <td>E11</td>
+          <td>More data</td>
+          <td>E8 on 2M sequences (4×), RTX 3080</td>
+          <td>55.2% easy, 18.1% medium, 1.6% hard solved</td>
+          <td>Data was the largest remaining lever; NCM now beats the
+          same-size AR model</td>
+        </tr>
+        <tr>
+          <td>E12</td>
+          <td>Upstream’s width on a rented GPU</td>
+          <td>8 × 512, stronger corruption, 3.25M sequences, NVIDIA
+          A40</td>
+          <td>74.6% / 35.2% / 6.0%</td>
+          <td>Width adds little; data still dominates</td>
+        </tr>
+        <tr>
+          <td>E13</td>
+          <td>Stronger corruption</td>
+          <td>0.50 → 0.10 at E11’s budget</td>
+          <td>70.9% / 31.2% / 4.0%</td>
+          <td>Corruption strength matters: +16 points on easy</td>
+        </tr>
+        <tr>
+          <td>E14</td>
+          <td>Even more data</td>
+          <td>E11 on 8.2M sequences (16× E8)</td>
+          <td>87.4% / 53.4% / 11.2%</td>
+          <td>Data keeps paying; still not saturated</td>
+        </tr>
+        <tr>
+          <td>E16</td>
+          <td>Fresh unique puzzles vs repetition</td>
+          <td>E13 on 2M greedy-unique puzzles seen once</td>
+          <td>57.6% / 21.8% / 2.2%</td>
+          <td>Worse than E13: how puzzles are built matters more than
+          uniqueness</td>
+        </tr>
+        <tr>
+          <td>E17</td>
+          <td>Unique puzzles built like the test boards</td>
+          <td>E13 on random-removal puzzles that happen to be unique;
+          weights-only recovery</td>
+          <td>71.25% / 31.75% / 3.70%</td>
+          <td>Close to E13; optimizer reset limits interpretation</td>
+        </tr>
+        <tr>
+          <td>E15</td>
+          <td>Both levers + unique-solution puzzles</td>
+          <td>E14 budget, corruption 0.50 → 0.10, +4M unique
+          puzzles</td>
+          <td>96.2% / 76.6% / 31.9%</td>
+          <td>Within 3.3 points of the paper on easy, with a quarter of
+          the model and a sixth of the data</td>
+        </tr>
+        <tr>
+          <td>E18</td>
+          <td>Both levers, base data only</td>
+          <td>E14 budget, corruption 0.50 → 0.10</td>
+          <td><italic>in progress</italic></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>E19</td>
+          <td>Paper-scale budget on a rented GPU</td>
+          <td>E15 recipe, 8M unique puzzles, ≈45M sequences, NVIDIA
+          A40</td>
+          <td><italic>planned</italic></td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+  </table-wrap>
+  <p><bold>What the journey shows.</bold> The first Sudoku configuration
+  failed for a reason no reconstruction test would reveal: its codec
+  rebuilds boards perfectly yet places nearly all information in one
+  level (Figure 3, E4), so the generator faces one large guess instead
+  of a series of small ones. The fixes taken from upstream each helped a
+  little and none was enough on its own. Reading the paper’s appendix in
+  full showed the two largest gaps: conditioning corruption and a
+  training budget about a hundred times larger. Corruption alone (E8)
+  produced the first solved boards and lifted blank-cell accuracy by 20
+  points on every test set. Its validation loss was
+  <italic>worse</italic> than without corruption, a reminder that
+  teacher-forced loss does not measure what generation needs.</p>
+</sec>
+<sec id="discussion">
+  <title>Discussion</title>
+  <p><bold>What carries over to a laptop.</bold> The structural speed
+  argument holds on Apple Silicon: with few short levels, NCM’s latency
+  at batch 1–16 is a fraction of an equal-size AR model’s, because each
+  pass reads the weights once for many positions. The advantage shrinks
+  with batch size and with the total number of codes; the 12-level
+  Sudoku model, with 314 codes plus an 81-token prefix, is slower than
+  AR from batch 64 on.</p>
+  <p><bold>What does not carry over without the full recipe.</bold> The
+  codec-side components we added (E5, E6) improved every secondary
+  metric a little and none moved solved boards; conditioning corruption
+  (E8) did. The paper’s result rests on a combination of recipe and
+  scale that small, short runs do not reach. A codec whose coarse levels
+  look informative is necessary but far from sufficient.</p>
+  <p><bold>Negative results worth reporting.</bold> Two first choices
+  made the method fail in ways reconstruction metrics hide: a level
+  schedule that concentrates information in one level, and an
+  area-pooled first level that encodes nothing. Both pass a codec test
+  with 100% reconstruction.</p>
+</sec>
+<sec id="limitations">
+  <title>Limitations</title>
+  <p>Most generator runs use at most 6.4M parameters; width-512
+  ablations use 25M. Training budgets range from minutes to hours. The
+  only language-like task is synthetic; the paper’s text benchmarks
+  (LM1B, OpenWebText, XSum, WMT14) were not run. Latency measurements
+  share the GPU with other workloads unless stated. The upstream
+  training code is not public, so recipe details not stated in the paper
+  are guesses.</p>
+</sec>
+<sec id="related-work">
+  <title>Related work</title>
+  <p>Parallel and coarse-to-fine decoding for text includes discrete
+  diffusion
+  (<xref alt="Sahoo et al. 2024" rid="ref-mdlm2024" ref-type="bibr">Sahoo
+  et al. 2024</xref>) and the methods compared in
+  (<xref alt="Kumbong et al. 2026" rid="ref-ncm2026" ref-type="bibr">Kumbong
+  et al. 2026</xref>). Residual quantisation is standard in audio codecs
+  (<xref alt="Zeghidour et al. 2021" rid="ref-soundstream2021" ref-type="bibr">Zeghidour
+  et al. 2021</xref>) and image generation
+  (<xref alt="Lee et al. 2022" rid="ref-rqvae2022" ref-type="bibr">Lee
+  et al. 2022</xref>;
+  <xref alt="Tian et al. 2024" rid="ref-var2024" ref-type="bibr">Tian et
+  al. 2024</xref>). Scheduled sampling
+  (<xref alt="Bengio et al. 2015" rid="ref-ss2015" ref-type="bibr">Bengio
+  et al. 2015</xref>) addresses the train–test mismatch that
+  conditioning corruption targets. We found one public project adding
+  PyTorch training loops to the upstream modules
+  (<ext-link ext-link-type="uri" xlink:href="https://github.com/Bakhaow/ncm-forge">Bakhaow/ncm-forge</ext-link>)
+  and no other MLX implementation.</p>
+</sec>
+<sec id="conclusion">
+  <title>Conclusion</title>
+  <p>NCM can be implemented natively in MLX with a provably consistent
+  training and generation path, and on a laptop GPU it delivers the low
+  small-batch latency its design promises. Reproducing its accuracy is a
+  different matter: on Sudoku, matching the published AR baseline was
+  easy and matching NCM was not, and the gap closes slowly as upstream’s
+  recipe is added piece by piece. Conditioning corruption, which
+  addresses the gap between training on true codes and generating from
+  the model’s own, was the single most effective change. A variant based
+  on the model’s own samples, suggested in the paper, did not help (E9).
+  Larger training budgets and real-text evaluation remain to be
+  tested.</p>
+</sec>
+<sec id="code-and-reproducibility">
+  <title>Code and reproducibility</title>
+  <p>Code, configurations and this paper:
+  <ext-link ext-link-type="uri" xlink:href="https://github.com/janmus1c/ncm-mlx">github.com/janmus1c/ncm-mlx</ext-link>
+  (private until release). Every configuration is in
+  <monospace>configs/</monospace>; every run is logged in
+  <monospace>docs/EXPERIMENTS.md</monospace>.</p>
+  <code language="bash">git clone https://github.com/janmus1c/ncm-mlx &amp;&amp; cd ncm-mlx
+mise run setup                                     # Python 3.12, MLX, tests
+scripts/run_experiment.sh configs/sudoku-e6.json   # train, evaluate, benchmark
+.venv/bin/python paper/make_figures.py             # rebuild data and figures
+paper/build.sh                                     # rebuild this paper</code>
+</sec>
+<sec id="appendix-a-hyperparameters">
+  <title>Appendix A: Hyperparameters</title>
+  <table-wrap>
+    <caption>
+      <p>Main settings per experiment. All runs: AdamW, weight decay
+      0.01, cosine schedule with warmup, batch 128, commitment
+      <inline-formula><alternatives>
+      <tex-math><![CDATA[\beta = 0.25]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>β</mml:mi><mml:mo>=</mml:mo><mml:mn>0.25</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>,
+      fine-level dropout 0.5.</p>
+    </caption>
+    <table>
+      <colgroup>
+        <col width="12%" />
+        <col width="12%" />
+        <col width="12%" />
+        <col width="12%" />
+        <col width="12%" />
+        <col width="12%" />
+        <col width="12%" />
+        <col width="12%" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Run</th>
+          <th>Levels</th>
+          <th>Codes</th>
+          <th>Codec</th>
+          <th>Codec steps (lr)</th>
+          <th>Generator</th>
+          <th>Gen. steps (lr)</th>
+          <th>Other</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>E1</td>
+          <td>1,2,4,8,16,32</td>
+          <td>128</td>
+          <td>128 wide, 2+2 blocks</td>
+          <td>3,000 (1e-3)</td>
+          <td>6 × 256</td>
+          <td>4,000 (6e-4)</td>
+          <td>EMA 0.95</td>
+        </tr>
+        <tr>
+          <td>E4</td>
+          <td>1,3,9,27,54,81</td>
+          <td>32</td>
+          <td>2 encoder blocks</td>
+          <td>3,000 (1e-3)</td>
+          <td>8 × 256</td>
+          <td>5,000 (6e-4)</td>
+          <td>prefix 81</td>
+        </tr>
+        <tr>
+          <td>E5</td>
+          <td>1,2,4,6,9,13,18, 26,37,50,67,81</td>
+          <td>16</td>
+          <td>lookup encoder, 1 decoder block, 256 wide</td>
+          <td>3,000 (1e-3)</td>
+          <td>8 × 256</td>
+          <td>4,000 (6e-4)</td>
+          <td>EMA 0.99</td>
+        </tr>
+        <tr>
+          <td>E6</td>
+          <td>as E5</td>
+          <td>16</td>
+          <td>E5 + learned level 0, GroupNorm(8), dropout 0.3</td>
+          <td>3,000 (2e-4)</td>
+          <td>8 × 256</td>
+          <td>4,000 (6e-4)</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>E8</td>
+          <td>as E5</td>
+          <td>16</td>
+          <td>E6 codec</td>
+          <td>—</td>
+          <td>8 × 256</td>
+          <td>4,000 (6e-4)</td>
+          <td>corruption 0.30 → 0.05, compiled</td>
+        </tr>
+        <tr>
+          <td>E9</td>
+          <td>as E5</td>
+          <td>16</td>
+          <td>E6 codec</td>
+          <td>—</td>
+          <td>8 × 256</td>
+          <td>4,000 (6e-4)</td>
+          <td>as E8, model-sampled</td>
+        </tr>
+      </tbody>
+    </table>
+  </table-wrap>
+</sec>
+<sec id="appendix-b-environment">
+  <title>Appendix B: Environment</title>
+  <p>Apple M5 Pro, 64 GB unified memory, macOS 26.5; MLX 0.32.3, NumPy,
+  Python 3.12.14 managed with mise and uv. Figures: matplotlib. Paper:
+  Pandoc and Typst.</p>
+</sec>
+<sec id="appendix-c-version-history">
+  <title>Appendix C: Version history</title>
+  <table-wrap>
+    <table>
+      <colgroup>
+        <col width="33%" />
+        <col width="33%" />
+        <col width="33%" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Version</th>
+          <th>Date</th>
+          <th>Changes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>0.1</td>
+          <td>2026-10-23</td>
+          <td>First draft: method, implementation, TinyWorld and Sudoku
+          results E0–E6.</td>
+        </tr>
+        <tr>
+          <td>0.2</td>
+          <td>2026-10-23</td>
+          <td>Plain-language introduction, glossary, formulas explained
+          with a running example, experiment journey (E0–E9),
+          hyperparameter appendix, NeurIPS-style layout, HTML, EPUB,
+          LaTeX, JATS and DOCX editions.</td>
+        </tr>
+        <tr>
+          <td>0.3</td>
+          <td>2026-10-23</td>
+          <td>E8 results: conditioning corruption gives the first solved
+          boards.</td>
+        </tr>
+        <tr>
+          <td>0.4</td>
+          <td>2026-10-23</td>
+          <td>E11: four times the training data gives 55% of easy
+          boards; first run on NVIDIA.</td>
+        </tr>
+        <tr>
+          <td>0.5</td>
+          <td>2026-10-24</td>
+          <td>E13 (stronger corruption) and E14 (16× data): 87% of easy
+          boards.</td>
+        </tr>
+        <tr>
+          <td>0.6</td>
+          <td>2026-10-24</td>
+          <td>E15 combines data, stronger corruption and unique puzzles:
+          96% of easy boards. Layout checks on every build.</td>
+        </tr>
+        <tr>
+          <td>0.7</td>
+          <td>2026-10-24</td>
+          <td>Full-state pause/resume and recovery checks; E17’s
+          weights-only continuation solves 71.25% of easy boards, with
+          the optimizer-reset qualification.</td>
+        </tr>
+      </tbody>
+    </table>
+  </table-wrap>
+</sec>
+</body>
+<back>
+<ref-list>
+  <title>References</title>
+  <ref id="ref-ss2015">
+    <mixed-citation>Bengio, Samy, Oriol Vinyals, Navdeep Jaitly, and
+    Noam Shazeer. 2015. ‘Scheduled Sampling for Sequence Prediction with
+    Recurrent Neural Networks’. <italic>Advances in Neural Information
+    Processing Systems</italic>.</mixed-citation>
+  </ref>
+  <ref id="ref-mlx2023">
+    <mixed-citation>Hannun, Awni, Jagrit Digani, Angelos Katharopoulos,
+    and Ronan Collobert. 2023. <italic>MLX: Efficient and Flexible
+    Machine Learning on Apple Silicon</italic>.
+    <ext-link ext-link-type="uri" xlink:href="https://github.com/ml-explore/mlx">Https://github.com/ml-explore/mlx</ext-link>.</mixed-citation>
+  </ref>
+  <ref id="ref-ncm2026">
+    <mixed-citation>Kumbong, Hermann, Ishan S. Khare, Iddah Mlauzi, et
+    al. 2026. ‘Next-Concept Modeling: Fast, Parallel Coarse-to-Fine Text
+    Generation’. <italic>arXiv Preprint
+    arXiv:2610.14162</italic>.</mixed-citation>
+  </ref>
+  <ref id="ref-rqvae2022">
+    <mixed-citation>Lee, Doyup, Chiheon Kim, Saehoon Kim, Minsu Cho, and
+    Wook-Shin Han. 2022. ‘Autoregressive Image Generation Using Residual
+    Quantization’. <italic>Proceedings of the IEEE/CVF Conference on
+    Computer Vision and Pattern Recognition</italic>.</mixed-citation>
+  </ref>
+  <ref id="ref-vqvae2017">
+    <mixed-citation>Oord, Aaron van den, Oriol Vinyals, and Koray
+    Kavukcuoglu. 2017. ‘Neural Discrete Representation Learning’.
+    <italic>Advances in Neural Information Processing
+    Systems</italic>.</mixed-citation>
+  </ref>
+  <ref id="ref-nested2014">
+    <mixed-citation>Rippel, Oren, Michael Gelbart, and Ryan Adams. 2014.
+    ‘Learning Ordered Representations with Nested Dropout’.
+    <italic>International Conference on Machine
+    Learning</italic>.</mixed-citation>
+  </ref>
+  <ref id="ref-mdlm2024">
+    <mixed-citation>Sahoo, Subham Sekhar, Marianne Arriola, Yair Schiff,
+    et al. 2024. ‘Simple and Effective Masked Diffusion Language
+    Models’. <italic>Advances in Neural Information Processing
+    Systems</italic>.</mixed-citation>
+  </ref>
+  <ref id="ref-rope2021">
+    <mixed-citation>Su, Jianlin, Yu Lu, Shengfeng Pan, Ahmed Murtadha,
+    Bo Wen, and Yunfeng Liu. 2021. ‘RoFormer: Enhanced Transformer with
+    Rotary Position Embedding’. <italic>arXiv Preprint
+    arXiv:2104.09864</italic>.</mixed-citation>
+  </ref>
+  <ref id="ref-var2024">
+    <mixed-citation>Tian, Keyu, Yi Jiang, Zehuan Yuan, Bingyue Peng, and
+    Liwei Wang. 2024. ‘Visual Autoregressive Modeling: Scalable Image
+    Generation via Next-Scale Prediction’. <italic>Advances in Neural
+    Information Processing Systems</italic>.</mixed-citation>
+  </ref>
+  <ref id="ref-soundstream2021">
+    <mixed-citation>Zeghidour, Neil, Alejandro Luebs, Ahmed Omran, Jan
+    Skoglund, and Marco Tagliasacchi. 2021. ‘SoundStream: An End-to-End
+    Neural Audio Codec’. <italic>IEEE/ACM Transactions on Audio, Speech,
+    and Language Processing</italic>.</mixed-citation>
+  </ref>
+</ref-list>
+</back>
+</article>

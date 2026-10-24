@@ -1,0 +1,37 @@
+[project]
+name = "ncm-mlx"
+version = "0.1.0"
+description = "Independent MLX research implementation of coarse-to-fine next-concept text generation on Apple Silicon"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+    "mlx==0.32.3; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "numpy>=1.26",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+cuda = [
+    "mlx[cuda12]==0.32.3; sys_platform == 'linux'",
+    # MLX compiles some kernels at run time with NVRTC 12.9; it needs headers of the same version.
+    "nvidia-cuda-runtime-cu12==12.9.*; sys_platform == 'linux'",
+    "nvidia-cuda-cccl-cu12==12.9.*; sys_platform == 'linux'",
+]
+paper = [
+    "matplotlib>=3.11.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ncm_mlx"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["mlx: requires MLX on Apple Silicon", "slow: trains a model for more than a few seconds"]
+
+[tool.ruff]
+line-length = 110

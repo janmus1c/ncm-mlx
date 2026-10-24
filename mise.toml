@@ -1,0 +1,34 @@
+[tools]
+python = "3.12.14"
+
+[env]
+_.python.venv = { path = ".venv", create = true }
+PYTHONUNBUFFERED = "1"
+
+[tasks.setup]
+description = "Install the locked Python environment"
+run = "uv sync --locked"
+
+[tasks.smoke]
+description = "Check MLX on Metal and run one tiny codec + generator step"
+run = "python -m ncm_mlx smoke"
+
+[tasks.test]
+description = "Run the test suite"
+run = "python -m pytest -q"
+
+[tasks.train]
+description = "Train the toy codec, then the generator (quickstart config)"
+run = "python -m ncm_mlx train --config configs/toy-grammar-12k.json"
+
+[tasks.demo]
+description = "Generate coarse-to-fine samples (trains first if no checkpoint exists)"
+run = "python -m ncm_mlx demo --config configs/toy-grammar-12k.json"
+
+[tasks.eval]
+description = "Evaluate codec reconstruction and generator sample quality"
+run = "python -m ncm_mlx eval --config configs/toy-grammar-12k.json"
+
+[tasks.bench]
+description = "Benchmark synchronized generation latency and throughput"
+run = "python -m ncm_mlx bench --config configs/toy-grammar-12k.json"
