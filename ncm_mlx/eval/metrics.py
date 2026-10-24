@@ -5,7 +5,6 @@ from __future__ import annotations
 import math
 from collections import Counter
 
-import mlx.core as mx
 import numpy as np
 
 from ncm_mlx.text import toygrammar
@@ -13,6 +12,8 @@ from ncm_mlx.text import toygrammar
 
 def codec_report(codec, tokens: np.ndarray, batch: int = 512) -> dict:
     """Held-out reconstruction from every level prefix, and codebook utilization per level."""
+    import mlx.core as mx
+
     K = codec.vq.num_levels
     char_hits = np.zeros(K)
     seq_hits = np.zeros(K)
@@ -65,6 +66,11 @@ def sudoku_report(puzzles: np.ndarray, predictions: np.ndarray, solutions: np.nd
     """Mean of :func:`ncm_mlx.text.sudoku.score` over a batch of puzzles."""
     from ncm_mlx.text import sudoku
 
+    puzzles, predictions, solutions = (np.asarray(a) for a in (puzzles, predictions, solutions))
+    if puzzles.ndim != 2 or puzzles.shape[1] != 81 or puzzles.shape[0] == 0:
+        raise ValueError("Sudoku evaluation requires a nonempty (N, 81) puzzle batch")
+    if predictions.shape != puzzles.shape or solutions.shape != puzzles.shape:
+        raise ValueError("Sudoku puzzles, predictions and solutions must have matching (N, 81) shapes")
     rows = [sudoku.score(p, y, s) for p, y, s in zip(puzzles, predictions, solutions)]
     keys = rows[0].keys()
     out = {k: round(float(np.mean([r[k] for r in rows])), 4) for k in keys}
