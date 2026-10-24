@@ -2,7 +2,7 @@
 # Validate a Linux NVIDIA host for ncm-mlx, then time one training step. Run it on the host,
 # from a checkout of the repository: scripts/check_gpu.sh [WIDTHxBATCH...]
 #
-# Checks MLX's CUDA requirements (compute capability >= 7.5, driver >= 550, glibc >= 2.35),
+# Checks MLX's CUDA requirements (compute capability >= 7.5, driver >= 550.54.14, glibc >= 2.35),
 # installs the `cuda` dependency group with uv, runs the test suite on the GPU and times a
 # Sudoku training step. Exits non-zero at the first failed requirement.
 set -euo pipefail
@@ -15,14 +15,14 @@ nvidia-smi --query-gpu=name,memory.total,memory.used,driver_version,compute_cap 
 driver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1)
 cap=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | head -1)
 glibc=$(ldd --version | head -1 | grep -oE '[0-9]+\.[0-9]+$')
-ver_ge "$driver" 550 || fail "driver $driver < 550"
+ver_ge "$driver" 550.54.14 || fail "driver $driver < 550.54.14"
 ver_ge "$cap" 7.5 || fail "compute capability $cap < 7.5"
 ver_ge "$glibc" 2.35 || fail "glibc $glibc < 2.35"
 echo "OK: driver $driver, compute capability $cap, glibc $glibc"
 
 command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
-uv sync --python 3.12 --group dev --group cuda
+uv sync --locked --python 3.12 --group dev --group cuda
 # MLX's run-time kernel compiler needs CUDA headers matching its NVRTC (12.9), not the system's.
 site=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")/nvidia
 rm -rf .venv/cuda-home && mkdir -p .venv/cuda-home/include

@@ -1,17 +1,32 @@
 [project]
 name = "ncm-mlx"
 version = "0.1.0"
-description = "Independent MLX research implementation of coarse-to-fine next-concept text generation on Apple Silicon"
+description = "Independent Next-Concept Modeling research implementation in MLX for Metal and CUDA"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
+authors = [{name = "Jan Music"}]
+keywords = ["mlx", "next-concept-modeling", "non-autoregressive", "vector-quantization"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
     "mlx==0.32.3; sys_platform == 'darwin' and platform_machine == 'arm64'",
     "numpy>=1.26",
 ]
 
+[project.urls]
+Repository = "https://github.com/janmus1c/ncm-mlx"
+Documentation = "https://janmus1c.github.io/ncm-mlx/"
+Issues = "https://github.com/janmus1c/ncm-mlx/issues"
+Changelog = "https://github.com/janmus1c/ncm-mlx/releases"
+
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.6"]
+dev = ["pytest>=8", "ruff>=0.6", "pyyaml>=6.0.2"]
+docs = ["mkdocs==1.6.1"]
 cuda = [
     "mlx[cuda12]==0.32.3; sys_platform == 'linux'",
     # MLX compiles some kernels at run time with NVRTC 12.9; it needs headers of the same version.
@@ -31,7 +46,7 @@ packages = ["ncm_mlx"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["mlx: requires MLX on Apple Silicon", "slow: trains a model for more than a few seconds"]
+markers = ["mlx: requires MLX on Metal or CUDA (CPU for exactness tests)", "slow: trains a model for more than a few seconds"]
 
 [tool.ruff]
 line-length = 110

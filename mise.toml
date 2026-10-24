@@ -10,7 +10,7 @@ description = "Install the locked Python environment"
 run = "uv sync --locked"
 
 [tasks.smoke]
-description = "Check MLX on Metal and run one tiny codec + generator step"
+description = "Check MLX GPU execution and run one tiny codec + generator step"
 run = "python -m ncm_mlx smoke"
 
 [tasks.test]

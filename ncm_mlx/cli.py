@@ -252,8 +252,12 @@ def cmd_bench(args) -> int:
     info = require_gpu()
     cfg = Config.load(args.config)
     codec, gen, corpus = _load(cfg)
-    rows = bench_generation(gen, codec, tuple(args.batch_sizes), iters=args.iters, prefixes=corpus.val_prefix)
-    result = {"runtime": info, "seq_len": cfg.data.seq_len, "levels": cfg.codec.levels, "rows": rows}
+    warmup = 3
+    rows = bench_generation(gen, codec, tuple(args.batch_sizes), warmup=warmup, iters=args.iters,
+                            temperature=args.temperature, prefixes=corpus.val_prefix)
+    result = {"runtime": info, "seq_len": cfg.data.seq_len, "levels": cfg.codec.levels,
+              "temperature": args.temperature, "warmup": warmup, "iterations": args.iters,
+              "sampler_compiled": False, "synchronization": "numpy_host_copy", "rows": rows}
     print(json.dumps(result, indent=2))
     if args.out:
         Path(args.out).write_text(json.dumps(result, indent=2) + "\n")
@@ -319,7 +323,7 @@ def main(argv: list[str] | None = None) -> int:
         sp.set_defaults(fn=fn)
         return sp
 
-    add("smoke", cmd_smoke, "verify Metal, shapes and one untrained generation")
+    add("smoke", cmd_smoke, "verify GPU execution, shapes and one untrained generation")
     sp = add("train", cmd_train, "train codec then generator")
     sp.add_argument("--codec-steps", type=int)
     sp.add_argument("--generator-steps", type=int)
@@ -338,6 +342,8 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--temperatures", type=float, nargs="+", default=[1.0, 0.7, 0.0])
     sp.add_argument("--out")
     sp = add("bench", cmd_bench, "synchronized generation latency")
+    sp.add_argument("--temperature", type=float, default=1.0,
+                    help="sampling temperature; 0 selects greedy decoding (default: 1.0)")
     sp.add_argument("--batch-sizes", type=int, nargs="+", default=[1, 4, 8, 16, 64, 256])
     sp.add_argument("--iters", type=int, default=30)
     sp.add_argument("--out")
