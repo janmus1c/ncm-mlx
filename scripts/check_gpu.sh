@@ -8,13 +8,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 fail() { echo "FAIL: $*" >&2; exit 1; }
-ver_ge() { [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -1)" = "$2" ]; }
+ver_ge() { [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | sed -n '1p')" = "$2" ]; }
 
 command -v nvidia-smi >/dev/null || fail "nvidia-smi not found (no NVIDIA driver)"
 nvidia-smi --query-gpu=name,memory.total,memory.used,driver_version,compute_cap --format=csv
-driver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1)
-cap=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | head -1)
-glibc=$(ldd --version | head -1 | grep -oE '[0-9]+\.[0-9]+$')
+driver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | sed -n '1p')
+cap=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | sed -n '1p')
+glibc=$(ldd --version | sed -n '1p' | grep -oE '[0-9]+\.[0-9]+$')
 ver_ge "$driver" 550.54.14 || fail "driver $driver < 550.54.14"
 ver_ge "$cap" 7.5 || fail "compute capability $cap < 7.5"
 ver_ge "$glibc" 2.35 || fail "glibc $glibc < 2.35"

@@ -187,7 +187,7 @@ The core implementation, toy comparison and full-state recovery are complete. Pl
 4. Independently test level budgets, verified Sudoku early exit and prefix caching, preserving full-depth baselines and exactness checks.
 5. Compile both samplers and repeat synchronized timing comparisons.
 
-A larger E19 training recipe is prepared and requires an explicit compute allocation. New training is separate from this source release.
+The completed A40 E19-budget pilot solves **90.20 / 59.75 / 16.55%** at 3.059M generator presentations, below E15's best result at 8.192M. A separately funded 128,000-update experiment is prepared; its first setup attempt failed before training and was cleaned up. The original million-step E19 recipe remains unstarted. [Experiment records](docs/EXPERIMENTS.md) retain outcomes and budget differences. New training is separate from this source release.
 
 Priorities, dependencies and completion criteria: [`docs/NEXT.md`](docs/NEXT.md). Current state: [`docs/STATUS.md`](docs/STATUS.md). Follow releases through the [research updates feed](https://janmus1c.github.io/ncm-mlx/feed.xml).
 

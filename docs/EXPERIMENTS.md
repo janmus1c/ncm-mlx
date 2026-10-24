@@ -15,15 +15,31 @@ Every measured run, newest first. Unless a run specifies another device, hardwar
 
 **Execution and acceptance.** A dedicated NVIDIA A40 is planned, with no overlap with the pilot. Generator time cap: 1,440 minutes; complete training/evaluation/benchmark pipeline cap: 25 hours. These are limits, not measured durations. Execution requires sufficient prepaid funds and verified cleanup of the pilot. The pipeline has periodic external backups and an independent deadline/spending guardian. Record the actual accelerator, environment, source/config identity, preflight contention, completed steps, training/pipeline times, best checkpoint and held-out evaluation before claiming a result. Evaluation must retain 2,000 upstream boards per difficulty at temperature 0, alongside codec reconstruction and synchronized generation timing. Outputs: `runs/sudoku-e19-funded-*` and `artifacts/sudoku-e19-funded/`. This entry records a queue, not a started or completed run.
 
-## E19-budget — larger-corpus pilot, in progress
+**Initial setup failure.** The first allocation reached an A40 with zero allocated GPU memory, but its preflight shell exited 141 immediately after printing the GPU report. No dependency checks completed and no training step or generator checkpoint was produced. The controller copied the available setup log and deleted the pod. Early-closing `head` pipelines under `pipefail` can produce this SIGPIPE exit; three regression cases reproduce exit 141 before the fix and reach dependency installation after replacing them with readers that consume all output. A corrected fresh attempt is prepared with the same scientific configuration. The failed setup is not a training result or a checkpoint continuation.
 
-**State checked 2026-10-24.** The training process passed step 8,000 on an NVIDIA A40 48 GB; full-state snapshots and inference weights have been copied locally. GPU utilisation was 100% at the progress check. No held-out generation result or completed training time is available yet. This bounded pilot is separate from the original, unstarted long-budget E19 recipe.
+## E19-budget — completed larger-corpus pilot
+
+**Completion, 2026-10-24.** The A40 run completed all 23,895 updates without interruption; its best-validation checkpoint is also step 23,895, weighted CE 0.2000. Training-loop time was **10,225.84 s**. From controller readiness to final artifact copy and pod deletion was **11,445.52 s**, including setup, preprocessing, training, evaluation, benchmarking and transfers; it excludes the initial rental/readiness wait. All 16 downloaded artifact/log hashes match the completion manifest. Full training state records step 23,895 of 23,895 with no time-limit truncation, and provider deletion was independently verified.
 
 **Recipe and actual target.** `configs/sudoku-e19-budget.json`: frozen E6 codec, width-256 eight-layer generator, corruption 0.50 → 0.10, 200,000 base puzzles plus 8M cached unique puzzles (seeds 201–208), batch 128, seed 0, warmup 1,000, full-state checkpoints every 1,000 updates. The executed CLI overrides the config's 1,000,000-step ceiling with **23,895 updates**, at most **3,058,560 sequence exposures**. Generator time cap is 600 minutes in the config; the outer pipeline cap is six hours including corpus processing, training, evaluation and benchmarking. Neither ceiling is a measured duration. This pilot has less exposure than E15 and cannot establish a longer-budget improvement or an equal-budget comparison.
 
 **Preflight evidence.** MLX 0.32.3, Python 3.12.3, CUDA; 0% GPU utilisation, 0 MiB allocated and no compute applications observed before the checks. All 75 tests passed in 112.60 s, including exact CPU invariants and recovery tests on this host. A synthetic width-256/batch-128 training-step probe measured 542 ms/step and 236 sequences/s, with a 15.6 GB MLX-reported peak. The probe uses 3 warmups and 10 timed steps; it sizes the schedule to 90% of a four-hour allowance. It excludes dataset encoding and is not a measured end-to-end training or generation throughput.
 
-**Recovery and reporting.** The source snapshot is commit `0c9ce98a63f029105b7ec85f044f8885e143960b`. Inputs have recorded SHA-256 hashes, remote files are copied back every ten minutes and at exit, and the pipeline runs independently of a terminal. No optimizer-reset continuation or cross-device exact recovery is claimed. Record the actual completed step count, elapsed training and pipeline time, contention, checkpoint identity and full held-out evaluation here when the run ends. Raw outputs use `runs/sudoku-e19-budget-*` and `artifacts/sudoku-e19-budget/`.
+**Recovery and reporting.** The source snapshot is commit `0c9ce98a63f029105b7ec85f044f8885e143960b`. Inputs have recorded SHA-256 hashes, remote files were copied back every ten minutes and at exit, and the pipeline ran independently of a terminal. No optimizer-reset continuation or cross-device exact recovery is claimed. Raw outputs use `runs/sudoku-e19-budget-*` and `artifacts/sudoku-e19-budget/`.
+
+Best-generator SHA-256: `34ce3edeec7383fc8984af50ed2bb3ea2c45889215608cf509a195639021b638`.
+
+**Held-out generation.** Temperature 0, one pass over 1,000 validation boards and 2,000 upstream boards per difficulty. Full-depth codec reconstruction remains 100% on validation; it is separate from these generator scores.
+
+| Metric | Validation | Upstream easy | Upstream medium | Upstream hard |
+|---|---:|---:|---:|---:|
+| Solved | 62.40% | 90.20% | 59.75% | 16.55% |
+| Blank-cell accuracy | 82.10% | 98.47% | 92.78% | 78.59% |
+| Givens preserved | 98.70% | 99.90% | 99.05% | 96.40% |
+
+This pilot exceeds E18's solve rates with fewer sequence exposures and trails E15. Corpus, batch size, schedule and accelerator differ across those comparisons; one seed does not isolate a causal effect or establish an equal-budget advantage.
+
+**Synchronized timing.** MLX 0.32.3, Python 3.12.3, CUDA/A40, temperature 1.0, uncompiled sampler, 3 warmups and 20 timed iterations through a NumPy host copy. Batch 1 / 16 / 64 / 256 p50 was **37.415 / 51.420 / 174.178 / 582.918 ms**, with 12 generator forwards per batch. These timings use a different temperature from greedy quality evaluation. The rented device was idle before preflight; health checks observed the owned training workload at 100% utilisation, but no exact immediate pre-benchmark contention sample was retained. Do not treat these as certified idle-machine limits or infer a hardware speed ratio against earlier devices.
 
 ## E18 — stronger corruption on the base dataset
 
