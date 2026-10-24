@@ -13,7 +13,7 @@ updated: 2026-10-24
 - Level-by-level sampling with seeded determinism; per-level decodes show the refinement.
 - Two-stage training from one command, best-validation checkpoint, weights saved and reloaded from disk.
 - Character-level AR baseline (same size, KV cache) trained and measured on identical data.
-- Synchronized benchmark at batch sizes 1–256 with p50/p95 and peak memory.
+- Synchronized benchmark at batch sizes 1–256 with p50/p95 and peak MLX memory; configurable sampling temperature and recorded timing settings. See [benchmark methodology](benchmarks.md).
 - Conditional generation from a token prefix (Sudoku puzzle cells); same-size AR baseline with prefix prefill.
 - Sudoku task: synthetic training data, evaluation on the published NCM test boards, an OpenAI-compatible LLM baseline.
 - `scripts/guarded_run.sh`: memory watchdog for long runs.
@@ -37,6 +37,11 @@ All numbers are for 5M-parameter toy models on a synthetic language, on a deskto
 
 - The upstream Sudoku result is not reproduced. Width-512 runs E10/E12 did not close the gap; a paper-scale training budget remains pending.
 - No compatibility with the released NCM checkpoints.
-- No `mx.compile`, quantisation or KV caching of the prefix in the NCM path.
+- Generator training supports `mx.compile` when `train.compile` is true. Codec/AR training and both samplers remain uncompiled; NCM quantisation for compressed inference and prefix KV caching are not implemented.
 - No power or energy measurements (no instrumentation without sudo).
-- GitHub remote is private; a change to public visibility is pending.
+
+## Interpretation and reproduction
+
+The best E15 artifact records 96.25 / 76.65 / 31.90% solved; one-decimal historical summaries above retain their original rounding. All external Sudoku sets contain 2,000 boards. E15 has no matched-budget AR result, and its comparison with the original paper differs in generator size, data exposure and task setup. The common Sudoku codec contains 13,915,200 saved values including EMA state, in addition to the 6,440,128 generator values; “same size” in earlier comparisons refers to generator width/depth, not total system size.
+
+Start with [architecture](architecture.md), [training](training.md), [benchmarks](benchmarks.md) and the [upstream map](research/upstream-map.md). Current results do not establish open-domain text quality, production suitability, cross-backend bitwise identity or upstream checkpoint compatibility. Repository visibility and release availability are recorded in GitHub metadata rather than this scientific status page.

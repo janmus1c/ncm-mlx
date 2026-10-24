@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-labelledby="title desc">
+  <title id="title">NCM-MLX</title>
+  <desc id="desc">One coarse block refines into two blocks, then four parallel blocks.</desc>
+  <path fill="#f1f2f3" d="M4 4h24v4H4zm0 10h10v4H4zm14 0h10v4H18zM4 24h4v4H4zm6.667 0h4v4h-4zm6.666 0h4v4h-4zM24 24h4v4h-4z"/>
+</svg>

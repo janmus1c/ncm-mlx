@@ -2,13 +2,22 @@ cff-version: 1.2.0
 message: >-
   ncm-mlx is an independent MLX implementation inspired by Next-Concept Modeling.
   If you use the method, please cite the original paper listed under preferred-citation.
-title: "ncm-mlx: coarse-to-fine next-concept text generation in MLX"
+title: "NCM-MLX — Next-Concept Modeling in MLX"
 type: software
 authors:
   - family-names: Music
     given-names: Jan
 license: MIT
 version: 0.1.0
+date-released: 2026-10-24
+repository-code: "https://github.com/janmus1c/ncm-mlx"
+url: "https://janmus1c.github.io/ncm-mlx/"
+keywords:
+  - Next-Concept Modeling
+  - MLX
+  - non-autoregressive generation
+  - residual vector quantization
+  - research reproducibility
 preferred-citation:
   type: article
   title: "Next-Concept Modeling: Fast, Parallel Coarse-to-Fine Text Generation"

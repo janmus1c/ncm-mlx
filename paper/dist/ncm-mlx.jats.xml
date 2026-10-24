@@ -20,11 +20,6 @@ Study of Next-Concept Modeling</article-title>
 <contrib-group>
 <contrib contrib-type="author">
 <string-name>Jan Music</string-name>
-<aff id="aff-">
-<institution-wrap>
-<institution></institution>
-</institution-wrap>
-</aff>
 </contrib>
 </contrib-group>
 <permissions>
@@ -32,29 +27,29 @@ Study of Next-Concept Modeling</article-title>
 <abstract>
 <p>Next-concept modeling (NCM) writes a sequence the way a painter
 works: a rough sketch first, then finer and finer detail, with every
-piece of a level produced at once. We reimplement NCM from its paper and
-released configurations in MLX, Apple’s array framework, and study it on
-an Apple M5 Pro laptop and single NVIDIA GPUs. On a synthetic
-15,360-sentence language, a 5M-parameter NCM model is 4–5× faster than
-an equal-size word-by-word (autoregressive) model at small batch sizes
-but less accurate (89.8% vs 98.6% valid sentences). On the paper’s
-Sudoku benchmark our autoregressive baseline reproduces the published
-autoregressive result (13.8% vs 14.6% of easy boards solved), while our
-NCM, with conditioning corruption and unique-solution puzzles, solves
-96.2% of easy, 76.6% of medium and 31.9% of hard boards when trained on
-8M sequences (99.5%, 96.5% and 86.1% reported for the original’s 4×
-larger model trained on 51M), far more than the equal-size
-autoregressive model. We trace the path step by step: the level
-schedule, a learned first level, conditioning corruption and its
-strength, and above all training data. We also report that fp32 matrix
-products on Apple GPUs run at reduced precision and that computing
-block-diagonal attention per level speeds training by 1.35×.</p>
+piece of a level produced at once. We independently implement NCM from
+its paper and released configurations in MLX, Apple’s array framework,
+and study it on an Apple M5 Pro laptop and single NVIDIA GPUs. On a
+synthetic 15,360-sentence language, a 5M-parameter NCM generator is
+faster than a character-level autoregressive (AR) model of similar
+generator size at small batches but less accurate (89.8% vs 98.6% valid
+sentences). On the published Sudoku boards, NCM with conditioning
+corruption and unique-solution puzzles solves 96.25% of easy, 76.65% of
+medium and 31.90% of hard boards after 8.192M generator presentations.
+The original reports 99.5%, 96.5% and 86.1% with a roughly 4× larger
+generator and 51.2M presentations; this is an unmatched comparison. A
+separate 2.048M-presentation comparison favors NCM over the AR baseline,
+but excludes NCM’s additional codec training cost. We trace the effects
+of the level schedule, learned first level, conditioning corruption and
+training exposure. We also measure reduced precision in fp32 matrix
+products on Apple GPUs and a 1.35× training improvement from segmented
+block-diagonal attention.</p>
 </abstract>
 </article-meta>
 </front>
 <body>
 <disp-quote>
-  <p><bold>Status.</bold> Working paper, version 0.7. Every number here
+  <p><bold>Status.</bold> Working paper, version 0.8. Every number here
   is copied from a run in the code repository
   (<monospace>runs/</monospace>, summarised in
   <monospace>paper/data/results.json</monospace>) or quoted from the
@@ -107,10 +102,10 @@ block-diagonal attention per level speeds training by 1.35×.</p>
       and nothing later repairs it.</p></caption>
       <graphic mimetype="image" mime-subtype="svg+xml" xlink:href="figures/overview.svg" />
     </fig>
-    <p>The number of rounds is fixed (six here, twelve in the original
-    paper’s Sudoku model) and does not grow with the length of the text,
-    so NCM needs far fewer model runs than a word-by-word model. That is
-    where its speed comes from.</p>
+    <p>The number of rounds is fixed by the model configuration (six in
+    TinyWorld, twelve in the original paper’s Sudoku model), so NCM
+    needs far fewer model runs than a word-by-word model. That is where
+    its speed comes from.</p>
   </sec>
   <sec id="two-parts-a-codec-and-a-generator">
     <title>Two parts: a codec and a generator</title>
@@ -122,7 +117,8 @@ block-diagonal attention per level speeds training by 1.35×.</p>
         then sharpens. It learns to turn a sentence into a stack of
         codes, from one coarse code to one code per letter, and to turn
         the codes back into the sentence. It is trained first, on its
-        own, until it rebuilds sentences perfectly.</p>
+        own, with reconstruction losses. Full-hierarchy reconstruction
+        is measured separately from generation quality.</p>
       </list-item>
       <list-item>
         <p>The <bold>generator</bold> is the creative part. It learns to
@@ -148,11 +144,11 @@ block-diagonal attention per level speeds training by 1.35×.</p>
     (<xref alt="Hannun et al. 2023" rid="ref-mlx2023" ref-type="bibr">Hannun
     et al. 2023</xref>), tested it on a small invented language and on
     Sudoku puzzles (the original paper’s showcase), and compared it with
-    a word-by-word model of the same size and with a large chat model.
-    The speed advantage holds on a laptop. On Sudoku our best model
-    solves 96% of easy boards (the original: 99.5%) and beats a
-    word-by-word model of the same size; Section 8 tells how we got
-    there.</p>
+    a character-level AR model of similar generator size and with a
+    large chat model. The speed advantage holds on a laptop. On Sudoku
+    our best model solves 96% of easy boards (the original: 99.5%) and
+    beats the smaller-budget AR reference; a separate comparison matches
+    generator presentations; Section 8 tells how we got there.</p>
   </sec>
 </sec>
 <sec id="glossary">
@@ -346,25 +342,20 @@ block-diagonal attention per level speeds training by 1.35×.</p>
   NCM applies the idea to 1-D token sequences
   (<xref alt="Kumbong et al. 2026" rid="ref-ncm2026" ref-type="bibr">Kumbong
   et al. 2026</xref>).</p>
-  <p><bold>Diffusion language models</bold> refine all positions of a
+  <p><bold>Diffusion language models</bold> refine positions of a
   sequence over <inline-formula><alternatives>
   <tex-math><![CDATA[T]]></tex-math>
   <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>T</mml:mi></mml:math></alternatives></inline-formula>
   denoising steps
   (<xref alt="Sahoo et al. 2024" rid="ref-mdlm2024" ref-type="bibr">Sahoo
-  et al. 2024</xref>). Each step processes the full length
+  et al. 2024</xref>). Full-sequence samplers process length
   <inline-formula><alternatives>
   <tex-math><![CDATA[L]]></tex-math>
-  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>L</mml:mi></mml:math></alternatives></inline-formula>;
-  NCM’s coarse levels are short, so its total work is closer to one pass
-  over <inline-formula><alternatives>
-  <tex-math><![CDATA[L]]></tex-math>
   <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>L</mml:mi></mml:math></alternatives></inline-formula>
-  positions spread across <inline-formula><alternatives>
-  <tex-math><![CDATA[K]]></tex-math>
-  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>K</mml:mi></mml:math></alternatives></inline-formula>
-  steps. The NCM paper reports quality at or above strong diffusion
-  language models with 10–31× faster generation on an H100 GPU
+  at each step; NCM’s early levels process fewer code positions,
+  although prefix and decoder work also contribute. The NCM paper
+  reports quality at or above strong diffusion language models with
+  10–31× faster generation under its H100 benchmark protocol
   (<xref alt="Kumbong et al. 2026" rid="ref-ncm2026" ref-type="bibr">Kumbong
   et al. 2026</xref>).</p>
 </sec>
@@ -645,9 +636,9 @@ block-diagonal attention per level speeds training by 1.35×.</p>
     0). Level 0 has nothing above it, so it reads learned query vectors.
     Every other level reads the reconstruction from all coarser levels,
     shrunk to its own length. Toy example:
-    input<inline-formula><alternatives>
-    <tex-math><![CDATA[_2]]></tex-math>
-    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi></mml:mi><mml:mn>2</mml:mn></mml:msub></mml:math></alternatives></inline-formula>
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[\mathrm{input}_2]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mrow><mml:mi mathvariant="normal">i</mml:mi><mml:mi mathvariant="normal">n</mml:mi><mml:mi mathvariant="normal">p</mml:mi><mml:mi mathvariant="normal">u</mml:mi><mml:mi mathvariant="normal">t</mml:mi></mml:mrow><mml:mn>2</mml:mn></mml:msub></mml:math></alternatives></inline-formula>
     is <inline-formula><alternatives>
     <tex-math><![CDATA[\hat z_1]]></tex-math>
     <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̂</mml:mo></mml:mover><mml:mn>1</mml:mn></mml:msub></mml:math></alternatives></inline-formula>
@@ -705,9 +696,9 @@ block-diagonal attention per level speeds training by 1.35×.</p>
     levels reach level <inline-formula><alternatives>
     <tex-math><![CDATA[k]]></tex-math>
     <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>
-    only through input<inline-formula><alternatives>
-    <tex-math><![CDATA[_k]]></tex-math>
-    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi></mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>.
+    only through <inline-formula><alternatives>
+    <tex-math><![CDATA[\mathrm{input}_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mrow><mml:mi mathvariant="normal">i</mml:mi><mml:mi mathvariant="normal">n</mml:mi><mml:mi mathvariant="normal">p</mml:mi><mml:mi mathvariant="normal">u</mml:mi><mml:mi mathvariant="normal">t</mml:mi></mml:mrow><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>.
     Two consequences follow. Training on the whole row at once computes
     exactly what level-by-level generation computes (tested, Section
     6.2). And each level’s codes are chosen without seeing each other’s
@@ -748,9 +739,9 @@ block-diagonal attention per level speeds training by 1.35×.</p>
     <p>For <inline-formula><alternatives>
     <tex-math><![CDATA[k = 0, \dots, K-1]]></tex-math>
     <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>k</mml:mi><mml:mo>=</mml:mo><mml:mn>0</mml:mn><mml:mo>,</mml:mo><mml:mi>…</mml:mi><mml:mo>,</mml:mo><mml:mi>K</mml:mi><mml:mo>−</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>:
-    run the generator on input<inline-formula><alternatives>
-    <tex-math><![CDATA[_k]]></tex-math>
-    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi></mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    run the generator on <inline-formula><alternatives>
+    <tex-math><![CDATA[\mathrm{input}_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mrow><mml:mi mathvariant="normal">i</mml:mi><mml:mi mathvariant="normal">n</mml:mi><mml:mi mathvariant="normal">p</mml:mi><mml:mi mathvariant="normal">u</mml:mi><mml:mi mathvariant="normal">t</mml:mi></mml:mrow><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
     and the prefix, sample all <inline-formula><alternatives>
     <tex-math><![CDATA[l_k]]></tex-math>
     <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>l</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
@@ -761,9 +752,9 @@ block-diagonal attention per level speeds training by 1.35×.</p>
     <tex-math><![CDATA[q_k]]></tex-math>
     <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>q</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
     to the reconstruction and shrink it into
-    input<inline-formula><alternatives>
-    <tex-math><![CDATA[_{k+1}]]></tex-math>
-    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi></mml:mi><mml:mrow><mml:mi>k</mml:mi><mml:mo>+</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:msub></mml:math></alternatives></inline-formula>.
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[\mathrm{input}_{k+1}]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mrow><mml:mi mathvariant="normal">i</mml:mi><mml:mi mathvariant="normal">n</mml:mi><mml:mi mathvariant="normal">p</mml:mi><mml:mi mathvariant="normal">u</mml:mi><mml:mi mathvariant="normal">t</mml:mi></mml:mrow><mml:mrow><mml:mi>k</mml:mi><mml:mo>+</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:msub></mml:math></alternatives></inline-formula>.
     Finally decode <inline-formula><alternatives>
     <tex-math><![CDATA[\hat z_{K-1}]]></tex-math>
     <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mover><mml:mi>z</mml:mi><mml:mo accent="true">̂</mml:mo></mml:mover><mml:mrow><mml:mi>K</mml:mi><mml:mo>−</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:msub></mml:math></alternatives></inline-formula>
@@ -884,8 +875,9 @@ block-diagonal attention per level speeds training by 1.35×.</p>
     test checks the GPU path within <inline-formula><alternatives>
     <tex-math><![CDATA[5 \times 10^{-3}]]></tex-math>
     <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mn>5</mml:mn><mml:mo>×</mml:mo><mml:msup><mml:mn>10</mml:mn><mml:mrow><mml:mi>−</mml:mi><mml:mn>3</mml:mn></mml:mrow></mml:msup></mml:mrow></mml:math></alternatives></inline-formula>.
-    This matters for anyone writing equivalence tests for MLX models; it
-    does not affect sampling quality.</p>
+    This matters for anyone writing equivalence tests for MLX models;
+    sampling quality is evaluated separately, and these exactness checks
+    do not establish the quality effect of precision.</p>
   </sec>
   <sec id="segmented-block-diagonal-attention">
     <title>Segmented block-diagonal attention</title>
@@ -948,9 +940,9 @@ block-diagonal attention per level speeds training by 1.35×.</p>
   <title>Experiments</title>
   <disp-quote>
     <p><bold>In short.</bold> On a small invented language NCM is faster
-    and somewhat less accurate than an equal-size AR model. On Sudoku
-    our AR baseline matches the paper’s AR result; our NCM does not
-    match the paper’s NCM.</p>
+    and somewhat less accurate than an AR model with similar generator
+    size. On Sudoku our AR result is near the paper’s AR reference; our
+    NCM does not match the paper’s NCM result.</p>
   </disp-quote>
   <p>Runs use an Apple M5 Pro (64 GB unified memory, macOS 26.5), an RTX
   3080 or a rented A40, as labelled for each experiment, with MLX
@@ -972,7 +964,8 @@ block-diagonal attention per level speeds training by 1.35×.</p>
     parameters) with a KV cache.</p>
     <table-wrap>
       <caption>
-        <p>TinyWorld, equal-size NCM and AR models (E1).</p>
+        <p>TinyWorld, NCM and AR with similar generator size (E1); NCM
+        also retains its codec.</p>
       </caption>
       <table>
         <colgroup>
@@ -1047,9 +1040,12 @@ block-diagonal attention per level speeds training by 1.35×.</p>
     every given. Decoding is greedy.</p>
     <table-wrap>
       <caption>
-        <p>Sudoku, share of boards solved. Paper rows are quoted from
+        <p>Sudoku, share of boards solved. Params counts generators only
+        for NCM; the codec is additional. Paper rows are reference
+        results from
         (<xref alt="Kumbong et al. 2026" rid="ref-ncm2026" ref-type="bibr">Kumbong
-        et al. 2026</xref>, Table 3).</p>
+        et al. 2026</xref>, Table 3). Budgets differ except for the
+        explicitly matched E11 comparison.</p>
       </caption>
       <table>
         <colgroup>
@@ -1156,16 +1152,34 @@ block-diagonal attention per level speeds training by 1.35×.</p>
         </tbody>
       </table>
     </table-wrap>
-    <p>The AR row matches the paper’s AR row to within two points, which
-    checks the boards, the scoring and the conditioning path. The NCM
-    rows do not match. Without conditioning corruption (E4–E6) our NCM
-    solves nothing; with it (E8) it solves 6.2% of easy boards and fills
-    74.7% of blank cells correctly, more than the AR model’s 71.0%,
-    while still solving fewer boards. With four times more training data
-    (E11) it solves 55.2% of easy boards and beats the AR model at every
-    difficulty; given the same 2M training sequences, the AR model
-    solves 20.5%, 4.9% and 0.5%, so the advantage is not a budget
-    artefact. Section 8 isolates the steps.</p>
+    <p>The first AR row is within a few percentage points of the paper’s
+    AR reference, but this numerical proximity does not establish a
+    reproduction of its model or training recipe. Without conditioning
+    corruption (E4–E6) our NCM solves nothing; with it (E8) it solves
+    6.2% of easy boards and fills 74.7% of blank cells correctly, more
+    than the AR model’s 71.0%, while still solving fewer boards. E11
+    solves 55.2% of easy boards; at the same 2.048M generator
+    presentations, the AR model solves 20.5%, 4.9% and 0.5%. This
+    matches generator data exposure, not total training cost, FLOPs or
+    system size. Section 8 records the changes.</p>
+    <p>The shared E6 codec contains 13,816,704 gradient-trained values,
+    49,152 EMA-trained codebook values and 49,344 EMA accumulators:
+    13,915,200 saved scalar values in total. Its learned first-level
+    down/up convolutions account for 10,617,344 trainable values. The
+    6,440,128 generator values are additional; generator-size
+    comparisons exclude the codec. For E15, the artifact retains 96.25 /
+    76.65 / 31.90%; the table preserves historical one-decimal
+    summaries. Each test set has 2,000 boards. Runs generally use one
+    training seed, and repeated sampling seeds do not quantify training
+    variability.</p>
+    <p>Historical synchronized timings use temperature 1.0 while Sudoku
+    quality uses greedy temperature 0.0. Both samplers remain
+    uncompiled; <monospace>mx.compile</monospace> is used only for
+    generator training when configured. Latency therefore does not
+    directly time the solved-board decoding setting. The benchmark
+    includes the output host copy, prefix work and final decoder, and
+    records shared-device contention; cross-hardware timing ratios are
+    not controlled comparisons.</p>
     <fig>
       <caption><p>Cell accuracy when decoding from the first
       <inline-formula><alternatives>
@@ -1214,10 +1228,10 @@ block-diagonal attention per level speeds training by 1.35×.</p>
 <sec id="the-journey-experiment-by-experiment">
   <title>The journey: experiment by experiment</title>
   <disp-quote>
-    <p><bold>In short.</bold> Each experiment changed one thing.
-    Experiment numbers (E0, E1, …) follow the order in which they were
-    run; the full record with every number is in
-    <monospace>docs/EXPERIMENTS.md</monospace>.</p>
+    <p><bold>In short.</bold> The experiments examine architecture,
+    training and data choices; some combine multiple changes. Experiment
+    numbers (E0, E1, …) identify runs; the full record with every number
+    is in <monospace>docs/EXPERIMENTS.md</monospace>.</p>
   </disp-quote>
   <table-wrap>
     <caption>
@@ -1381,8 +1395,9 @@ block-diagonal attention per level speeds training by 1.35×.</p>
           <td>E14 budget, corruption 0.50 → 0.10, +4M unique
           puzzles</td>
           <td>96.2% / 76.6% / 31.9%</td>
-          <td>Within 3.3 points of the paper on easy, with a quarter of
-          the model and a sixth of the data</td>
+          <td>Within 3.3 points on easy; roughly one quarter of
+          upstream’s generator size and one sixth of generator
+          exposure</td>
         </tr>
         <tr>
           <td>E18</td>
@@ -1417,13 +1432,13 @@ block-diagonal attention per level speeds training by 1.35×.</p>
 </sec>
 <sec id="discussion">
   <title>Discussion</title>
-  <p><bold>What carries over to a laptop.</bold> The structural speed
-  argument holds on Apple Silicon: with few short levels, NCM’s latency
-  at batch 1–16 is a fraction of an equal-size AR model’s, because each
-  pass reads the weights once for many positions. The advantage shrinks
-  with batch size and with the total number of codes; the 12-level
-  Sudoku model, with 314 codes plus an 81-token prefix, is slower than
-  AR from batch 64 on.</p>
+  <p><bold>What carries over to a laptop.</bold> The measured Apple
+  Silicon runs show lower NCM latency at batch 1–16 than an AR model
+  with similar generator size. The advantage shrinks with batch size and
+  the number of codes; the historical 12-level Sudoku run, with 314
+  codes plus an 81-token prefix, is slower than AR from batch 64 on.
+  These shared-device observations do not isolate dispatch, memory
+  traffic or kernel costs.</p>
   <p><bold>What does not carry over without the full recipe.</bold> The
   codec-side components we added (E5, E6) improved every secondary
   metric a little and none moved solved boards; conditioning corruption
@@ -1462,32 +1477,32 @@ block-diagonal attention per level speeds training by 1.35×.</p>
   al. 2024</xref>). Scheduled sampling
   (<xref alt="Bengio et al. 2015" rid="ref-ss2015" ref-type="bibr">Bengio
   et al. 2015</xref>) addresses the train–test mismatch that
-  conditioning corruption targets. We found one public project adding
-  PyTorch training loops to the upstream modules
-  (<ext-link ext-link-type="uri" xlink:href="https://github.com/Bakhaow/ncm-forge">Bakhaow/ncm-forge</ext-link>)
-  and no other MLX implementation.</p>
+  conditioning corruption targets.
+  <ext-link ext-link-type="uri" xlink:href="https://github.com/Bakhaow/ncm-forge">Bakhaow/ncm-forge</ext-link>
+  adds PyTorch training loops around upstream modules. The repository’s
+  dated related-work comparison records other implementations; we make
+  no priority claim for this MLX implementation.</p>
 </sec>
 <sec id="conclusion">
   <title>Conclusion</title>
-  <p>NCM can be implemented natively in MLX with a provably consistent
-  training and generation path, and on a laptop GPU it delivers the low
-  small-batch latency its design promises. Reproducing its accuracy is a
-  different matter: on Sudoku, matching the published AR baseline was
-  easy and matching NCM was not, and the gap closes slowly as upstream’s
-  recipe is added piece by piece. Conditioning corruption, which
-  addresses the gap between training on true codes and generating from
-  the model’s own, was the single most effective change. A variant based
-  on the model’s own samples, suggested in the paper, did not help (E9).
-  Larger training budgets and real-text evaluation remain to be
-  tested.</p>
+  <p>NCM can be implemented natively in MLX with a training/generation
+  equivalence invariant checked exactly on CPU. These experiments show
+  low small-batch latency and a remaining accuracy gap to upstream
+  Sudoku results. Conditioning corruption addresses the mismatch between
+  true training codes and sampled inference codes; it produced the first
+  solved boards, while increased data exposure improved the result
+  further. Model-sampled corruption did not improve the tested
+  configuration (E9). Larger budgets, repeated training seeds and
+  real-text evaluation remain research work.</p>
 </sec>
 <sec id="code-and-reproducibility">
   <title>Code and reproducibility</title>
   <p>Code, configurations and this paper:
-  <ext-link ext-link-type="uri" xlink:href="https://github.com/janmus1c/ncm-mlx">github.com/janmus1c/ncm-mlx</ext-link>
-  (private until release). Every configuration is in
-  <monospace>configs/</monospace>; every run is logged in
-  <monospace>docs/EXPERIMENTS.md</monospace>.</p>
+  <ext-link ext-link-type="uri" xlink:href="https://github.com/janmus1c/ncm-mlx">github.com/janmus1c/ncm-mlx</ext-link>.
+  Every configuration is in <monospace>configs/</monospace>; measured
+  runs are logged in <monospace>docs/EXPERIMENTS.md</monospace>. The
+  benchmark guide explains budget matching, parameter accounting,
+  synchronization and uncertainty.</p>
   <code language="bash">git clone https://github.com/janmus1c/ncm-mlx &amp;&amp; cd ncm-mlx
 mise run setup                                     # Python 3.12, MLX, tests
 scripts/run_experiment.sh configs/sudoku-e6.json   # train, evaluate, benchmark
@@ -1660,6 +1675,13 @@ paper/build.sh                                     # rebuild this paper</code>
           <td>Full-state pause/resume and recovery checks; E17’s
           weights-only continuation solves 71.25% of easy boards, with
           the optimizer-reset qualification.</td>
+        </tr>
+        <tr>
+          <td>0.8</td>
+          <td>2026-10-24</td>
+          <td>Release audit: codec/system parameter accounting, budget
+          and sampling qualifications, prior-art scope and simplified
+          visual identity.</td>
         </tr>
       </tbody>
     </table>

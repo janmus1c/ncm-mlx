@@ -1,0 +1,29 @@
+# NCM-MLX — Next-Concept Modeling in MLX
+
+> Independent experimental MLX implementation of parallel coarse-to-fine generation through multiscale residual vector quantization. Supports TinyWorld synthetic text and conditional Sudoku training/evaluation on Apple Silicon Metal and verified NVIDIA CUDA environments. No instruction following, production chat serving or upstream checkpoint compatibility.
+
+This is an optional navigation file following the llms.txt proposal, not a universal discovery standard or a guarantee of indexing. Capability and experiment documents are authoritative; this file carries no independent benchmark claims.
+
+## Project and scope
+
+- [README](https://github.com/janmus1c/ncm-mlx/blob/main/README.md): introduction, quickstart and results.
+- [Capabilities](https://github.com/janmus1c/ncm-mlx/blob/main/docs/capabilities.md): supported and unsupported workflows.
+- [Agent guide](https://github.com/janmus1c/ncm-mlx/blob/main/AGENTS.md): commands, source map and scientific invariants.
+- [Current status](https://github.com/janmus1c/ncm-mlx/blob/main/docs/STATUS.md): measured progress and limitations.
+
+## Reproduction and evidence
+
+- [Platforms](https://github.com/janmus1c/ncm-mlx/blob/main/docs/platforms.md): Metal and CUDA installation requirements.
+- [Benchmarks](https://github.com/janmus1c/ncm-mlx/blob/main/docs/benchmarks.md): quality, synchronization and comparison methodology.
+- [Experiments](https://github.com/janmus1c/ncm-mlx/blob/main/docs/EXPERIMENTS.md): configs, training budgets and results.
+- [Recovery](https://github.com/janmus1c/ncm-mlx/blob/main/docs/RECOVERY.md): interruption, full-state resume and weights-only limitations.
+- [Upstream map](https://github.com/janmus1c/ncm-mlx/blob/main/docs/research/upstream-map.md): implementation differences and checkpoint incompatibility.
+- [Related work](https://github.com/janmus1c/ncm-mlx/blob/main/docs/related-work.md): original method and related implementations.
+- [Citation](https://github.com/janmus1c/ncm-mlx/blob/main/CITATION.cff): software citation metadata and upstream attribution.
+
+- [Working paper](https://github.com/janmus1c/ncm-mlx/blob/main/docs/paper.md): manuscript, figure data and downloadable editions.
+
+## Original method
+
+- [Next-Concept Modeling paper](https://arxiv.org/abs/2610.14162): Kumbong et al.; architecture and original experiments.
+- [Official implementation](https://github.com/HazyResearch/ncm): upstream model and evaluation code.

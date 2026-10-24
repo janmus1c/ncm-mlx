@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block site_name %}<a class="skip-link" href="#main-content">Skip to content</a><a class="navbar-brand" href="{{ nav.homepage.url | url }}"><img src="{{ 'assets/logo-dark.svg' | url }}" width="25" height="25" alt=""> NCM-MLX</a>{% endblock %}
+{% block htmltitle %}<title>{{ page.meta.title if page and page.meta.title else page.title }} · NCM-MLX</title>{% endblock %}
+{% block extrahead %}
+{{ super() }}
+{% if page and not page.is_homepage %}<meta name="description" content="{{ page.meta.description | default(page.title) }}">{% endif %}
+<link id="hljs-light" rel="stylesheet" href="{{ 'assets/reading.css' | url }}" disabled>
+<link id="hljs-dark" rel="stylesheet" href="{{ 'assets/reading.css' | url }}">
+{% if page %}<link rel="alternate" type="text/markdown" href="https://raw.githubusercontent.com/janmus1c/ncm-mlx/main/docs/{{ page.file.src_uri }}">{% endif %}
+<link rel="describedby" href="{{ 'llms.txt' | url }}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="{{ page.meta.title if page and page.meta.title else config.site_name }}">
+<meta property="og:description" content="{{ page.meta.description if page and page.meta.description else config.site_description }}">
+<meta property="og:image" content="{{ config.site_url }}assets/social-preview.png">
+{% if page %}<meta property="og:url" content="{{ page.canonical_url }}">{% endif %}
+{% if page and page.file.src_path == 'paper.md' %}
+<meta name="citation_title" content="Coarse-to-Fine Text Generation on a Laptop: A Native MLX Study of Next-Concept Modeling">
+<meta name="citation_author" content="Jan Music">
+<meta name="citation_publication_date" content="2026/10/24">
+<meta name="citation_pdf_url" content="{{ config.site_url }}paper/ncm-mlx.pdf">
+{% endif %}
+{% endblock %}
+{% block next_prev %}{% endblock %}
+{% block repo %}<li class="nav-item"><a class="nav-link" href="{{ config.repo_url }}">GitHub</a></li>{% endblock %}
+{% block content %}
+<aside class="col-md-3" aria-label="On this page">{% include "toc.html" %}</aside>
+<main class="col-md-9" id="main-content" tabindex="-1">{% include "content.html" %}</main>
+{% endblock %}

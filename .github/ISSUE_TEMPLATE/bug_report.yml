@@ -1,0 +1,39 @@
+name: Bug report
+description: Report a reproducible installation, code or evaluation defect.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Include a small reproduction rather than a full experiment archive. For training quality or recovery questions, use the training form. For vulnerabilities, read [SECURITY.md](https://github.com/janmus1c/ncm-mlx/blob/main/SECURITY.md).
+
+        Reports are public. Remove keys, tokens, hostnames, private filesystem paths, cloud account details and costs from commands and logs. Do not upload datasets or checkpoints unless redistribution is permitted.
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+      description: What should happen, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Include the smallest command or code example, config name and any prerequisites. Use relative paths or placeholders.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Commit or release, OS version, Python version, MLX version if installed, and CPU/Metal/CUDA backend. For accelerator faults, add GPU model and driver version. No machine or account identifiers needed.
+      placeholder: "Commit: ...; OS: ...; Python: ...; MLX: ...; backend/GPU: ..."
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or additional evidence
+      description: Optional short, redacted traceback or output. Mention any workaround and whether the issue also occurs on a clean checkout.
+      render: text

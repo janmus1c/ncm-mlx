@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 1050" role="img" aria-labelledby="title description">
+<title id="title">Two stages. One hierarchy.</title><desc id="description">Train a codec to encode, quantize and reconstruct text. Freeze the codec, then train a generator to predict the code hierarchy. During inference, generate codes and decode once.</desc>
+<rect width="420" height="1050" rx="16" fill="#13161a"/>
+<g font-family="Inter, Helvetica Neue, Arial, sans-serif" fill="#f1f2f3">
+<text x="32" y="52" font-size="28" font-weight="650" fill="#f1f2f3" text-anchor="start">Two stages. One hierarchy.</text>
+<text x="32" y="96" font-size="19" font-weight="400" fill="#b4bac1" text-anchor="start">01  Learn a discrete code hierarchy</text>
+<rect x="32" y="122" width="356" height="94" rx="4" fill="#1c2025"/>
+<text x="52" y="160" font-size="23" font-weight="600" fill="#f1f2f3" text-anchor="start">Text</text>
+<text x="52" y="192" font-size="20" font-weight="400" fill="#b4bac1" text-anchor="start">gus finds two blue hens.</text>
+<path d="M210 230v30m-5 -6l5 6 5 -6" fill="none" stroke="#b4bac1" stroke-width="2"/>
+<text x="52" y="298" font-size="24" font-weight="600" fill="#f1f2f3" text-anchor="start">Encoder → residual VQ</text>
+<text x="52" y="332" font-size="19" font-weight="400" fill="#b4bac1" text-anchor="start">Coarse codes, then finer residuals</text>
+<rect x="52" y="355" width="14" height="14" rx="4" fill="#f1f2f3"/>
+<rect x="52" y="378" width="14" height="14" rx="4" fill="#f1f2f3"/>
+<rect x="70" y="378" width="14" height="14" rx="4" fill="#f1f2f3"/>
+<rect x="52" y="401" width="14" height="14" rx="4" fill="#f1f2f3"/>
+<rect x="70" y="401" width="14" height="14" rx="4" fill="#f1f2f3"/>
+<rect x="88" y="401" width="14" height="14" rx="4" fill="#f1f2f3"/>
+<rect x="106" y="401" width="14" height="14" rx="4" fill="#f1f2f3"/>
+<rect x="52" y="424" width="14" height="14" rx="4" fill="#f1f2f3"/>
+<rect x="70" y="424" width="14" height="14" rx="4" fill="#f1f2f3"/>
+<rect x="88" y="424" width="14" height="14" rx="4" fill="#f1f2f3"/>
+<rect x="106" y="424" width="14" height="14" rx="4" fill="#f1f2f3"/>
+<rect x="124" y="424" width="14" height="14" rx="4" fill="#f1f2f3"/>
+<rect x="142" y="424" width="14" height="14" rx="4" fill="#f1f2f3"/>
+<rect x="160" y="424" width="14" height="14" rx="4" fill="#f1f2f3"/>
+<rect x="178" y="424" width="14" height="14" rx="4" fill="#f1f2f3"/>
+<text x="232" y="404" font-size="21" font-weight="400" fill="#b4bac1" text-anchor="start">Discrete</text>
+<text x="232" y="433" font-size="21" font-weight="400" fill="#b4bac1" text-anchor="start">hierarchy</text>
+<path d="M210 465v30m-5 -6l5 6 5 -6" fill="none" stroke="#b4bac1" stroke-width="2"/>
+<text x="52" y="532" font-size="24" font-weight="600" fill="#f1f2f3" text-anchor="start">Decoder → rebuilt text</text>
+<path d="M32 566H388" stroke="#454c55"/>
+<text x="32" y="610" font-size="18" font-weight="400" fill="#b4bac1" text-anchor="start">02  Freeze the codec. Learn to generate.</text>
+<rect x="32" y="638" width="356" height="102" rx="4" fill="#1c2025"/>
+<text x="52" y="677" font-size="23" font-weight="600" fill="#f1f2f3" text-anchor="start">Next-concept transformer</text>
+<text x="52" y="710" font-size="19" font-weight="400" fill="#b4bac1" text-anchor="start">Predict a whole level in parallel</text>
+<path d="M210 755v30m-5 -6l5 6 5 -6" fill="none" stroke="#b4bac1" stroke-width="2"/>
+<text x="52" y="823" font-size="24" font-weight="600" fill="#f1f2f3" text-anchor="start">Coarse → fine codes</text>
+<text x="52" y="857" font-size="19" font-weight="400" fill="#b4bac1" text-anchor="start">Earlier levels condition the next</text>
+<path d="M210 882v30m-5 -6l5 6 5 -6" fill="none" stroke="#b4bac1" stroke-width="2"/>
+<text x="52" y="949" font-size="22" font-weight="600" fill="#f1f2f3" text-anchor="start">Decode once → generated text</text>
+<text x="32" y="1013" font-size="17" font-weight="400" fill="#b4bac1" text-anchor="start">Shared idea; task-specific codec settings.</text>
+</g></svg>

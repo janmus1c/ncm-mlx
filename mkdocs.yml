@@ -1,0 +1,57 @@
+site_name: NCM-MLX
+site_description: Independent MLX implementation of Next-Concept Modeling, with parallel coarse-to-fine generation, training and reproducible benchmarks.
+site_url: https://janmus1c.github.io/ncm-mlx/
+repo_url: https://github.com/janmus1c/ncm-mlx
+repo_name: Source on GitHub
+edit_uri: blob/main/docs/
+copyright: MIT-licensed research software · Jan Music
+theme:
+  name: mkdocs
+  color_mode: dark
+  user_color_mode_toggle: false
+  locale: en
+  custom_dir: docs/theme
+  navigation_depth: 2
+  highlightjs: false
+extra_css:
+  - assets/reading.css
+markdown_extensions:
+  - tables
+  - fenced_code
+  - attr_list
+  - toc:
+      permalink: true
+plugins:
+  - search
+hooks:
+  - scripts/docs_hooks.py
+nav:
+  - Start: index.md
+  - Install: platforms.md
+  - Architecture: architecture.md
+  - Train: training.md
+  - Benchmarks: benchmarks.md
+  - Reproduce: reproducibility.md
+  - Recover: RECOVERY.md
+  - Research:
+      - Related work: related-work.md
+      - Upstream map: research/upstream-map.md
+      - Experiments: EXPERIMENTS.md
+      - Status: STATUS.md
+      - Next: NEXT.md
+  - Reference:
+      - Capabilities: capabilities.md
+      - Remote execution: CLOUD.md
+      - Decisions: DECISIONS.md
+      - Independent implementation: adr/0001-native-independent-implementation.md
+      - Research landscape: research/landscape-and-use-cases.md
+      - Releases: releases.md
+      - Working paper: paper.md
+      - Visual identity: branding.md
+      - Discovery: discoverability.md
+validation:
+  nav:
+    omitted_files: ignore
+  links:
+    not_found: warn
+    anchors: warn

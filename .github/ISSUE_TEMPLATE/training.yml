@@ -1,0 +1,45 @@
+name: Training, evaluation or recovery
+description: Investigate a training outcome, reproduction difference or interrupted run.
+title: "[Training] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        See [reproducibility](https://github.com/janmus1c/ncm-mlx/blob/main/docs/reproducibility.md), [benchmarks](https://github.com/janmus1c/ncm-mlx/blob/main/docs/benchmarks.md) and [recovery](https://github.com/janmus1c/ncm-mlx/blob/main/docs/RECOVERY.md). Existing evidence is enough to open a report; no expensive training run is required.
+
+        Reports are public. Remove keys, tokens, hostnames, private paths, cloud account details and costs. Share config excerpts and checkpoint metadata rather than weights or private data.
+  - type: dropdown
+    id: category
+    attributes:
+      label: Main question
+      options:
+        - Training or reproduction
+        - Evaluation or benchmark interpretation
+        - Pause, crash or resume
+    validations:
+      required: true
+  - type: textarea
+    id: observation
+    attributes:
+      label: Question and observed result
+      description: State the expected outcome and the evidence you have. Distinguish codec reconstruction, teacher-forced validation loss and generated-output quality.
+    validations:
+      required: true
+  - type: textarea
+    id: recipe
+    attributes:
+      label: Recipe and environment
+      description: Commit/release, config name and changes, command, seed, dataset source/split, batch size, target/completed steps, OS, MLX version and GPU/backend. Mark unknown fields as unknown; use placeholders for private paths.
+    validations:
+      required: true
+  - type: textarea
+    id: checkpoint
+    attributes:
+      label: Checkpoint or recovery state
+      description: For recovery, identify the stage and saved step, full training-state versus weights-only format, resume flags, and whether optimizer/random state reset. For other questions, leave blank. Do not attach weights.
+      placeholder: "Generator; saved step ...; full-state / weights-only / unknown; command ...; interruption ..."
+  - type: textarea
+    id: evaluation
+    attributes:
+      label: Evaluation or timing conditions
+      description: If relevant, give evaluation set/sample count, temperature, training sequence budget, comparison budget, timing warmups/iterations, compilation mode and GPU contention. Include short redacted output or a public experiment reference.

@@ -1,0 +1,29 @@
+name: Feature or research proposal
+description: Propose a focused capability, reproducibility improvement or experiment.
+title: "[Feature] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check [current capabilities](https://github.com/janmus1c/ncm-mlx/blob/main/docs/capabilities.md) and [next work](https://github.com/janmus1c/ncm-mlx/blob/main/docs/NEXT.md) first. A proposal does not need a completed experiment or a new compute budget.
+
+        Keep private data, credentials, host identities, private paths, cloud account details and costs out of the report.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or research motivation
+      description: What concrete limitation or scientific question does this address? Link related work or an existing issue when useful.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed scope
+      description: Describe the behavior or experiment, intended users/task and a small useful first version. Include alternatives or tradeoffs if known.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation and constraints
+      description: How would correctness or research value be assessed? Note relevant data rights, checkpoint compatibility, platforms or compute requirements. Unknowns are welcome; avoid unsupported performance or novelty claims.

@@ -1,5 +1,5 @@
-:root { --ink: #151c21; --muted: #5d6862; --accent: #2f6b4f; --rule: #d9ddd6; --code: #f3f5f2; }
-@media (prefers-color-scheme: dark) { :root { --ink: #e4e9e4; --muted: #9aa69f; --accent: #7cc39e; --rule: #2d3530; --code: #1a201c; } body { background: #131815; } }
+:root { --ink: #20252b; --muted: #626971; --accent: #20252b; --rule: #dadde1; --code: #f2f3f5; }
+@media (prefers-color-scheme: dark) { :root { --ink: #f1f2f3; --muted: #abb0b6; --accent: #f1f2f3; --rule: #3b4148; --code: #20252b; } body { background: #13161a; } }
 body { max-width: 42rem; margin: 0 auto; padding: 2rem 1rem 4rem; font: 1.05rem/1.6 "STIX Two Text", "Times New Roman", Georgia, serif; color: var(--ink); }
 h1, h2, h3 { line-height: 1.25; } h1.title { font-size: 1.7rem; text-align: center; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink); padding: .6rem 0; }
 p.author, p.date { text-align: center; color: var(--muted); margin: .2rem 0; }

@@ -6,9 +6,9 @@
 // Times-compatible face. Tables are booktabs-style; the running head carries a
 // small project mark.
 
-#let ink = rgb("#151c21")
-#let muted = rgb("#5d6862")
-#let accent = rgb("#2f6b4f")
+#let ink = rgb("#20252b")
+#let muted = rgb("#626971")
+#let accent = rgb("#20252b")
 #let repo = "https://github.com/janmus1c/ncm-mlx"
 
 #let conf(
@@ -95,7 +95,7 @@
     breakable: true, stroke: (bottom: 0.8pt + ink), inset: (bottom: 3pt), it,
   )
   show raw.where(block: true): it => block(
-    fill: rgb("#f3f5f2"), inset: 8pt, radius: 3pt, width: 100%, it,
+    fill: rgb("#f2f3f5"), inset: 8pt, radius: 3pt, width: 100%, it,
   )
   show quote: it => block(
     inset: (left: 10pt, y: 4pt), stroke: (left: 1.5pt + accent), text(size: 9.5pt, it.body),

@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 350" role="img" aria-labelledby="title description">
+<title id="title">Sequential between levels. Parallel within each level.</title><desc id="description">TinyWorld generates levels of 1, 2, 4, 8, 16 and 32 code positions. Each level uses one generator forward, and its positions are predicted in parallel. One final decoder produces text.</desc>
+<rect width="1080" height="350" rx="16" fill="#13161a"/>
+<g font-family="Inter, Helvetica Neue, Arial, sans-serif" fill="#f1f2f3">
+<text x="32" y="51" font-size="30" font-weight="650" fill="#f1f2f3" text-anchor="start">Sequential between levels. Parallel within each level.</text>
+<text x="32" y="107" font-size="16" font-weight="400" fill="#b4bac1" text-anchor="start">LEVEL 0</text>
+<text x="32" y="147" font-size="32" font-weight="600" fill="#f1f2f3" text-anchor="start">1</text>
+<text x="56" y="147" font-size="19" font-weight="400" fill="#b4bac1" text-anchor="start">code</text>
+<rect x="32" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<path d="M156 102h30m-6 -5l6 5 -6 5" fill="none" stroke="#b4bac1" stroke-width="2"/>
+<text x="206" y="107" font-size="16" font-weight="400" fill="#b4bac1" text-anchor="start">LEVEL 1</text>
+<text x="206" y="147" font-size="32" font-weight="600" fill="#f1f2f3" text-anchor="start">2</text>
+<text x="230" y="147" font-size="19" font-weight="400" fill="#b4bac1" text-anchor="start">codes</text>
+<rect x="206" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="222" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<path d="M330 102h30m-6 -5l6 5 -6 5" fill="none" stroke="#b4bac1" stroke-width="2"/>
+<text x="380" y="107" font-size="16" font-weight="400" fill="#b4bac1" text-anchor="start">LEVEL 2</text>
+<text x="380" y="147" font-size="32" font-weight="600" fill="#f1f2f3" text-anchor="start">4</text>
+<text x="404" y="147" font-size="19" font-weight="400" fill="#b4bac1" text-anchor="start">codes</text>
+<rect x="380" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="396" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="412" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="428" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<path d="M504 102h30m-6 -5l6 5 -6 5" fill="none" stroke="#b4bac1" stroke-width="2"/>
+<text x="554" y="107" font-size="16" font-weight="400" fill="#b4bac1" text-anchor="start">LEVEL 3</text>
+<text x="554" y="147" font-size="32" font-weight="600" fill="#f1f2f3" text-anchor="start">8</text>
+<text x="578" y="147" font-size="19" font-weight="400" fill="#b4bac1" text-anchor="start">codes</text>
+<rect x="554" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="570" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="586" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="602" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="618" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="634" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="650" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="666" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<path d="M678 102h30m-6 -5l6 5 -6 5" fill="none" stroke="#b4bac1" stroke-width="2"/>
+<text x="728" y="107" font-size="16" font-weight="400" fill="#b4bac1" text-anchor="start">LEVEL 4</text>
+<text x="728" y="147" font-size="32" font-weight="600" fill="#f1f2f3" text-anchor="start">16</text>
+<text x="772" y="147" font-size="19" font-weight="400" fill="#b4bac1" text-anchor="start">codes</text>
+<rect x="728" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="744" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="760" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="776" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="792" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="808" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="824" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="840" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="728" y="191" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="744" y="191" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="760" y="191" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="776" y="191" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="792" y="191" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="808" y="191" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="824" y="191" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="840" y="191" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<path d="M852 102h30m-6 -5l6 5 -6 5" fill="none" stroke="#b4bac1" stroke-width="2"/>
+<text x="902" y="107" font-size="16" font-weight="400" fill="#b4bac1" text-anchor="start">LEVEL 5</text>
+<text x="902" y="147" font-size="32" font-weight="600" fill="#f1f2f3" text-anchor="start">32</text>
+<text x="946" y="147" font-size="19" font-weight="400" fill="#b4bac1" text-anchor="start">codes</text>
+<rect x="902" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="918" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="934" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="950" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="966" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="982" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="998" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="1014" y="175" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="902" y="191" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="918" y="191" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="934" y="191" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="950" y="191" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="966" y="191" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="982" y="191" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="998" y="191" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="1014" y="191" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="902" y="207" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="918" y="207" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="934" y="207" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="950" y="207" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="966" y="207" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="982" y="207" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="998" y="207" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="1014" y="207" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="902" y="223" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="918" y="223" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="934" y="223" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="950" y="223" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="966" y="223" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="982" y="223" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="998" y="223" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<rect x="1014" y="223" width="12" height="12" rx="4" fill="#f1f2f3"/>
+<path d="M32 266H1048" stroke="#454c55"/>
+<text x="32" y="310" font-size="24" font-weight="600" fill="#f1f2f3" text-anchor="start">6 generator forwards + 1 decoder pass</text>
+<text x="1048" y="310" font-size="20" font-weight="400" fill="#b4bac1" text-anchor="end">32 characters · TinyWorld</text>
+</g></svg>

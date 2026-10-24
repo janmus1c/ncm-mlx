@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 790" role="img" aria-labelledby="title description">
+<title id="title">Sequential between levels. Parallel within each level.</title><desc id="description">TinyWorld generates levels of 1, 2, 4, 8, 16 and 32 code positions. Each level uses one generator forward, and its positions are predicted in parallel. One final decoder produces text.</desc>
+<rect width="420" height="790" rx="16" fill="#ffffff"/>
+<g font-family="Inter, Helvetica Neue, Arial, sans-serif" fill="#20252b">
+<text x="28" y="48" font-size="25" font-weight="650" fill="#20252b" text-anchor="start">Six levels. One final decode.</text>
+<text x="28" y="121" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">00</text>
+<text x="76" y="122" font-size="21" font-weight="600" fill="#20252b" text-anchor="start">1 code</text>
+<rect x="210" y="105" width="11" height="11" rx="4" fill="#20252b"/>
+<path d="M76 158H388" stroke="#d6dce2"/>
+<text x="28" y="213" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">01</text>
+<text x="76" y="214" font-size="21" font-weight="600" fill="#20252b" text-anchor="start">2 codes</text>
+<rect x="210" y="197" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="225" y="197" width="11" height="11" rx="4" fill="#20252b"/>
+<path d="M76 250H388" stroke="#d6dce2"/>
+<text x="28" y="305" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">02</text>
+<text x="76" y="306" font-size="21" font-weight="600" fill="#20252b" text-anchor="start">4 codes</text>
+<rect x="210" y="289" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="225" y="289" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="240" y="289" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="255" y="289" width="11" height="11" rx="4" fill="#20252b"/>
+<path d="M76 342H388" stroke="#d6dce2"/>
+<text x="28" y="397" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">03</text>
+<text x="76" y="398" font-size="21" font-weight="600" fill="#20252b" text-anchor="start">8 codes</text>
+<rect x="210" y="381" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="225" y="381" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="240" y="381" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="255" y="381" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="270" y="381" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="285" y="381" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="300" y="381" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="315" y="381" width="11" height="11" rx="4" fill="#20252b"/>
+<path d="M76 434H388" stroke="#d6dce2"/>
+<text x="28" y="489" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">04</text>
+<text x="76" y="490" font-size="21" font-weight="600" fill="#20252b" text-anchor="start">16 codes</text>
+<rect x="210" y="473" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="225" y="473" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="240" y="473" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="255" y="473" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="270" y="473" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="285" y="473" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="300" y="473" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="315" y="473" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="210" y="488" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="225" y="488" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="240" y="488" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="255" y="488" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="270" y="488" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="285" y="488" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="300" y="488" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="315" y="488" width="11" height="11" rx="4" fill="#20252b"/>
+<path d="M76 526H388" stroke="#d6dce2"/>
+<text x="28" y="581" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">05</text>
+<text x="76" y="582" font-size="21" font-weight="600" fill="#20252b" text-anchor="start">32 codes</text>
+<rect x="210" y="565" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="225" y="565" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="240" y="565" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="255" y="565" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="270" y="565" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="285" y="565" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="300" y="565" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="315" y="565" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="210" y="580" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="225" y="580" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="240" y="580" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="255" y="580" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="270" y="580" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="285" y="580" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="300" y="580" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="315" y="580" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="210" y="595" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="225" y="595" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="240" y="595" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="255" y="595" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="270" y="595" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="285" y="595" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="300" y="595" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="315" y="595" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="210" y="610" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="225" y="610" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="240" y="610" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="255" y="610" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="270" y="610" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="285" y="610" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="300" y="610" width="11" height="11" rx="4" fill="#20252b"/>
+<rect x="315" y="610" width="11" height="11" rx="4" fill="#20252b"/>
+<path d="M28 663H392" stroke="#d6dce2"/>
+<text x="28" y="707" font-size="23" font-weight="600" fill="#20252b" text-anchor="start">6 generator forwards + 1 decode</text>
+<text x="28" y="744" font-size="17" font-weight="400" fill="#59636e" text-anchor="start">32 output characters · TinyWorld recipe</text>
+<text x="28" y="772" font-size="17" font-weight="400" fill="#59636e" text-anchor="start">Each row is predicted in parallel.</text>
+</g></svg>

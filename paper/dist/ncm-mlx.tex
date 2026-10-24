@@ -153,6 +153,7 @@
 \makeatother
 \hypersetup{
   pdftitle={Coarse-to-Fine Text Generation on a Laptop: A Native MLX Study of Next-Concept Modeling},
+  pdfauthor={Jan Music},
   pdflang={en-GB},
   pdfkeywords={\xmpquote{coarse-to-fine generation}, \xmpquote{residual
 vector quantisation}, \xmpquote{parallel decoding}, \xmpquote{Apple
@@ -162,35 +163,35 @@ Silicon}, \xmpquote{MLX}},
 
 \title{Coarse-to-Fine Text Generation on a Laptop: A Native MLX Study of
 Next-Concept Modeling}
-\author{true}
-\date{v0.7 · 2026-10-24}
+\author{Jan Music}
+\date{v0.8 · 2026-10-24}
 
 \begin{document}
 \maketitle
 \begin{abstract}
 Next-concept modeling (NCM) writes a sequence the way a painter works: a
 rough sketch first, then finer and finer detail, with every piece of a
-level produced at once. We reimplement NCM from its paper and released
-configurations in MLX, Apple's array framework, and study it on an Apple
-M5 Pro laptop and single NVIDIA GPUs. On a synthetic 15,360-sentence
-language, a 5M-parameter NCM model is 4--5× faster than an equal-size
-word-by-word (autoregressive) model at small batch sizes but less
-accurate (89.8\% vs 98.6\% valid sentences). On the paper's Sudoku
-benchmark our autoregressive baseline reproduces the published
-autoregressive result (13.8\% vs 14.6\% of easy boards solved), while
-our NCM, with conditioning corruption and unique-solution puzzles,
-solves 96.2\% of easy, 76.6\% of medium and 31.9\% of hard boards when
-trained on 8M sequences (99.5\%, 96.5\% and 86.1\% reported for the
-original's 4× larger model trained on 51M), far more than the equal-size
-autoregressive model. We trace the path step by step: the level
-schedule, a learned first level, conditioning corruption and its
-strength, and above all training data. We also report that fp32 matrix
-products on Apple GPUs run at reduced precision and that computing
-block-diagonal attention per level speeds training by 1.35×.
+level produced at once. We independently implement NCM from its paper
+and released configurations in MLX, Apple's array framework, and study
+it on an Apple M5 Pro laptop and single NVIDIA GPUs. On a synthetic
+15,360-sentence language, a 5M-parameter NCM generator is faster than a
+character-level autoregressive (AR) model of similar generator size at
+small batches but less accurate (89.8\% vs 98.6\% valid sentences). On
+the published Sudoku boards, NCM with conditioning corruption and
+unique-solution puzzles solves 96.25\% of easy, 76.65\% of medium and
+31.90\% of hard boards after 8.192M generator presentations. The
+original reports 99.5\%, 96.5\% and 86.1\% with a roughly 4× larger
+generator and 51.2M presentations; this is an unmatched comparison. A
+separate 2.048M-presentation comparison favors NCM over the AR baseline,
+but excludes NCM's additional codec training cost. We trace the effects
+of the level schedule, learned first level, conditioning corruption and
+training exposure. We also measure reduced precision in fp32 matrix
+products on Apple GPUs and a 1.35× training improvement from segmented
+block-diagonal attention.
 \end{abstract}
 
 \begin{quote}
-\textbf{Status.} Working paper, version 0.7. Every number here is copied
+\textbf{Status.} Working paper, version 0.8. Every number here is copied
 from a run in the code repository (\texttt{runs/}, summarised in
 \texttt{paper/data/results.json}) or quoted from the cited paper and
 marked as quoted. Experiments still running are marked \emph{in
@@ -249,10 +250,10 @@ failure: level 3 turns ``red'' into ``ret'', and nothing later repairs
 it.}
 \end{figure}
 
-The number of rounds is fixed (six here, twelve in the original paper's
-Sudoku model) and does not grow with the length of the text, so NCM
-needs far fewer model runs than a word-by-word model. That is where its
-speed comes from.
+The number of rounds is fixed by the model configuration (six in
+TinyWorld, twelve in the original paper's Sudoku model), so NCM needs
+far fewer model runs than a word-by-word model. That is where its speed
+comes from.
 
 \subsection{Two parts: a codec and a
 generator}\label{two-parts-a-codec-and-a-generator}
@@ -266,7 +267,8 @@ NCM has two learned parts. An analogy from image files helps.
   JPEG that first shows a blurry picture, then sharpens. It learns to
   turn a sentence into a stack of codes, from one coarse code to one
   code per letter, and to turn the codes back into the sentence. It is
-  trained first, on its own, until it rebuilds sentences perfectly.
+  trained first, on its own, with reconstruction losses. Full-hierarchy
+  reconstruction is measured separately from generation quality.
 \item
   The \textbf{generator} is the creative part. It learns to
   \emph{invent} new code stacks one level at a time: level 0, then level
@@ -289,10 +291,11 @@ paper measures when that matters.
 We rebuilt NCM from scratch for Apple's MLX framework
 (\citeproc{ref-mlx2023}{Hannun et al. 2023}), tested it on a small
 invented language and on Sudoku puzzles (the original paper's showcase),
-and compared it with a word-by-word model of the same size and with a
-large chat model. The speed advantage holds on a laptop. On Sudoku our
-best model solves 96\% of easy boards (the original: 99.5\%) and beats a
-word-by-word model of the same size; Section 8 tells how we got there.
+and compared it with a character-level AR model of similar generator
+size and with a large chat model. The speed advantage holds on a laptop.
+On Sudoku our best model solves 96\% of easy boards (the original:
+99.5\%) and beats the smaller-budget AR reference; a separate comparison
+matches generator presentations; Section 8 tells how we got there.
 
 \section{Glossary}\label{glossary}
 
@@ -391,13 +394,13 @@ quantiser sees a \(1\times1\) summary of an image, later ones
 generates one scale per step. NCM applies the idea to 1-D token
 sequences (\citeproc{ref-ncm2026}{Kumbong et al. 2026}).
 
-\textbf{Diffusion language models} refine all positions of a sequence
-over \(T\) denoising steps (\citeproc{ref-mdlm2024}{Sahoo et al. 2024}).
-Each step processes the full length \(L\); NCM's coarse levels are
-short, so its total work is closer to one pass over \(L\) positions
-spread across \(K\) steps. The NCM paper reports quality at or above
-strong diffusion language models with 10--31× faster generation on an
-H100 GPU (\citeproc{ref-ncm2026}{Kumbong et al. 2026}).
+\textbf{Diffusion language models} refine positions of a sequence over
+\(T\) denoising steps (\citeproc{ref-mdlm2024}{Sahoo et al. 2024}).
+Full-sequence samplers process length \(L\) at each step; NCM's early
+levels process fewer code positions, although prefix and decoder work
+also contribute. The NCM paper reports quality at or above strong
+diffusion language models with 10--31× faster generation under its H100
+benchmark protocol (\citeproc{ref-ncm2026}{Kumbong et al. 2026}).
 
 \section{Method}\label{method}
 
@@ -525,9 +528,10 @@ The generator is a transformer that reads one long row of vectors:
 the 81 cells of the puzzle (blanks as 0). Level 0 has nothing above it,
 so it reads learned query vectors. Every other level reads the
 reconstruction from all coarser levels, shrunk to its own length. Toy
-example: input\(_2\) is \(\hat z_1\) (levels 0 and 1 combined) averaged
-down to 4 positions. Head \(k\) turns each of the \(l_k\) positions of
-its block into a probability for each of the \(V\) codes of level \(k\).
+example: \(\mathrm{input}_2\) is \(\hat z_1\) (levels 0 and 1 combined)
+averaged down to 4 positions. Head \(k\) turns each of the \(l_k\)
+positions of its block into a probability for each of the \(V\) codes of
+level \(k\).
 
 \textbf{Training loss.} With the true codes \(c_k\) of a training
 example,
@@ -543,13 +547,13 @@ guess among 16 codes scores \(\ln 16 \approx 2.77\).
 \textbf{Attention pattern.} Positions of level \(k\) may read the prefix
 and the other positions of level \(k\), nothing else
 (\emph{block-diagonal} attention); coarser levels reach level \(k\) only
-through input\(_k\). Two consequences follow. Training on the whole row
-at once computes exactly what level-by-level generation computes
-(tested, Section 6.2). And each level's codes are chosen without seeing
-each other's choices, the source of both the speed and errors like
-``red'' → ``ret''. RoPE (\citeproc{ref-rope2021}{Su et al. 2021})
-positions restart at zero in every level, a learned level embedding
-tells levels apart, and queries and keys are RMS-normalised.
+through \(\mathrm{input}_k\). Two consequences follow. Training on the
+whole row at once computes exactly what level-by-level generation
+computes (tested, Section 6.2). And each level's codes are chosen
+without seeing each other's choices, the source of both the speed and
+errors like ``red'' → ``ret''. RoPE (\citeproc{ref-rope2021}{Su et al.
+2021}) positions restart at zero in every level, a learned level
+embedding tells levels apart, and queries and keys are RMS-normalised.
 
 \textbf{Conditioning corruption.} In training the generator reads true
 coarser codes; in generation it reads its own, sometimes wrong, codes.
@@ -568,12 +572,12 @@ finds no gain at our scale (Section 8).
 
 \subsection{Generation}\label{generation}
 
-For \(k = 0, \dots, K-1\): run the generator on input\(_k\) and the
-prefix, sample all \(l_k\) codes of level \(k\) at once, add their
+For \(k = 0, \dots, K-1\): run the generator on \(\mathrm{input}_k\) and
+the prefix, sample all \(l_k\) codes of level \(k\) at once, add their
 contribution \(q_k\) to the reconstruction and shrink it into
-input\(_{k+1}\). Finally decode \(\hat z_{K-1}\) to tokens. Cost: \(K\)
-generator passes and one decoder pass, independent of how long each
-level is.
+\(\mathrm{input}_{k+1}\). Finally decode \(\hat z_{K-1}\) to tokens.
+Cost: \(K\) generator passes and one decoder pass, independent of how
+long each level is.
 
 \begin{longtable}[]{@{}
   >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
@@ -648,7 +652,8 @@ computation had an error of \(1.4 \times 10^{-2}\) on the GPU and
 reduced internal precision, about \(10^{-3}\) relative. Exactness tests
 therefore run on the CPU, and a separate test checks the GPU path within
 \(5 \times 10^{-3}\). This matters for anyone writing equivalence tests
-for MLX models; it does not affect sampling quality.
+for MLX models; sampling quality is evaluated separately, and these
+exactness checks do not establish the quality effect of precision.
 
 \subsection{Segmented block-diagonal
 attention}\label{segmented-block-diagonal-attention}
@@ -703,9 +708,9 @@ causal conclusion. The operational procedure is documented in
 
 \begin{quote}
 \textbf{In short.} On a small invented language NCM is faster and
-somewhat less accurate than an equal-size AR model. On Sudoku our AR
-baseline matches the paper's AR result; our NCM does not match the
-paper's NCM.
+somewhat less accurate than an AR model with similar generator size. On
+Sudoku our AR result is near the paper's AR reference; our NCM does not
+match the paper's NCM result.
 \end{quote}
 
 Runs use an Apple M5 Pro (64 GB unified memory, macOS 26.5), an RTX 3080
@@ -729,7 +734,8 @@ cache.
   >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
   >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
   >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}@{}}
-\caption{TinyWorld, equal-size NCM and AR models (E1).}\tabularnewline
+\caption{TinyWorld, NCM and AR with similar generator size (E1); NCM
+also retains its codec.}\tabularnewline
 \toprule\noalign{}
 \begin{minipage}[b]{\linewidth}\raggedright
 \end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
@@ -790,8 +796,10 @@ that keeps every given. Decoding is greedy.
   >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
   >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
   >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}@{}}
-\caption{Sudoku, share of boards solved. Paper rows are quoted from
-(\citeproc{ref-ncm2026}{Kumbong et al. 2026}, Table 3).}\tabularnewline
+\caption{Sudoku, share of boards solved. Params counts generators only
+for NCM; the codec is additional. Paper rows are reference results from
+(\citeproc{ref-ncm2026}{Kumbong et al. 2026}, Table 3). Budgets differ
+except for the explicitly matched E11 comparison.}\tabularnewline
 \toprule\noalign{}
 \begin{minipage}[b]{\linewidth}\raggedright
 Model
@@ -840,15 +848,34 @@ MDLM, paper & 29M & 92.0\% & 77.1\% & 30.2\% \\
 NCM, paper & 25M & 99.5\% & 96.5\% & 86.1\% \\
 \end{longtable}
 
-The AR row matches the paper's AR row to within two points, which checks
-the boards, the scoring and the conditioning path. The NCM rows do not
-match. Without conditioning corruption (E4--E6) our NCM solves nothing;
-with it (E8) it solves 6.2\% of easy boards and fills 74.7\% of blank
-cells correctly, more than the AR model's 71.0\%, while still solving
-fewer boards. With four times more training data (E11) it solves 55.2\%
-of easy boards and beats the AR model at every difficulty; given the
-same 2M training sequences, the AR model solves 20.5\%, 4.9\% and 0.5\%,
-so the advantage is not a budget artefact. Section 8 isolates the steps.
+The first AR row is within a few percentage points of the paper's AR
+reference, but this numerical proximity does not establish a
+reproduction of its model or training recipe. Without conditioning
+corruption (E4--E6) our NCM solves nothing; with it (E8) it solves 6.2\%
+of easy boards and fills 74.7\% of blank cells correctly, more than the
+AR model's 71.0\%, while still solving fewer boards. E11 solves 55.2\%
+of easy boards; at the same 2.048M generator presentations, the AR model
+solves 20.5\%, 4.9\% and 0.5\%. This matches generator data exposure,
+not total training cost, FLOPs or system size. Section 8 records the
+changes.
+
+The shared E6 codec contains 13,816,704 gradient-trained values, 49,152
+EMA-trained codebook values and 49,344 EMA accumulators: 13,915,200
+saved scalar values in total. Its learned first-level down/up
+convolutions account for 10,617,344 trainable values. The 6,440,128
+generator values are additional; generator-size comparisons exclude the
+codec. For E15, the artifact retains 96.25 / 76.65 / 31.90\%; the table
+preserves historical one-decimal summaries. Each test set has 2,000
+boards. Runs generally use one training seed, and repeated sampling
+seeds do not quantify training variability.
+
+Historical synchronized timings use temperature 1.0 while Sudoku quality
+uses greedy temperature 0.0. Both samplers remain uncompiled;
+\texttt{mx.compile} is used only for generator training when configured.
+Latency therefore does not directly time the solved-board decoding
+setting. The benchmark includes the output host copy, prefix work and
+final decoder, and records shared-device contention; cross-hardware
+timing ratios are not controlled comparisons.
 
 \begin{figure}
 \centering
@@ -903,9 +930,10 @@ model is about 4,000 times larger and was not trained on the task.
 experiment}\label{the-journey-experiment-by-experiment}
 
 \begin{quote}
-\textbf{In short.} Each experiment changed one thing. Experiment numbers
-(E0, E1, \ldots) follow the order in which they were run; the full
-record with every number is in \texttt{docs/EXPERIMENTS.md}.
+\textbf{In short.} The experiments examine architecture, training and
+data choices; some combine multiple changes. Experiment numbers (E0, E1,
+\ldots) identify runs; the full record with every number is in
+\texttt{docs/EXPERIMENTS.md}.
 \end{quote}
 
 \begin{longtable}[]{@{}
@@ -995,8 +1023,8 @@ puzzles that happen to be unique; weights-only recovery & 71.25\% /
 interpretation \\
 E15 & Both levers + unique-solution puzzles & E14 budget, corruption
 0.50 → 0.10, +4M unique puzzles & 96.2\% / 76.6\% / 31.9\% & Within 3.3
-points of the paper on easy, with a quarter of the model and a sixth of
-the data \\
+points on easy; roughly one quarter of upstream's generator size and one
+sixth of generator exposure \\
 E18 & Both levers, base data only & E14 budget, corruption 0.50 → 0.10 &
 \emph{in progress} & \\
 E19 & Paper-scale budget on a rented GPU & E15 recipe, 8M unique
@@ -1017,12 +1045,12 @@ that teacher-forced loss does not measure what generation needs.
 
 \section{Discussion}\label{discussion}
 
-\textbf{What carries over to a laptop.} The structural speed argument
-holds on Apple Silicon: with few short levels, NCM's latency at batch
-1--16 is a fraction of an equal-size AR model's, because each pass reads
-the weights once for many positions. The advantage shrinks with batch
-size and with the total number of codes; the 12-level Sudoku model, with
-314 codes plus an 81-token prefix, is slower than AR from batch 64 on.
+\textbf{What carries over to a laptop.} The measured Apple Silicon runs
+show lower NCM latency at batch 1--16 than an AR model with similar
+generator size. The advantage shrinks with batch size and the number of
+codes; the historical 12-level Sudoku run, with 314 codes plus an
+81-token prefix, is slower than AR from batch 64 on. These shared-device
+observations do not isolate dispatch, memory traffic or kernel costs.
 
 \textbf{What does not carry over without the full recipe.} The
 codec-side components we added (E5, E6) improved every secondary metric
@@ -1055,31 +1083,32 @@ quantisation is standard in audio codecs
 generation (\citeproc{ref-rqvae2022}{Lee et al. 2022};
 \citeproc{ref-var2024}{Tian et al. 2024}). Scheduled sampling
 (\citeproc{ref-ss2015}{Bengio et al. 2015}) addresses the train--test
-mismatch that conditioning corruption targets. We found one public
-project adding PyTorch training loops to the upstream modules
-(\href{https://github.com/Bakhaow/ncm-forge}{Bakhaow/ncm-forge}) and no
-other MLX implementation.
+mismatch that conditioning corruption targets.
+\href{https://github.com/Bakhaow/ncm-forge}{Bakhaow/ncm-forge} adds
+PyTorch training loops around upstream modules. The repository's dated
+related-work comparison records other implementations; we make no
+priority claim for this MLX implementation.
 
 \section{Conclusion}\label{conclusion}
 
-NCM can be implemented natively in MLX with a provably consistent
-training and generation path, and on a laptop GPU it delivers the low
-small-batch latency its design promises. Reproducing its accuracy is a
-different matter: on Sudoku, matching the published AR baseline was easy
-and matching NCM was not, and the gap closes slowly as upstream's recipe
-is added piece by piece. Conditioning corruption, which addresses the
-gap between training on true codes and generating from the model's own,
-was the single most effective change. A variant based on the model's own
-samples, suggested in the paper, did not help (E9). Larger training
-budgets and real-text evaluation remain to be tested.
+NCM can be implemented natively in MLX with a training/generation
+equivalence invariant checked exactly on CPU. These experiments show low
+small-batch latency and a remaining accuracy gap to upstream Sudoku
+results. Conditioning corruption addresses the mismatch between true
+training codes and sampled inference codes; it produced the first solved
+boards, while increased data exposure improved the result further.
+Model-sampled corruption did not improve the tested configuration (E9).
+Larger budgets, repeated training seeds and real-text evaluation remain
+research work.
 
 \section*{Code and reproducibility}\label{code-and-reproducibility}
 \addcontentsline{toc}{section}{Code and reproducibility}
 
 Code, configurations and this paper:
-\href{https://github.com/janmus1c/ncm-mlx}{github.com/janmus1c/ncm-mlx}
-(private until release). Every configuration is in \texttt{configs/};
-every run is logged in \texttt{docs/EXPERIMENTS.md}.
+\href{https://github.com/janmus1c/ncm-mlx}{github.com/janmus1c/ncm-mlx}.
+Every configuration is in \texttt{configs/}; measured runs are logged in
+\texttt{docs/EXPERIMENTS.md}. The benchmark guide explains budget
+matching, parameter accounting, synchronization and uncertainty.
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -1266,6 +1295,9 @@ puzzles: 96\% of easy boards. Layout checks on every build. \\
 0.7 & 2026-10-24 & Full-state pause/resume and recovery checks; E17's
 weights-only continuation solves 71.25\% of easy boards, with the
 optimizer-reset qualification. \\
+0.8 & 2026-10-24 & Release audit: codec/system parameter accounting,
+budget and sampling qualifications, prior-art scope and simplified
+visual identity. \\
 \end{longtable}
 }
 

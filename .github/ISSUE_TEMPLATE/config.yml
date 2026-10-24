@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Setup and reproducibility
+    url: https://github.com/janmus1c/ncm-mlx/blob/main/docs/reproducibility.md
+    about: Installation, training prerequisites and evidence needed to reproduce a result.
+  - name: Security reporting
+    url: https://github.com/janmus1c/ncm-mlx/blob/main/SECURITY.md
+    about: Read the security policy before disclosing a vulnerability or sensitive information.

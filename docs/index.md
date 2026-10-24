@@ -1,0 +1,41 @@
+---
+title: NCM-MLX — Next-Concept Modeling in MLX
+description: Independent MLX research software for coarse-to-fine parallel text generation, from-scratch training and reproducible Sudoku and synthetic-language evaluation.
+---
+
+# Next-Concept Modeling in MLX
+
+NCM-MLX independently implements **Next-Concept Modeling (NCM)**, the coarse-to-fine generative architecture introduced by [Kumbong et al.](https://arxiv.org/abs/2610.14162). A multiscale residual vector quantizer turns text into a hierarchy of discrete latent codes. The generator predicts each level in parallel, conditioning on the coarser levels. It generates a fixed-length text sequence in one forward pass per level, followed by a codec decode.
+
+This is experimental research software for **TinyWorld synthetic text and Sudoku**, with training from scratch, autoregressive comparisons and synchronized evaluation. MLX execution has been verified on Apple Silicon with Metal and on Linux NVIDIA GPUs with CUDA. It is not an instruction-following or general-purpose chat model. Released upstream checkpoints are not compatible.
+
+[Install and check your platform](platforms.md){ .primary-link }
+
+<picture>
+  <source media="(max-width: 600px)" srcset="assets/architecture-mobile-dark.svg">
+  <img src="assets/architecture-dark.svg" alt="Train a codec, freeze it, then train a next-concept generator over its coarse-to-fine hierarchy." width="1080">
+</picture>
+
+## Choose a starting point
+
+| Your question | Reference |
+|---|---|
+| How does parallel coarse-to-fine generation work? | [Architecture](architecture.md) |
+| How do I train, sample and evaluate? | [Training](training.md) |
+| Which results are comparable? | [Benchmark methodology](benchmarks.md) |
+| What can I reproduce, and with which data? | [Reproducibility](reproducibility.md) |
+| What happens if a training job stops? | [Pause and recovery](RECOVERY.md) |
+| How does this differ from other NCM implementations? | [Related work](related-work.md) and [upstream map](research/upstream-map.md) |
+| What can an automated tool safely assume? | [Capabilities](capabilities.md) |
+
+## Measured results, with limits
+
+The best completed Sudoku experiment, E15, solves **96.2% easy, 76.6% medium and 31.9% hard** on 2,000 published test boards per difficulty. Its 6.4M-parameter generator uses a separate codec. The larger upstream model and its longer training budget remain ahead, particularly on hard puzzles. These figures are point estimates from one training run, not evidence of equal-budget parity with the original paper.
+
+E17's interrupted run was recovered for its remaining 2,000 updates and solves **71.25 / 31.75 / 3.70%**. The old checkpoint contained weights only; optimizer and random state reset. E18 continues independently and has no final quality result in this release. Full measurements and qualifications live in the [experiment record](EXPERIMENTS.md).
+
+## Source, paper and citation
+
+The [GitHub repository](https://github.com/janmus1c/ncm-mlx) contains the implementation, configs, tests and [working paper and downloadable editions](paper.md). The implementation is MIT licensed; [third-party provenance](https://github.com/janmus1c/ncm-mlx/blob/main/THIRD_PARTY.md) covers upstream references and downloaded evaluation data. Cite the original paper for the method and [CITATION.cff](https://github.com/janmus1c/ncm-mlx/blob/main/CITATION.cff) for this software.
+
+[Release notes](releases.md) · [Current status](STATUS.md) · [Contributing](https://github.com/janmus1c/ncm-mlx/blob/main/CONTRIBUTING.md)
