@@ -8,6 +8,27 @@
 <link id="hljs-dark" rel="stylesheet" href="{{ 'assets/reading.css' | url }}">
 {% if page %}<link rel="alternate" type="text/markdown" href="https://raw.githubusercontent.com/janmus1c/ncm-mlx/main/docs/{{ page.file.src_uri }}">{% endif %}
 <link rel="describedby" href="{{ 'llms.txt' | url }}">
+<link rel="alternate" type="application/atom+xml" title="NCM-MLX research updates" href="{{ config.site_url }}feed.xml">
+{% if page and page.is_homepage %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareSourceCode",
+  "@id": "https://doi.org/10.5281/zenodo.23620792",
+  "name": "NCM-MLX",
+  "description": "Independent MLX research implementation of Next-Concept Modeling for TinyWorld synthetic text and Sudoku.",
+  "codeRepository": "https://github.com/janmus1c/ncm-mlx",
+  "url": "https://janmus1c.github.io/ncm-mlx/",
+  "version": "0.1.0",
+  "programmingLanguage": "Python",
+  "runtimePlatform": "MLX 0.32.3",
+  "license": "https://spdx.org/licenses/MIT.html",
+  "isAccessibleForFree": true,
+  "citation": "https://arxiv.org/abs/2610.14162",
+  "subjectOf": "https://doi.org/10.5281/zenodo.23620914"
+}
+</script>
+{% endif %}
 <meta property="og:type" content="website">
 <meta property="og:title" content="{{ page.meta.title if page and page.meta.title else config.site_name }}">
 <meta property="og:description" content="{{ page.meta.description if page and page.meta.description else config.site_description }}">

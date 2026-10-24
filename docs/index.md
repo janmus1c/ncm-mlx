@@ -38,4 +38,4 @@ E17's interrupted run was recovered for its remaining 2,000 updates and solves *
 
 The [GitHub repository](https://github.com/janmus1c/ncm-mlx) contains the implementation, configs, tests and [working paper and downloadable editions](paper.md). The implementation is MIT licensed; [third-party provenance](https://github.com/janmus1c/ncm-mlx/blob/main/THIRD_PARTY.md) covers upstream references and downloaded evaluation data. Cite the original paper for the method and [CITATION.cff](https://github.com/janmus1c/ncm-mlx/blob/main/CITATION.cff) for this software.
 
-[Release notes](releases.md) · [Current status](STATUS.md) · [Contributing](https://github.com/janmus1c/ncm-mlx/blob/main/CONTRIBUTING.md)
+[Release notes](releases.md) · [Subscribe to research updates](feed.xml) · [Current status](STATUS.md) · [Contributing](https://github.com/janmus1c/ncm-mlx/blob/main/CONTRIBUTING.md)

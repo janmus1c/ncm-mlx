@@ -23,6 +23,14 @@ The static site makes architecture, benchmark methodology and reproduction instr
 
 [Capabilities](capabilities.md), [AGENTS.md](../AGENTS.md), [CITATION.cff](../CITATION.cff) and package metadata describe supported workflows without custom integrations. [`llms.txt`](../llms.txt) is a short navigation map for tools that choose to read it. It follows a [community proposal](https://llmstxt.org/), not a universal agent standard. Google explicitly says special AI text files are unnecessary and do not improve its Search visibility; see its [AI Search guidance](https://developers.google.com/search/docs/fundamentals/ai-optimization-guide). No claim is made about model training, inclusion in assistant answers or recommendation priority.
 
+The homepage also publishes [Schema.org software-source metadata](https://schema.org/SoftwareSourceCode), identifying the code repository, license and separate software/paper DOI records. The paper page exposes citation metadata and a direct PDF link. These describe public artifacts; they do not claim search-engine acceptance or peer review.
+
+## Feeds and subscriptions
+
+Subscribe to the [research updates Atom feed](feed.xml) for software and working-paper releases. Each entry links its versioned record and keeps its publication timestamp and stable identifier. The site advertises the feed in its HTML so compatible readers can discover it automatically. The separate [GitHub releases Atom feed](https://github.com/janmus1c/ncm-mlx/releases.atom) follows releases directly from GitHub.
+
+Feeds help readers and catalogs find updates. They do not guarantee an audience, GitHub stars, search ranking or inclusion in model training. Public index and directory submissions should describe the project accurately and distinguish a submission receipt from an accepted listing. Personal promotion and private-community distribution are outside this project's discovery process.
+
 ## Verification and normal indexing delays
 
 After a release, verify the repository, README, tag, documentation, `CITATION.cff`, `llms.txt` and sitemap without authentication. Confirm the archive remains private through authenticated settings. Check representative GitHub repository queries and ordinary web search, recording date, query and actual outcome. A newly public repository may not appear immediately; an empty query result is not proof of a technical fault or a complete view of the index. Do not repeatedly rewrite metadata in response to indexing delay.
@@ -34,6 +42,8 @@ The site hosts an intentionally public [IndexNow verification file](94c0ef299fab
 ## Minimal maintenance
 
 At a meaningful public milestone, update supported behavior, the relevant technical page and release notes. Update headline results only from verified artifacts, retain negative results and training-budget caveats, and preserve stable tags/citations. Routine experiments belong in [EXPERIMENTS](EXPERIMENTS.md); they need not trigger broad documentation or topic changes.
+
+For a new software or paper release, append an entry to `docs/feed.xml` using its actual public release timestamp, version-specific DOI or release URL as the stable ID, and a short factual summary. Set the feed's `updated` value to the newest entry's update time. Update the homepage's software-source metadata when a new software version is released; paper-only revisions do not change the software version. Keep previous entries and IDs stable.
 
 Validate locally with:
 

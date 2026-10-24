@@ -5,6 +5,8 @@ description: Versioned NCM-MLX research software releases, supported workflows, 
 
 # Releases and citation
 
+Follow new software and paper versions through the [research updates feed](feed.xml) or [GitHub releases feed](https://github.com/janmus1c/ncm-mlx/releases.atom).
+
 ## Version 0.1.0 — initial research release
 
 This release provides an independent MLX implementation of Next-Concept Modeling for synthetic character-level text and puzzle-conditioned Sudoku. It includes a multiscale residual VQ codec, next-concept transformer, from-scratch training, coarse-to-fine sampling, autoregressive baseline, evaluation and synchronized benchmarks.

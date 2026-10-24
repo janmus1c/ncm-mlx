@@ -179,16 +179,17 @@ Full source-by-source map: [`docs/research/upstream-map.md`](docs/research/upstr
 
 ## Roadmap
 
-The core implementation, toy comparison and full-state recovery are complete. The next research steps are:
+The core implementation, toy comparison and full-state recovery are complete. Planned research tracks are:
 
 1. Finish and evaluate the longer E18 Sudoku run.
 2. Compare against released upstream checkpoints using the same evaluator.
-3. Compile both samplers and repeat synchronized timing comparisons.
-4. Test real text with a model-size and training-budget matched autoregressive baseline.
+3. Build a real-text workflow: training, visible coarse-to-fine samples, held-out benchmarks and a matched AR baseline, followed by conditional task examples and a local demo.
+4. Independently test level budgets, verified Sudoku early exit and prefix caching, preserving full-depth baselines and exactness checks.
+5. Compile both samplers and repeat synchronized timing comparisons.
 
 A larger E19 training recipe is prepared and requires an explicit compute allocation. New training is separate from this source release.
 
-Next steps, in order: [`docs/NEXT.md`](docs/NEXT.md). Current state: [`docs/STATUS.md`](docs/STATUS.md).
+Priorities, dependencies and completion criteria: [`docs/NEXT.md`](docs/NEXT.md). Current state: [`docs/STATUS.md`](docs/STATUS.md). Follow releases through the [research updates feed](https://janmus1c.github.io/ncm-mlx/feed.xml).
 
 Long runs support full-state pause/resume and atomic checkpoints. Start Mac experiments with `scripts/launch_experiment.sh` so terminal closure does not kill them. See [`docs/RECOVERY.md`](docs/RECOVERY.md) for pause signals, restart commands, pod recovery and the limits of legacy weights-only checkpoints.
 
