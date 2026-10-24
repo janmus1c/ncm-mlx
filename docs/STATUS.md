@@ -18,7 +18,7 @@ updated: 2026-10-24
 - Sudoku task: synthetic training data, evaluation on the published NCM test boards, an OpenAI-compatible LLM baseline.
 - `scripts/guarded_run.sh`: memory watchdog for long runs.
 - Codec and generator full-state checkpoints, graceful pause and `--resume`; CPU tests match uninterrupted training exactly, including compiled generator steps. Mac experiments can run under launchd independently of a terminal. See `RECOVERY.md`.
-- E17 was killed with its terminal session at 15:05. Its step-30,000 weights survive; a separate weights-only continuation completed step 32,000 and solves 71.25 / 31.75 / 3.70% of easy/medium/hard boards. Its optimizer and random state reset; see `EXPERIMENTS.md`. The independent remote E18 process survived and remains in progress.
+- E17 was killed with its terminal session at 15:05. Its step-30,000 weights survive; a separate weights-only continuation completed step 32,000 and solves 71.25 / 31.75 / 3.70% of easy/medium/hard boards. Its optimizer and random state reset; see `EXPERIMENTS.md`. The independent remote E18 process survived and completed 128,000 steps without a recovery reset; it solves 84.25 / 49.10 / 10.55%, below E15. Its legacy checkpoint contains inference weights rather than full resumable training state.
 
 ## Measured (see EXPERIMENTS.md, E1)
 

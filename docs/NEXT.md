@@ -13,7 +13,7 @@ This is the canonical roadmap for NCM-MLX. [STATUS](STATUS.md) describes impleme
 | Priority | Milestone | Current state | Dependency |
 |---|---|---|---|
 | P0 | Evaluation integrity | Batch coverage guard implemented; broader audit planned | Required for every new comparison |
-| P1 | Complete current Sudoku evidence | E17 recorded; E18 last recorded in progress; E19 not started | Inspect artifacts and recovery state; allocate compute before new runs |
+| P1 | Complete current Sudoku evidence | E17/E18 recorded; original E19 not started; budget-bound variant prepared | Inspect artifacts and recovery state; allocate compute before new runs |
 | P1 | Establish an upstream-checkpoint reference | Planned; checkpoints incompatible today | Independent conversion, format mapping and parity checks |
 | P1 | Establish a real-text baseline | Planned; no real-text quality validation today | Dataset rights, tokenizer/padding contract and matched budgets |
 | P2 | Measure fixed level budgets and Sudoku early exit | Planned; full hierarchy remains the only sampling policy | Evaluation integrity and full-depth per-board baseline |
@@ -39,7 +39,7 @@ Before new experiments:
 
 ### Finish the current training evidence
 
-1. Inspect E18's actual process and saved artifacts before deciding whether it completed or needs recovery. Read [RECOVERY](RECOVERY.md) before interruption or continuation. Preserve E17's optimizer/random-state reset qualification.
+1. E18 is complete and recorded: 84.25 / 49.10 / 10.55% on easy/medium/hard. Preserve its negative comparison with E14 and E17's optimizer/random-state reset qualification. Read [RECOVERY](RECOVERY.md) before any future interruption or continuation.
 2. Evaluate completed checkpoints on all 2,000 boards per upstream difficulty using fixed sampling settings. Record steps, effective sequence exposure, wall time, hardware and contention.
 3. Start E19 only after allocating suitable compute. Its prepared config is not evidence that a run occurred. Use full-state checkpoints, orchestration independent of a terminal and external snapshots.
 4. Add paired per-board comparisons and multiple training seeds. Run an AR comparison matched to E15's budget before describing E15 as an equal-budget advantage.

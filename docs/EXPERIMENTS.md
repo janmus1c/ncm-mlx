@@ -7,7 +7,27 @@ status: current
 
 Every measured run, newest first. Unless a run specifies another device, hardware is Apple M5 Pro, 64 GB, macOS 26.5, MLX 0.32.3, Python 3.12.14. Raw JSON is written to `runs/` (gitignored); the numbers below are copied from it.
 
-**GPU contention.** Other local GPU services stayed running during all runs. `ioreg` reported 15% GPU utilisation from other processes just before the v0 benchmark started. Treat latency numbers as "typical busy desktop" rather than an idle machine.
+**GPU contention.** Mac experiments generally ran alongside other local GPU services; per-run notes record exceptions and other hardware. `ioreg` reported 15% GPU utilisation from other processes just before the v0 benchmark started. Treat those latency numbers as "typical busy desktop" rather than an idle machine.
+
+## E18 — stronger corruption on the base dataset
+
+**Recipe.** `configs/sudoku-e18.json`: E14's 200,000 base training puzzles and 128,000 updates × batch 64 = 8.192M sequence exposures, with corruption changed from 0.30 → 0.05 to 0.50 → 0.10. The 6,440,128-value generator uses the frozen E6 codec (13,915,200 saved values including EMA state). No extra unique-puzzle corpus is added. NVIDIA RTX 3080 12 GB, MLX 0.32.3, Python 3.12.15, compiled generator training and uncompiled sampling.
+
+**Completion and recovery.** The uninterrupted generator completed step 128,000; its best-validation checkpoint is also step 128,000, weighted CE 0.1750. Training-loop time was 23,366.69 s. The launcher recorded 11:38:47 CEST on 2026-10-24; the completed artifacts were copied and hash-verified at 18:12:07 CEST, 23,600 s later including watcher polling and transfer. This run used the older weights-only checkpoint implementation; no optimizer reset occurred during the run, but its saved inference weights are not full resumable training state. The remote job survived the earlier local terminal closure.
+
+**Evaluation.** Greedy generation, temperature 0, one pass over 1,000 local validation boards and all 2,000 upstream boards per difficulty. These are single-run point estimates. Full-depth codec reconstruction on validation remains 100%; it is a separate measurement from solving generated boards.
+
+| | Val | Upstream easy | Upstream medium | Upstream hard |
+|---|---|---|---|---|
+| Solved, E18 | 55.80% | 84.25% | 49.10% | 10.55% |
+| Blank-cell accuracy, E18 | 81.22% | 97.50% | 90.62% | 76.70% |
+| Givens preserved, E18 | 99.20% | 99.80% | 99.65% | 98.55% |
+| Solved, E14 | 55.40% | 87.40% | 53.40% | 11.20% |
+| Solved, E15 | 69.50% | 96.25% | 76.65% | 31.90% |
+
+**Reading.** Stronger corruption alone did not improve transfer over E14 at this budget. E15, using the same stronger corruption and sequence budget plus 4M unique training puzzles, remains ahead by 12.00 / 27.55 / 21.35 percentage points on easy/medium/hard. This supports further dataset-coverage experiments; a single seed and these comparisons do not establish a general causal effect or a matched-budget advantage over the original paper.
+
+**Timing and contention.** Synchronized generation p50 at batches 1 / 16 / 64 / 256 was 15.952 / 44.537 / 153.800 / 524.874 ms, with 20 timed iterations, 3 warmups and 12 generator forwards per sample batch. The executed CLI used the benchmark function's default temperature 1.0, verified from its original code; the older result JSON does not record that setting. Timing ends with a host copy. The coding-model service stayed stopped until training, evaluation and benchmarking were inactive; 100% GPU utilisation was observed while the benchmark was active; this does not reconstruct a pre-run idle reading. An exact pre-run contention measurement was not retained, so these are not certified idle-machine measurements. Raw artifacts: `runs/sudoku-e18-{train.log,eval.json,bench.json}` and `artifacts/sudoku-e18/`.
 
 ## E17 — interrupted Mac run and weights-only recovery
 
@@ -39,7 +59,7 @@ Every measured run, newest first. Unless a run specifies another device, hardwar
 | **Solved, E15** | **69.5%** | **96.2%** | **76.6%** | **31.9%** |
 | Solved, E14 | 55.4% | 87.4% | 53.4% | 11.2% |
 
-**Reading.** Within 3.3 points of the paper on easy (99.5%) with a model a quarter of the size and about a sixth of the training data; medium and hard still trail (paper 96.5 / 86.1%). It contradicts the reading of E16: at this scale, mixing greedy-unique puzzles with the base set does not hurt. E18 (E14 budget, stronger corruption, base data only) separates the effect of the data from that of the corruption.
+**Reading.** Within 3.3 points of the paper on easy (99.5%) with a model a quarter of the size and about a sixth of the training data; medium and hard still trail (paper 96.5 / 86.1%). It contradicts the reading of E16: at this scale, mixing greedy-unique puzzles with the base set does not hurt. E18 (E14 budget, stronger corruption, base data only) finished below E14; stronger corruption alone did not reproduce E15's improvement at this budget. See the E18 comparison above.
 
 ## E16 — Sudoku, fresh unique-solution puzzles instead of repetition (`configs/sudoku-e16.json`)
 

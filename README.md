@@ -149,7 +149,7 @@ Puzzle-conditioned models, scored on the paper's own published test boards (2,00
 
 The original AR baseline is close to the paper's AR row, a limited sanity check on the boards, scoring and conditioning path. The best NCM result (E15) remains below the paper, especially on hard boards. At the matched 2.05M-sequence budget, NCM E11 solves 55.2 / 18.1 / 1.6% against AR's 20.5 / 4.9 / 0.5%; the larger-budget E15 comparison is not budget-matched. Training data and conditioning corruption are the strongest levers measured so far. These parameter columns count generators; the Sudoku codec stores another 13.9M scalar values, including learned resampling layers and EMA state. See [parameter accounting and measurement limits](docs/benchmarks.md).
 
-**Interruption study (E17).** The completed weights-only continuation solves **71.25 / 31.75 / 3.70%**, close to E13. Its optimizer and random state reset after interruption, so it does not establish a benefit from its data construction. E18 is still in progress and contributes no quality result to this release. [Reproduction and uncertainty](docs/reproducibility.md) explain which comparisons can be repeated and what the numbers establish.
+**Interruption study (E17).** The completed weights-only continuation solves **71.25 / 31.75 / 3.70%**, close to E13. Its optimizer and random state reset after interruption, so it does not establish a benefit from its data construction. E18 subsequently completed at **84.25 / 49.10 / 10.55%**, below E15; stronger corruption alone did not improve the base-data comparison at this budget. [Reproduction and uncertainty](docs/reproducibility.md) explain which comparisons can be repeated and what the numbers establish.
 
 ## What is faithful to NCM and what is not
 
@@ -181,7 +181,7 @@ Full source-by-source map: [`docs/research/upstream-map.md`](docs/research/upstr
 
 The core implementation, toy comparison and full-state recovery are complete. Planned research tracks are:
 
-1. Finish and evaluate the longer E18 Sudoku run.
+1. Extend the completed Sudoku evidence with bounded training runs, multiple seeds and matched-budget AR comparisons.
 2. Compare against released upstream checkpoints using the same evaluator.
 3. Build a real-text workflow: training, visible coarse-to-fine samples, held-out benchmarks and a matched AR baseline, followed by conditional task examples and a local demo.
 4. Independently test level budgets, verified Sudoku early exit and prefix caching, preserving full-depth baselines and exactness checks.
