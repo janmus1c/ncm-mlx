@@ -130,7 +130,7 @@ nav#TOC { font-size: .9rem; border: 1px solid var(--rule); padding: .5rem 1rem; 
 <h1 class="title">Coarse-to-Fine Text Generation on a Laptop: A Native
 MLX Study of Next-Concept Modeling</h1>
 <p class="author">Jan Music</p>
-<p class="date">v0.8 · 2026-10-24</p>
+<p class="date">v0.9 · 2026-10-24</p>
 <div class="abstract">
 <div class="abstract-title">Abstract</div>
 <p>Next-concept modeling (NCM) writes a sequence the way a painter
@@ -171,6 +171,8 @@ experiment</a></li>
 <li><a href="#related-work" id="toc-related-work"><span class="toc-section-number">11</span> Related work</a></li>
 <li><a href="#conclusion" id="toc-conclusion"><span class="toc-section-number">12</span> Conclusion</a></li>
 <li><a href="#code-and-reproducibility" id="toc-code-and-reproducibility">Code and reproducibility</a></li>
+<li><a href="#ai-assistance" id="toc-ai-assistance">AI
+assistance</a></li>
 <li><a href="#references" id="toc-references">References</a></li>
 <li><a href="#appendix-a-hyperparameters" id="toc-appendix-a-hyperparameters">Appendix A: Hyperparameters</a></li>
 <li><a href="#appendix-b-environment" id="toc-appendix-b-environment">Appendix B: Environment</a></li>
@@ -178,7 +180,7 @@ experiment</a></li>
 </ul>
 </nav>
 <blockquote>
-<p><strong>Status.</strong> Working paper, version 0.8. Every number
+<p><strong>Status.</strong> Working paper, version 0.9. Every number
 here is copied from a run in the code repository (<code>runs/</code>,
 summarised in <code>paper/data/results.json</code>) or quoted from the
 cited paper and marked as quoted. Experiments still running are marked
@@ -199,9 +201,10 @@ each experiment (E0, E1, …) asked, what changed and what we learned.</p>
 word or a piece of a word) at a time. To write the 100th token it runs
 the whole model once, reads what it has written so far and picks the
 next token. A 100-token answer therefore needs 100 full runs of the
-model, one after the other. On a laptop each run must read every weight
-of the model from memory, so speed is limited by memory bandwidth, not
-by how fast the chip can calculate.</p>
+model, one after the other. At small batch sizes, autoregressive
+decoding often spends much of its time moving model weights from memory.
+The balance depends on the model, hardware, cache and implementation;
+these experiments measure latency, not memory-bandwidth utilisation.</p>
 <h2 data-number="2.2" id="how-next-concept-modeling-writes"><span class="header-section-number">2.2</span> How next-concept modeling
 writes</h2>
 <p>NCM <span class="citation" data-cites="ncm2026">(<a href="#ref-ncm2026" role="doc-biblioref">Kumbong et al. 2026</a>)</span>
@@ -1326,8 +1329,13 @@ uncertainty.</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/janmus1c/ncm-mlx <span class="kw">&amp;&amp;</span> <span class="bu">cd</span> ncm-mlx</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">mise</span> run setup                                     <span class="co"># Python 3.12, MLX, tests</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">scripts/run_experiment.sh</span> configs/sudoku-e6.json   <span class="co"># train, evaluate, benchmark</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="ex">.venv/bin/python</span> paper/make_figures.py             <span class="co"># rebuild data and figures</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="ex">.venv/bin/python</span> paper/make_figures.py <span class="at">--plot</span>      <span class="co"># rebuild figures from committed data</span></span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="ex">paper/build.sh</span>                                     <span class="co"># rebuild this paper</span></span></code></pre></div>
+<h1 class="unnumbered" id="ai-assistance">AI assistance</h1>
+<p>OpenAI Codex assisted with code, documentation and manuscript
+drafting and revision. It is not an author. This assistance does not
+constitute independent verification of the results or human review of
+the manuscript.</p>
 <h1 class="unnumbered" id="references">References</h1>
 <div id="refs" class="references csl-bib-body hanging-indent" role="list">
 <div id="ref-ss2015" class="csl-entry" role="listitem">
@@ -1423,8 +1431,8 @@ fine-level dropout 0.5.</caption>
 <td>128 wide, 2+2 blocks</td>
 <td>3,000 (1e-3)</td>
 <td>6 × 256</td>
-<td>4,000 (6e-4)</td>
-<td>EMA 0.95</td>
+<td>3,000 (6e-4)</td>
+<td>EMA 0.95; best step 1,500</td>
 </tr>
 <tr>
 <td>E4</td>
@@ -1478,6 +1486,105 @@ fine-level dropout 0.5.</caption>
 </tr>
 </tbody>
 </table>
+<p>Later Sudoku runs reuse the frozen E6 codec and its 12-level, 16-code
+hierarchy. All use an 81-cell prefix, eight attention heads, generator
+seed 0, AdamW with weight decay 0.01, a cosine learning-rate schedule
+and compiled generator training. Generator dropout is 0.1 at width 256
+and 0.2 at width 512; warmup is 200 steps at width 256 and 1,000 at
+width 512. The codec is additional to the generator sizes below.</p>
+<table>
+<caption>Later Sudoku generator settings. Steps are completed steps for
+the reported results; corruption gives the first and last replacement
+probabilities.</caption>
+<thead>
+<tr>
+<th>Run</th>
+<th>Generator</th>
+<th>Steps</th>
+<th>Batch</th>
+<th>Learning rate</th>
+<th>Corruption</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>E10</td>
+<td>8 × 512</td>
+<td>24,000</td>
+<td>64</td>
+<td>3e-4</td>
+<td>0.30 → 0.05</td>
+</tr>
+<tr>
+<td>E11</td>
+<td>8 × 256</td>
+<td>32,000</td>
+<td>64</td>
+<td>6e-4</td>
+<td>0.30 → 0.05</td>
+</tr>
+<tr>
+<td>E12</td>
+<td>8 × 512</td>
+<td>50,776</td>
+<td>64</td>
+<td>3e-4</td>
+<td>0.50 → 0.10</td>
+</tr>
+<tr>
+<td>E13</td>
+<td>8 × 256</td>
+<td>32,000</td>
+<td>64</td>
+<td>6e-4</td>
+<td>0.50 → 0.10</td>
+</tr>
+<tr>
+<td>E14</td>
+<td>8 × 256</td>
+<td>128,000</td>
+<td>64</td>
+<td>6e-4</td>
+<td>0.30 → 0.05</td>
+</tr>
+<tr>
+<td>E15</td>
+<td>8 × 256</td>
+<td>128,000</td>
+<td>64</td>
+<td>6e-4</td>
+<td>0.50 → 0.10</td>
+</tr>
+<tr>
+<td>E16</td>
+<td>8 × 256</td>
+<td>32,000</td>
+<td>64</td>
+<td>6e-4</td>
+<td>0.50 → 0.10</td>
+</tr>
+<tr>
+<td>E17</td>
+<td>8 × 256</td>
+<td>32,000</td>
+<td>64</td>
+<td>6e-4</td>
+<td>0.50 → 0.10</td>
+</tr>
+</tbody>
+</table>
+<p>The base data are 200,000 training puzzles and 1,000 validation
+puzzles, with split seed 0 and 28–45 givens. E15 adds one million
+greedy-unique puzzles for each seed 201–204; E16 adds one million for
+each seed 205–206. E17 adds the unique subset of one million
+random-removal candidates for each seed 101–104; its final 2,000 steps
+are a weights-only continuation with reset optimizer and random state
+(Section 6.5). E12’s recorded run completed 50,776 steps; the
+repository’s current E12 configuration specifies 200,000, so running
+that configuration unchanged does not reproduce the reported exposure.
+Full settings and checkpoint prerequisites are in the corresponding
+<code>configs/sudoku-e*.json</code> files and
+<code>docs/EXPERIMENTS.md</code>.</p>
 <h1 class="unnumbered" id="appendix-b-environment">Appendix B:
 Environment</h1>
 <p>Apple M5 Pro, 64 GB unified memory, macOS 26.5; MLX 0.32.3, NumPy,
@@ -1549,6 +1656,13 @@ qualification.</td>
 <td>Release audit: codec/system parameter accounting, budget and
 sampling qualifications, prior-art scope and simplified visual
 identity.</td>
+</tr>
+<tr>
+<td>0.9</td>
+<td>2026-10-24</td>
+<td>Submission preparation: public-data figure rebuild command,
+qualified memory-bandwidth discussion, later Sudoku settings and AI
+assistance disclosure.</td>
 </tr>
 </tbody>
 </table>

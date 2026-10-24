@@ -3,7 +3,7 @@ title: "Coarse-to-Fine Text Generation on a Laptop: A Native MLX Study of Next-C
 author:
   - name: Jan Music
     affiliation: Independent
-date: "v0.8 · 2026-10-24"
+date: "v0.9 · 2026-10-24"
 keywords: [coarse-to-fine generation, residual vector quantisation, parallel decoding, Apple Silicon, MLX]
 section-numbering: "1.1"
 lang: en-GB
@@ -13,7 +13,7 @@ bibliography: references.bib
 link-citations: true
 ---
 
-> **Status.** Working paper, version 0.8. Every number here is copied from a run in the code repository (`runs/`, summarised in `paper/data/results.json`) or quoted from the cited paper and marked as quoted. Experiments still running are marked *in progress* and never estimated. Appendix C lists the changes between versions.
+> **Status.** Working paper, version 0.9. Every number here is copied from a run in the code repository (`runs/`, summarised in `paper/data/results.json`) or quoted from the cited paper and marked as quoted. Experiments still running are marked *in progress* and never estimated. Appendix C lists the changes between versions.
 
 # Reading guide
 
@@ -23,7 +23,7 @@ This paper has two audiences. **If you are new to language models**, read Sectio
 
 ## How a chat model writes
 
-A chat model such as ChatGPT or Qwen writes one *token* (a word or a piece of a word) at a time. To write the 100th token it runs the whole model once, reads what it has written so far and picks the next token. A 100-token answer therefore needs 100 full runs of the model, one after the other. On a laptop each run must read every weight of the model from memory, so speed is limited by memory bandwidth, not by how fast the chip can calculate.
+A chat model such as ChatGPT or Qwen writes one *token* (a word or a piece of a word) at a time. To write the 100th token it runs the whole model once, reads what it has written so far and picks the next token. A 100-token answer therefore needs 100 full runs of the model, one after the other. At small batch sizes, autoregressive decoding often spends much of its time moving model weights from memory. The balance depends on the model, hardware, cache and implementation; these experiments measure latency, not memory-bandwidth utilisation.
 
 ## How next-concept modeling writes
 
@@ -332,9 +332,13 @@ Code, configurations and this paper: [github.com/janmus1c/ncm-mlx](https://githu
 git clone https://github.com/janmus1c/ncm-mlx && cd ncm-mlx
 mise run setup                                     # Python 3.12, MLX, tests
 scripts/run_experiment.sh configs/sudoku-e6.json   # train, evaluate, benchmark
-.venv/bin/python paper/make_figures.py             # rebuild data and figures
+.venv/bin/python paper/make_figures.py --plot      # rebuild figures from committed data
 paper/build.sh                                     # rebuild this paper
 ```
+
+# AI assistance {.unnumbered}
+
+OpenAI Codex assisted with code, documentation and manuscript drafting and revision. It is not an author. This assistance does not constitute independent verification of the results or human review of the manuscript.
 
 # References {.unnumbered}
 
@@ -347,12 +351,29 @@ paper/build.sh                                     # rebuild this paper
 
 | Run | Levels | Codes | Codec | Codec steps (lr) | Generator | Gen. steps (lr) | Other |
 |---|---|---|---|---|---|---|---|
-| E1 | 1,2,4,8,16,32 | 128 | 128 wide, 2+2 blocks | 3,000 (1e-3) | 6 × 256 | 4,000 (6e-4) | EMA 0.95 |
+| E1 | 1,2,4,8,16,32 | 128 | 128 wide, 2+2 blocks | 3,000 (1e-3) | 6 × 256 | 3,000 (6e-4) | EMA 0.95; best step 1,500 |
 | E4 | 1,3,9,27,54,81 | 32 | 2 encoder blocks | 3,000 (1e-3) | 8 × 256 | 5,000 (6e-4) | prefix 81 |
 | E5 | 1,2,4,6,9,13,18, 26,37,50,67,81 | 16 | lookup encoder, 1 decoder block, 256 wide | 3,000 (1e-3) | 8 × 256 | 4,000 (6e-4) | EMA 0.99 |
 | E6 | as E5 | 16 | E5 + learned level 0, GroupNorm(8), dropout 0.3 | 3,000 (2e-4) | 8 × 256 | 4,000 (6e-4) | |
 | E8 | as E5 | 16 | E6 codec | — | 8 × 256 | 4,000 (6e-4) | corruption 0.30 → 0.05, compiled |
 | E9 | as E5 | 16 | E6 codec | — | 8 × 256 | 4,000 (6e-4) | as E8, model-sampled |
+
+Later Sudoku runs reuse the frozen E6 codec and its 12-level, 16-code hierarchy. All use an 81-cell prefix, eight attention heads, generator seed 0, AdamW with weight decay 0.01, a cosine learning-rate schedule and compiled generator training. Generator dropout is 0.1 at width 256 and 0.2 at width 512; warmup is 200 steps at width 256 and 1,000 at width 512. The codec is additional to the generator sizes below.
+
+: Later Sudoku generator settings. Steps are completed steps for the reported results; corruption gives the first and last replacement probabilities.
+
+| Run | Generator | Steps | Batch | Learning rate | Corruption |
+|---|---|---|---|---|---|
+| E10 | 8 × 512 | 24,000 | 64 | 3e-4 | 0.30 → 0.05 |
+| E11 | 8 × 256 | 32,000 | 64 | 6e-4 | 0.30 → 0.05 |
+| E12 | 8 × 512 | 50,776 | 64 | 3e-4 | 0.50 → 0.10 |
+| E13 | 8 × 256 | 32,000 | 64 | 6e-4 | 0.50 → 0.10 |
+| E14 | 8 × 256 | 128,000 | 64 | 6e-4 | 0.30 → 0.05 |
+| E15 | 8 × 256 | 128,000 | 64 | 6e-4 | 0.50 → 0.10 |
+| E16 | 8 × 256 | 32,000 | 64 | 6e-4 | 0.50 → 0.10 |
+| E17 | 8 × 256 | 32,000 | 64 | 6e-4 | 0.50 → 0.10 |
+
+The base data are 200,000 training puzzles and 1,000 validation puzzles, with split seed 0 and 28–45 givens. E15 adds one million greedy-unique puzzles for each seed 201–204; E16 adds one million for each seed 205–206. E17 adds the unique subset of one million random-removal candidates for each seed 101–104; its final 2,000 steps are a weights-only continuation with reset optimizer and random state (Section 6.5). E12's recorded run completed 50,776 steps; the repository's current E12 configuration specifies 200,000, so running that configuration unchanged does not reproduce the reported exposure. Full settings and checkpoint prerequisites are in the corresponding `configs/sudoku-e*.json` files and `docs/EXPERIMENTS.md`.
 
 # Appendix B: Environment {.unnumbered}
 
@@ -370,3 +391,4 @@ Apple M5 Pro, 64 GB unified memory, macOS 26.5; MLX 0.32.3, NumPy, Python 3.12.1
 | 0.6 | 2026-10-24 | E15 combines data, stronger corruption and unique puzzles: 96% of easy boards. Layout checks on every build. |
 | 0.7 | 2026-10-24 | Full-state pause/resume and recovery checks; E17's weights-only continuation solves 71.25% of easy boards, with the optimizer-reset qualification. |
 | 0.8 | 2026-10-24 | Release audit: codec/system parameter accounting, budget and sampling qualifications, prior-art scope and simplified visual identity. |
+| 0.9 | 2026-10-24 | Submission preparation: public-data figure rebuild command, qualified memory-bandwidth discussion, later Sudoku settings and AI assistance disclosure. |

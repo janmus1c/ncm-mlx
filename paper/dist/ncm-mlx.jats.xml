@@ -49,7 +49,7 @@ block-diagonal attention.</p>
 </front>
 <body>
 <disp-quote>
-  <p><bold>Status.</bold> Working paper, version 0.8. Every number here
+  <p><bold>Status.</bold> Working paper, version 0.9. Every number here
   is copied from a run in the code repository
   (<monospace>runs/</monospace>, summarised in
   <monospace>paper/data/results.json</monospace>) or quoted from the
@@ -76,10 +76,11 @@ block-diagonal attention.</p>
     <italic>token</italic> (a word or a piece of a word) at a time. To
     write the 100th token it runs the whole model once, reads what it
     has written so far and picks the next token. A 100-token answer
-    therefore needs 100 full runs of the model, one after the other. On
-    a laptop each run must read every weight of the model from memory,
-    so speed is limited by memory bandwidth, not by how fast the chip
-    can calculate.</p>
+    therefore needs 100 full runs of the model, one after the other. At
+    small batch sizes, autoregressive decoding often spends much of its
+    time moving model weights from memory. The balance depends on the
+    model, hardware, cache and implementation; these experiments measure
+    latency, not memory-bandwidth utilisation.</p>
   </sec>
   <sec id="how-next-concept-modeling-writes">
     <title>How next-concept modeling writes</title>
@@ -1506,8 +1507,15 @@ block-diagonal attention.</p>
   <code language="bash">git clone https://github.com/janmus1c/ncm-mlx &amp;&amp; cd ncm-mlx
 mise run setup                                     # Python 3.12, MLX, tests
 scripts/run_experiment.sh configs/sudoku-e6.json   # train, evaluate, benchmark
-.venv/bin/python paper/make_figures.py             # rebuild data and figures
+.venv/bin/python paper/make_figures.py --plot      # rebuild figures from committed data
 paper/build.sh                                     # rebuild this paper</code>
+</sec>
+<sec id="ai-assistance">
+  <title>AI assistance</title>
+  <p>OpenAI Codex assisted with code, documentation and manuscript
+  drafting and revision. It is not an author. This assistance does not
+  constitute independent verification of the results or human review of
+  the manuscript.</p>
 </sec>
 <sec id="appendix-a-hyperparameters">
   <title>Appendix A: Hyperparameters</title>
@@ -1551,8 +1559,8 @@ paper/build.sh                                     # rebuild this paper</code>
           <td>128 wide, 2+2 blocks</td>
           <td>3,000 (1e-3)</td>
           <td>6 × 256</td>
-          <td>4,000 (6e-4)</td>
-          <td>EMA 0.95</td>
+          <td>3,000 (6e-4)</td>
+          <td>EMA 0.95; best step 1,500</td>
         </tr>
         <tr>
           <td>E4</td>
@@ -1607,6 +1615,110 @@ paper/build.sh                                     # rebuild this paper</code>
       </tbody>
     </table>
   </table-wrap>
+  <p>Later Sudoku runs reuse the frozen E6 codec and its 12-level,
+  16-code hierarchy. All use an 81-cell prefix, eight attention heads,
+  generator seed 0, AdamW with weight decay 0.01, a cosine learning-rate
+  schedule and compiled generator training. Generator dropout is 0.1 at
+  width 256 and 0.2 at width 512; warmup is 200 steps at width 256 and
+  1,000 at width 512. The codec is additional to the generator sizes
+  below.</p>
+  <table-wrap>
+    <caption>
+      <p>Later Sudoku generator settings. Steps are completed steps for
+      the reported results; corruption gives the first and last
+      replacement probabilities.</p>
+    </caption>
+    <table>
+      <thead>
+        <tr>
+          <th>Run</th>
+          <th>Generator</th>
+          <th>Steps</th>
+          <th>Batch</th>
+          <th>Learning rate</th>
+          <th>Corruption</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>E10</td>
+          <td>8 × 512</td>
+          <td>24,000</td>
+          <td>64</td>
+          <td>3e-4</td>
+          <td>0.30 → 0.05</td>
+        </tr>
+        <tr>
+          <td>E11</td>
+          <td>8 × 256</td>
+          <td>32,000</td>
+          <td>64</td>
+          <td>6e-4</td>
+          <td>0.30 → 0.05</td>
+        </tr>
+        <tr>
+          <td>E12</td>
+          <td>8 × 512</td>
+          <td>50,776</td>
+          <td>64</td>
+          <td>3e-4</td>
+          <td>0.50 → 0.10</td>
+        </tr>
+        <tr>
+          <td>E13</td>
+          <td>8 × 256</td>
+          <td>32,000</td>
+          <td>64</td>
+          <td>6e-4</td>
+          <td>0.50 → 0.10</td>
+        </tr>
+        <tr>
+          <td>E14</td>
+          <td>8 × 256</td>
+          <td>128,000</td>
+          <td>64</td>
+          <td>6e-4</td>
+          <td>0.30 → 0.05</td>
+        </tr>
+        <tr>
+          <td>E15</td>
+          <td>8 × 256</td>
+          <td>128,000</td>
+          <td>64</td>
+          <td>6e-4</td>
+          <td>0.50 → 0.10</td>
+        </tr>
+        <tr>
+          <td>E16</td>
+          <td>8 × 256</td>
+          <td>32,000</td>
+          <td>64</td>
+          <td>6e-4</td>
+          <td>0.50 → 0.10</td>
+        </tr>
+        <tr>
+          <td>E17</td>
+          <td>8 × 256</td>
+          <td>32,000</td>
+          <td>64</td>
+          <td>6e-4</td>
+          <td>0.50 → 0.10</td>
+        </tr>
+      </tbody>
+    </table>
+  </table-wrap>
+  <p>The base data are 200,000 training puzzles and 1,000 validation
+  puzzles, with split seed 0 and 28–45 givens. E15 adds one million
+  greedy-unique puzzles for each seed 201–204; E16 adds one million for
+  each seed 205–206. E17 adds the unique subset of one million
+  random-removal candidates for each seed 101–104; its final 2,000 steps
+  are a weights-only continuation with reset optimizer and random state
+  (Section 6.5). E12’s recorded run completed 50,776 steps; the
+  repository’s current E12 configuration specifies 200,000, so running
+  that configuration unchanged does not reproduce the reported exposure.
+  Full settings and checkpoint prerequisites are in the corresponding
+  <monospace>configs/sudoku-e*.json</monospace> files and
+  <monospace>docs/EXPERIMENTS.md</monospace>.</p>
 </sec>
 <sec id="appendix-b-environment">
   <title>Appendix B: Environment</title>
@@ -1682,6 +1794,13 @@ paper/build.sh                                     # rebuild this paper</code>
           <td>Release audit: codec/system parameter accounting, budget
           and sampling qualifications, prior-art scope and simplified
           visual identity.</td>
+        </tr>
+        <tr>
+          <td>0.9</td>
+          <td>2026-10-24</td>
+          <td>Submission preparation: public-data figure rebuild
+          command, qualified memory-bandwidth discussion, later Sudoku
+          settings and AI assistance disclosure.</td>
         </tr>
       </tbody>
     </table>

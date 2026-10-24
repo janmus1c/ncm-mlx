@@ -22,6 +22,8 @@ This is an optional navigation file following the llms.txt proposal, not a unive
 - [Citation](https://github.com/janmus1c/ncm-mlx/blob/main/CITATION.cff): software citation metadata and upstream attribution.
 
 - [Working paper](https://github.com/janmus1c/ncm-mlx/blob/main/docs/paper.md): manuscript, figure data and downloadable editions.
+- [Software DOI](https://doi.org/10.5281/zenodo.23620792): archived software version 0.1.0.
+- [Paper DOI](https://doi.org/10.5281/zenodo.23620914): unreviewed working paper version 0.9.
 
 ## Original method
 

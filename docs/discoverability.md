@@ -42,4 +42,4 @@ uv run python scripts/validate_repository.py
 uv run --group docs mkdocs build --strict
 ```
 
-GitHub Actions rebuilds the site from `main`. Keep source Markdown authoritative and fix broken links before publishing. DOI archival and independently reviewed model cards are useful future research milestones; external posts, artificial links and promotional campaigns are not part of this maintenance process.
+GitHub Actions rebuilds the site from `main`. Keep source Markdown authoritative and fix broken links before publishing. Preserve the separate [software and paper DOI records](releases.md) when adding new versions; DOI registration does not establish peer review. Independently reviewed model cards remain a possible future milestone. External posts and promotional campaigns are separate from documentation maintenance.

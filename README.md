@@ -238,4 +238,6 @@ The method is from **Hermann Kumbong, Ishan S. Khare, Iddah Mlauzi, Andrew Woen,
 }
 ```
 
+Cite this implementation using the [archived software v0.1.0](https://doi.org/10.5281/zenodo.23620792). The companion [working paper v0.9](https://doi.org/10.5281/zenodo.23620914) reports the experiments and limitations; it has not been peer reviewed.
+
 This repository: MIT licence, see [`LICENSE`](LICENSE), [`THIRD_PARTY.md`](THIRD_PARTY.md) and [`CITATION.cff`](CITATION.cff). No model weights or downloaded evaluation data are redistributed in the source release. To contribute or reproduce an experiment, start with [`CONTRIBUTING.md`](CONTRIBUTING.md). The [capability overview](docs/capabilities.md), [`AGENTS.md`](AGENTS.md) and [`llms.txt`](llms.txt) provide concise entry points for automated tools.

@@ -1,6 +1,6 @@
 # Paper
 
-A working paper on this implementation, written to become a proper PDF.
+An unreviewed working paper on this independent implementation. Version 0.9 records the tested scope, experimental limitations and use of OpenAI Codex for code, documentation and manuscript drafting and revision.
 
 | File | What it is |
 |---|---|
@@ -16,8 +16,8 @@ A working paper on this implementation, written to become a proper PDF.
 
 ```bash
 uv sync --group paper
-.venv/bin/python paper/make_figures.py          # from runs/
-.venv/bin/python paper/make_figures.py --plot   # from data/results.json only
+.venv/bin/python paper/make_figures.py          # collect local measured runs (requires runs/)
+.venv/bin/python paper/make_figures.py --plot   # fresh checkout: committed data/results.json only
 ```
 
 ## Build the editions
@@ -34,7 +34,7 @@ paper/build.sh pdf html     # selected editions: pdf html epub tex jats docx
 | `ncm-mlx.pdf` | Reading and printing; NeurIPS-style layout. |
 | `ncm-mlx.html` | One self-contained web page with MathML maths; follows light and dark mode. |
 | `ncm-mlx.epub` | E-readers (Apple Books, Kobo, Calibre). |
-| `ncm-mlx.tex` | Starting point for an arXiv or journal LaTeX submission. |
+| `ncm-mlx.tex` | LaTeX source for submission preparation; compile and inspect it separately from the Typst PDF. |
 | `ncm-mlx.jats.xml` | JATS archiving XML, the format journal archives such as PubMed Central ingest. |
 | `ncm-mlx.docx` | Word, for reviewers who comment in Word. |
 
@@ -43,3 +43,5 @@ paper/build.sh pdf html     # selected editions: pdf html epub tex jats docx
 - Every number comes from a run in this repository or is quoted from a cited paper and labelled as such.
 - Experiments that have not finished are marked *in progress*, never estimated.
 - Negative results stay in.
+
+The PDF edition uses Typst. The LaTeX export includes its formatted bibliography and references PDF figures in `figures/`; upload only the main TeX source, referenced figures and required license notices after a separate compilation check. A local build is not evidence of arXiv acceptance or independent human review.

@@ -21,7 +21,11 @@ The release tag fixes the software revision. [GitHub releases](https://github.co
 
 The underlying method is [Next-Concept Modeling: Fast, Parallel Coarse-to-Fine Text Generation](https://arxiv.org/abs/2610.14162), with [reference code](https://github.com/HazyResearch/ncm). NCM-MLX is an independent implementation, not an upstream release. Software metadata is in [CITATION.cff](https://github.com/janmus1c/ncm-mlx/blob/main/CITATION.cff); the source license is MIT.
 
-A Zenodo DOI would provide an archived software citation. It requires an authorized Zenodo account and repository integration; no DOI is claimed here. [GitHub documents that integration](https://docs.github.com/en/repositories/archiving-a-github-repository/referencing-and-citing-content). No Hugging Face checkpoint upload is included: model cards and dataset provenance need review before separate artifact releases. PyPI publication is deferred while the repository installation and explicit CUDA setup remain the supported developer workflow.
+Software version 0.1.0 is archived on Zenodo with DOI [10.5281/zenodo.23620792](https://doi.org/10.5281/zenodo.23620792). Its source ZIP matches the released commit `f2516a90e3d3ffac493ded861bfb7350cf611031`; the anonymous archive download was checked byte for byte. This is a manually reviewed deposit; automatic GitHub-to-Zenodo integration is not enabled.
+
+The separate [working paper v0.9](https://doi.org/10.5281/zenodo.23620914) has its own preprint DOI and [paper release](https://github.com/janmus1c/ncm-mlx/releases/tag/paper-v0.9). It corrects reproduction instructions and experimental settings and adds an AI-assistance disclosure. The paper is not peer reviewed, and this DOI is not an arXiv identifier. The original software tag and its v0.8 paper assets remain unchanged.
+
+No Hugging Face checkpoint upload is included: model cards and dataset provenance need review before separate artifact releases. PyPI publication is deferred while the repository installation and explicit CUDA setup remain the supported developer workflow.
 
 ## Maintaining useful documentation
 

@@ -6,7 +6,7 @@ description: Read the NCM-MLX working paper, its experimental evidence, version 
 # Working paper
 
 **Coarse-to-Fine Text Generation on a Laptop: A Native MLX Study of Next-Concept Modeling**<br>
-Jan Music · Working paper v0.8 · 2026-10-24
+Jan Music · Working paper v0.9 · 2026-10-24 · [DOI: 10.5281/zenodo.23620914](https://doi.org/10.5281/zenodo.23620914)
 
 ## Abstract
 
@@ -25,7 +25,7 @@ Next-concept modeling (NCM) writes a sequence the way a painter works: a rough s
 | [LaTeX](../paper/dist/ncm-mlx.tex) | Starting point for a submission, rather than a publisher-ready template |
 | [JATS XML](../paper/dist/ncm-mlx.jats.xml) | Structured scholarly archiving |
 
-Version 0.8 adds parameter accounting, training-budget qualifications and a simplified visual identity. This is an unreviewed working paper.
+Version 0.9 corrects the public-data reproduction command, qualifies the memory-bandwidth discussion, expands later experiment settings and discloses OpenAI Codex assistance with code, documentation and manuscript drafting and revision. This is an unreviewed working paper. The [Zenodo record](https://doi.org/10.5281/zenodo.23620914) archives the checked PDF; [paper releases](https://github.com/janmus1c/ncm-mlx/releases/tag/paper-v0.9) preserve all six editions.
 
 The [Markdown manuscript](../paper/manuscript.md), [references](../paper/references.bib) and [figure data](../paper/data/results.json) are committed with the editions. The [build guide](../paper/README.md) explains how to rebuild them without private run logs. The manuscript's version history records substantive changes; it is separate from the software release version.
 
@@ -38,7 +38,8 @@ For the method, cite [Kumbong et al., *Next-Concept Modeling*](https://arxiv.org
   author = {Jan Music},
   title = {Coarse-to-Fine Text Generation on a Laptop: A Native MLX Study of Next-Concept Modeling},
   year = {2026},
-  note = {Working paper, version 0.8},
-  url = {https://janmus1c.github.io/ncm-mlx/paper/}
+  note = {Unreviewed working paper, version 0.9},
+  doi = {10.5281/zenodo.23620914},
+  url = {https://doi.org/10.5281/zenodo.23620914}
 }
 ```
