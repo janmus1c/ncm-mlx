@@ -27,7 +27,9 @@ The static site makes architecture, benchmark methodology and reproduction instr
 
 After a release, verify the repository, README, tag, documentation, `CITATION.cff`, `llms.txt` and sitemap without authentication. Confirm the archive remains private through authenticated settings. Check representative GitHub repository queries and ordinary web search, recording date, query and actual outcome. A newly public repository may not appear immediately; an empty query result is not proof of a technical fault or a complete view of the index. Do not repeatedly rewrite metadata in response to indexing delay.
 
-The 2026-10-24 preparation audit verified metadata through authenticated readback while the repository was private. Anonymous-access and search observations are recorded in the release completion report after publication. No indexing or ranking claim follows from that configuration check. No Search Console or Bing Webmaster account was connected for this release, so no authenticated sitemap submission is claimed. The sitemap is available for crawlers at the documentation site's `sitemap.xml`.
+The 2026-10-24 release audit verified the public repository, release assets, documentation, citation metadata and sitemap without authentication. The hosted paper PDF matches the release artifact byte for byte. These access checks do not establish search indexing or ranking. No Search Console or Bing Webmaster account was connected for this release, so no authenticated sitemap submission is claimed. The sitemap is available for crawlers at the documentation site's `sitemap.xml`.
+
+The site hosts an intentionally public [IndexNow verification file](94c0ef299fab36d9ba294777a258e3a5.txt), scoped to this project's documentation prefix through `keyLocation`. It permits accountless notifications of new or changed project pages to participating search engines. An accepted notification establishes receipt, not indexing; see the [IndexNow protocol](https://www.indexnow.org/documentation). Submission receipts and subsequent search observations belong in the release record.
 
 ## Minimal maintenance
 
