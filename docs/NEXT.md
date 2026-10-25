@@ -13,7 +13,7 @@ This is the canonical roadmap for NCM-MLX. [STATUS](STATUS.md) describes impleme
 | Priority | Milestone | Current state | Dependency |
 |---|---|---|---|
 | P0 | Evaluation integrity | Batch coverage guard implemented; broader audit planned | Required for every new comparison |
-| P1 | Complete current Sudoku evidence | E18 and both E19 runs completed; E20 seed replication in progress | Publish the combined evidence; verify the next seed within its allocation |
+| P1 | Complete current Sudoku evidence | E18 and both E19 runs completed; E20 seed replication in progress | Combined working paper v0.10 published; verify the next seed within its allocation |
 | P1 | Establish an upstream-checkpoint reference | Planned; checkpoints incompatible today | Independent conversion, format mapping and parity checks |
 | P1 | Establish a real-text baseline | Planned; no real-text quality validation today | Dataset rights, tokenizer/padding contract and matched budgets |
 | P2 | Measure fixed level budgets and Sudoku early exit | Planned; full hierarchy remains the only sampling policy | Evaluation integrity and full-depth per-board baseline |
@@ -41,7 +41,7 @@ Before new experiments:
 
 1. E18 is complete and recorded: 84.25 / 49.10 / 10.55% on easy/medium/hard. Preserve its negative comparison with E14 and E17's optimizer/random-state reset qualification. Read [RECOVERY](RECOVERY.md) before any future interruption or continuation.
 2. Evaluate completed checkpoints on all 2,000 boards per upstream difficulty using fixed sampling settings. Record steps, effective sequence exposure, wall time, hardware and contention.
-3. E19-budget and E19-funded are complete. Preserve all snapshots and held-out results: the pilot scores 90.20 / 59.75 / 16.55%; the funded run scores 98.10 / 83.40 / 40.30% at twice E15's exposure. Publish the combined E18/E19 working-paper update, retaining setup failures and budget differences. E20 is a fresh seed 1 replication of the funded recipe with explicit operational caps. The original million-step E19 recipe remains unstarted.
+3. E19-budget and E19-funded are complete. Preserve all snapshots and held-out results: the pilot scores 90.20 / 59.75 / 16.55%; the funded run scores 98.10 / 83.40 / 40.30% at twice E15's exposure. The [combined E18/E19 working paper v0.10](https://doi.org/10.5281/zenodo.23640777) is published, retaining setup failures and budget differences. E20 is a fresh seed 1 replication of the funded recipe with explicit operational caps. The original million-step E19 recipe remains unstarted.
 4. Add paired per-board comparisons and multiple training seeds. Run an AR comparison matched to E15's budget before describing E15 as an equal-budget advantage.
 
 **Completion gate:** final checkpoint identities and held-out outcomes are recorded, uncertainty and training-budget differences remain visible, and a separate reproduction can recover the scoring inputs. Width-512 and model-sampled corruption are already tested in E10/E12 and E9; do not repeat them as untested ideas.
