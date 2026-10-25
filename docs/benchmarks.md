@@ -18,10 +18,13 @@ Sudoku generation is conditioned on the puzzle cells. Greedy decoding (`temperat
 | Experiment | Easy solved | Medium solved | Hard solved | Generator presentations |
 |---|---:|---:|---:|---:|
 | E13 | 70.85% | 31.25% | 4.05% | 2,048,000 |
-| E15, best verified | 96.25% | 76.65% | 31.90% | 8,192,000 |
+| E15, previous best | 96.25% | 76.65% | 31.90% | 8,192,000 |
 | E17, recovered | 71.25% | 31.75% | 3.70% | 2,048,000 intended; weights-only recovery |
 | E18 | 84.25% | 49.10% | 10.55% | 8,192,000 |
 | E19-budget pilot | 90.20% | 59.75% | 16.55% | 3,058,560 |
+| E19-funded, best completed | 98.10% | 83.40% | 40.30% | 16,384,000 |
+
+The [E19 report](research/e19-funded-report.md) records the full completion, confidence intervals and synchronized A40 timings. Its doubled E15 exposure is not an equal-budget comparison.
 
 These percentages retain the precision of the evaluation artifacts; historical summaries sometimes use one decimal place. E17 restored step-30,000 weights and performed 2,000 further steps with fresh optimizer moments and random state. Its uncheckpointed work before interruption is unknown. It does not establish an improvement over E13 or a controlled effect of puzzle construction. See [recovery qualifications](RECOVERY.md#legacy-weights-only-recovery-e17).
 

@@ -1,7 +1,7 @@
 ---
 title: Status
 status: current
-updated: 2026-10-24
+updated: 2026-10-25
 ---
 
 # Status
@@ -31,9 +31,9 @@ updated: 2026-10-24
 
 All numbers are for 5M-parameter toy models on a synthetic language, on a desktop with other GPU services running.
 
-**Sudoku (E4–E16).** Best NCM (E15: stronger conditioning corruption, unique puzzles, 8.2M training sequences): 96.2 / 76.6 / 31.9% solved on the upstream easy/medium/hard sets (paper: 99.5 / 96.5 / 86.1% with a 4× larger model and 51M sequences). At E11's matched 2.05M-sequence budget, the same-size AR baseline reaches 20.5 / 4.9 / 0.5%, against NCM's 55.2 / 18.1 / 1.6%. Trains on Apple Silicon, NVIDIA (RTX 3080) and NVIDIA A40 GPUs.
+**Sudoku (historical E4–E16).** Previous best NCM (E15: stronger conditioning corruption, unique puzzles, 8.2M training sequences): 96.2 / 76.6 / 31.9% solved on the upstream easy/medium/hard sets (paper: 99.5 / 96.5 / 86.1% with a 4× larger model and 51M sequences). At E11's matched 2.05M-sequence budget, the same-size AR baseline reaches 20.5 / 4.9 / 0.5%, against NCM's 55.2 / 18.1 / 1.6%. Trains on Apple Silicon, NVIDIA (RTX 3080) and NVIDIA A40 GPUs.
 
-The separate A40 E19-budget pilot completed 23,895 updates and solves **90.20 / 59.75 / 16.55%** on easy/medium/hard boards (2,000 each), below E15 with a smaller sequence budget. E19-funded targets a fresh generator, 128,000 updates at batch 128, with the same larger corpus. Its initial setup failed before training; a corrected attempt is prepared. Its 16.384M sequence budget is twice E15/E18's, so it will not be an equal-budget comparison. The original million-step E19 recipe remains unstarted. See [EXPERIMENTS](EXPERIMENTS.md).
+E19-funded is now the best completed local Sudoku run: **98.10 / 83.40 / 40.30%** on easy/medium/hard boards, n = 2,000 each, greedy generation. It completed 128,000 updates at batch 128 (16.384M presentations), twice E15/E18's exposure, so this is not an equal-budget advantage. The shorter E19-budget pilot completed 23,895 updates and scores 90.20/59.75/16.55%. E20, a fresh seed 1 replication of the funded recipe, is prepared. The original million-step E19 recipe remains unstarted. See the [completed report](research/e19-funded-report.md) and [experiment history](EXPERIMENTS.md).
 
 ## Not done
 
@@ -44,6 +44,6 @@ The separate A40 E19-budget pilot completed 23,895 updates and solves **90.20 / 
 
 ## Interpretation and reproduction
 
-The best E15 artifact records 96.25 / 76.65 / 31.90% solved; one-decimal historical summaries above retain their original rounding. All external Sudoku sets contain 2,000 boards. E15 has no matched-budget AR result, and its comparison with the original paper differs in generator size, data exposure and task setup. The common Sudoku codec contains 13,915,200 saved values including EMA state, in addition to the 6,440,128 generator values; “same size” in earlier comparisons refers to generator width/depth, not total system size.
+The historical E15 artifact records 96.25 / 76.65 / 31.90% solved; one-decimal historical summaries above retain their original rounding. All external Sudoku sets contain 2,000 boards. E15 has no matched-budget AR result, and its comparison with the original paper differs in generator size, data exposure and task setup. The common Sudoku codec contains 13,915,200 saved values including EMA state, in addition to the 6,440,128 generator values; “same size” in earlier comparisons refers to generator width/depth, not total system size.
 
 Start with [architecture](architecture.md), [training](training.md), [benchmarks](benchmarks.md) and the [upstream map](research/upstream-map.md). Current results do not establish open-domain text quality, production suitability, cross-backend bitwise identity or upstream checkpoint compatibility. Repository visibility and release availability are recorded in GitHub metadata rather than this scientific status page.

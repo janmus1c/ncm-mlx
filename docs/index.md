@@ -30,9 +30,9 @@ This is experimental research software for **TinyWorld synthetic text and Sudoku
 
 ## Measured results, with limits
 
-The best completed Sudoku experiment, E15, solves **96.2% easy, 76.6% medium and 31.9% hard** on 2,000 published test boards per difficulty. Its 6.4M-parameter generator uses a separate codec. The larger upstream model and its longer training budget remain ahead, particularly on hard puzzles. These figures are point estimates from one training run, not evidence of equal-budget parity with the original paper.
+The best completed Sudoku experiment, E19-funded, solves **98.10% easy, 83.40% medium and 40.30% hard** on 2,000 published test boards per difficulty. Its 6.4M-parameter generator uses a separate codec. The larger upstream model and its longer training budget remain ahead, particularly on hard puzzles. These figures are point estimates from one training run, not evidence of equal-budget parity with the original paper.
 
-E17's interrupted run was recovered for its remaining 2,000 updates and solves **71.25 / 31.75 / 3.70%**. The old checkpoint contained weights only; optimizer and random state reset. E18 later completed without a recovery reset and solves **84.25 / 49.10 / 10.55%**, below E15. Full measurements and qualifications live in the [experiment record](EXPERIMENTS.md).
+E17's interrupted run was recovered for its remaining 2,000 updates and solves **71.25 / 31.75 / 3.70%**. The old checkpoint contained weights only; optimizer and random state reset. E18 later completed without a recovery reset and solves **84.25 / 49.10 / 10.55%**, below E15. The E19 pilot and funded run are also complete; the funded result uses twice E15's exposure. Full measurements and qualifications live in the [completed report](research/e19-funded-report.md) and [experiment record](EXPERIMENTS.md).
 
 ## Source, paper and citation
 

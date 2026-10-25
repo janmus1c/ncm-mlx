@@ -139,7 +139,8 @@ Puzzle-conditioned models, scored on the paper's own published test boards (2,00
 
 | Model | Params | Training sequences | Easy (40 givens) | Medium (35) | Hard (30) |
 |---|---|---|---|---|---|
-| NCM, stronger corruption + unique puzzles (E15) | 6.4M | 8.2M | **96.2%** | **76.6%** | **31.9%** |
+| **NCM, larger corpus and schedule (E19-funded)** | 6.4M | 16.384M | **98.10%** | **83.40%** | **40.30%** |
+| NCM, stronger corruption + unique puzzles (E15) | 6.4M | 8.2M | 96.25% | 76.65% | 31.90% |
 | NCM, conditioning corruption (E14) | 6.4M | 8.2M | 87.4% | 53.4% | 11.2% |
 | AR, same width and depth (E11) | 6.3M | 2.05M | 20.5% | 4.9% | 0.5% |
 | AR, original baseline (E4) | 6.3M | 0.64M | 13.8% | 3.0% | 0.4% |
@@ -147,7 +148,7 @@ Puzzle-conditioned models, scored on the paper's own published test boards (2,00
 | AR greedy, paper | 25M | Not stated here | 14.6% | 5.1% | 1.0% |
 | **NCM, paper** | 25M | 51M | **99.5%** | **96.5%** | **86.1%** |
 
-The original AR baseline is close to the paper's AR row, a limited sanity check on the boards, scoring and conditioning path. The best NCM result (E15) remains below the paper, especially on hard boards. At the matched 2.05M-sequence budget, NCM E11 solves 55.2 / 18.1 / 1.6% against AR's 20.5 / 4.9 / 0.5%; the larger-budget E15 comparison is not budget-matched. Training data and conditioning corruption are the strongest levers measured so far. These parameter columns count generators; the Sudoku codec stores another 13.9M scalar values, including learned resampling layers and EMA state. See [parameter accounting and measurement limits](docs/benchmarks.md).
+The original AR baseline is close to the paper's AR row, a limited sanity check on the boards, scoring and conditioning path. The best local NCM result (E19-funded) remains below the paper, especially on hard boards. At the matched 2.05M-sequence budget, NCM E11 solves 55.2 / 18.1 / 1.6% against AR's 20.5 / 4.9 / 0.5%; the larger-budget E15 and E19-funded comparisons are not budget-matched. Training data and conditioning corruption are the strongest levers measured so far. These parameter columns count generators; the Sudoku codec stores another 13.9M scalar values, including learned resampling layers and EMA state. See [parameter accounting and measurement limits](docs/benchmarks.md).
 
 **Interruption study (E17).** The completed weights-only continuation solves **71.25 / 31.75 / 3.70%**, close to E13. Its optimizer and random state reset after interruption, so it does not establish a benefit from its data construction. E18 subsequently completed at **84.25 / 49.10 / 10.55%**, below E15; stronger corruption alone did not improve the base-data comparison at this budget. [Reproduction and uncertainty](docs/reproducibility.md) explain which comparisons can be repeated and what the numbers establish.
 
@@ -171,7 +172,7 @@ Full source-by-source map: [`docs/research/upstream-map.md`](docs/research/upstr
 
 - Synthetic language and Sudoku only; quality on real text is unknown.
 - Conditioning is a fixed-length token prefix only (Sudoku). No prompts of free text, so not useful for summarisation, translation or instructions yet.
-- Sudoku: 31.9% of hard boards solved in E15, against 86.1% in the paper, with different model size and training budget.
+- Sudoku: 40.30% of hard boards solved in E19-funded, against 86.1% in the paper, with different model size and training budget.
 - Weights are incompatible with the released NCM checkpoints.
 - Generator training can use `mx.compile`; neither inference sampler is compiled. The latency gap may change when both samplers are compiled.
 - On Metal, fp32 matmuls run at reduced precision (~1e-3 relative error, measured); exactness tests therefore run on the CPU device.
@@ -187,7 +188,7 @@ The core implementation, toy comparison and full-state recovery are complete. Pl
 4. Independently test level budgets, verified Sudoku early exit and prefix caching, preserving full-depth baselines and exactness checks.
 5. Compile both samplers and repeat synchronized timing comparisons.
 
-The completed A40 E19-budget pilot solves **90.20 / 59.75 / 16.55%** at 3.059M generator presentations, below E15's best result at 8.192M. A separately funded 128,000-update experiment is prepared; its first setup attempt failed before training and was cleaned up. The original million-step E19 recipe remains unstarted. [Experiment records](docs/EXPERIMENTS.md) retain outcomes and budget differences. New training is separate from this source release.
+The completed **E19-funded** run is the new local best: **98.10 / 83.40 / 40.30%** solved on easy/medium/hard boards (2,000 each). It uses 16.384M generator presentations, twice E15's budget; it does not establish an equal-budget advantage. The short E19 pilot scores 90.20 / 59.75 / 16.55% at 3.059M presentations. [Full report and machine-readable results](docs/research/e19-funded-report.md) retain timings, checkpoint identity, uncertainty, failures and comparison limits. E20 is a separate seed replication; the original million-step recipe remains unstarted.
 
 Priorities, dependencies and completion criteria: [`docs/NEXT.md`](docs/NEXT.md). Current state: [`docs/STATUS.md`](docs/STATUS.md). Follow releases through the [research updates feed](https://janmus1c.github.io/ncm-mlx/feed.xml).
 
