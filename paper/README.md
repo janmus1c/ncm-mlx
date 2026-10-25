@@ -1,6 +1,6 @@
 # Paper
 
-An unreviewed working paper on this independent implementation. Version 0.9 records the tested scope, experimental limitations and use of OpenAI Codex for code, documentation and manuscript drafting and revision.
+An unreviewed working paper on this independent implementation. Version 0.10 records completed E18 and E19 results, actual training exposure, uncertainty and checkpoint provenance. It retains the experimental limitations and disclosure of OpenAI Codex assistance with code, documentation and manuscript drafting and revision.
 
 | File | What it is |
 |---|---|

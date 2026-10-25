@@ -38,6 +38,9 @@ SUDOKU_RUNS = {
     "E15": ("sudoku-e15-eval.json", "sudoku-e15-train.log", [1, 2, 4, 6, 9, 13, 18, 26, 37, 50, 67, 81]),
     "E16": ("sudoku-e16-eval.json", "sudoku-e16-train.log", [1, 2, 4, 6, 9, 13, 18, 26, 37, 50, 67, 81]),
     "E17 recovery": ("sudoku-e17-recovery-eval.json", "sudoku-e17-recovery-train.log", [1, 2, 4, 6, 9, 13, 18, 26, 37, 50, 67, 81]),
+    "E18": ("sudoku-e18-eval.json", "sudoku-e18-train.log", [1, 2, 4, 6, 9, 13, 18, 26, 37, 50, 67, 81]),
+    "E19 pilot": ("sudoku-e19-budget-eval.json", "sudoku-e19-budget-train.log", [1, 2, 4, 6, 9, 13, 18, 26, 37, 50, 67, 81]),
+    "E19 funded": ("sudoku-e19-funded-eval.json", "sudoku-e19-funded-train.log", [1, 2, 4, 6, 9, 13, 18, 26, 37, 50, 67, 81]),
 }
 SETS = ["upstream-easy", "upstream-medium", "upstream-hard"]
 GEN_STEP = re.compile(r"gen step\s+(\d+)\s+loss ([\d.]+)\s+val ([\d.]+)")
@@ -53,7 +56,12 @@ def _bench(rows):
 
 
 def collect() -> dict:
-    out: dict = {"sudoku": {}, "latency": {}}
+    out: dict = {"sudoku": {}, "latency": {}, "comparison_labels": {
+        "local_ncm": "MLX implementation",
+        "local_ar": "MLX AR baseline",
+        "original_ncm": "Original NCM (Kumbong et al.)",
+        "paper_table3_source": "https://arxiv.org/html/2610.14162v1",
+    }}
     for name, (ev, log, levels) in SUDOKU_RUNS.items():
         d = _load(ev)
         if d is None:
@@ -70,6 +78,11 @@ def collect() -> dict:
             "scores": {s: d["sudoku"]["0.0"][s] for s in SETS + ["val"] if s in d["sudoku"]["0.0"]},
             "val_curve": curve,
         }
+        if name in {"E18", "E19 pilot", "E19 funded"}:
+            slug = ev.removesuffix("-eval.json")
+            completed = json.loads((ROOT / "docs/research/completed-sudoku-results.json").read_text())
+            evidence = completed["experiments"][slug]
+            out["sudoku"][name]["evidence"] = evidence
         meta_path = ROOT / "artifacts" / ev.removesuffix("-eval.json") / "generator.json"
         if meta_path.exists():
             meta = json.loads(meta_path.read_text())
@@ -123,7 +136,10 @@ def _save(fig, name: str) -> None:
     FIGS.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
     for ext in ("svg", "pdf", "png"):
-        fig.savefig(FIGS / f"{name}.{ext}", dpi=200)
+        path = FIGS / f"{name}.{ext}"
+        fig.savefig(path, dpi=200)
+        if ext == "svg":
+            path.write_text("\n".join(line.rstrip() for line in path.read_text().splitlines()) + "\n")
     plt.close(fig)
 
 
@@ -178,12 +194,12 @@ def fig_codec_refinement(data: dict) -> None:
 
 def fig_latency(data: dict) -> None:
     lat = data["latency"]
-    fig, axes = plt.subplots(1, 2, figsize=(6.4, 2.6), sharey=False)
-    panels = [("TinyWorld (32 chars)", [("tinyworld-ncm", "NCM, 6 levels", ACCENT, "-"),
-                                         ("tinyworld-ar", "AR + KV cache", WARM, "--")]),
-              ("Sudoku (81 cells)", [("sudoku-ncm-6", "NCM, 6 levels", MUTED, "-"),
-                                      ("sudoku-ncm-12", "NCM, 12 levels", ACCENT, "-"),
-                                      ("sudoku-ar", "AR + KV cache", WARM, "--")])]
+    fig, axes = plt.subplots(1, 2, figsize=(6.4, 2.9), sharey=False)
+    panels = [("TinyWorld (32 chars)", [("tinyworld-ncm", "MLX implementation, 6 levels", ACCENT, "-"),
+                                         ("tinyworld-ar", "MLX AR + KV cache", WARM, "--")]),
+              ("Sudoku (81 cells)", [("sudoku-ncm-6", "MLX implementation, 6 levels", MUTED, "-"),
+                                      ("sudoku-ncm-12", "MLX implementation, 12 levels", ACCENT, "-"),
+                                      ("sudoku-ar", "MLX AR + KV cache", WARM, "--")])]
     for ax, (title, series) in zip(axes, panels):
         for key, label, color, ls in series:
             if key not in lat:
@@ -230,6 +246,25 @@ def fig_sudoku_cells(data: dict) -> None:
     _save(fig, "sudoku-blank-cells")
 
 
+def fig_completed_sudoku(data: dict) -> None:
+    names = ["E15", "E18", "E19 pilot", "E19 funded"]
+    labels = ["E15\n8.192M", "E18\n8.192M", "Pilot\n3.059M", "Funded\n16.384M"]
+    colors = [ACCENT, "#6b7fa8", WARM]
+    fig, axes = plt.subplots(1, 3, figsize=(6.4, 2.8), sharey=True)
+    for ax, dataset, title, color in zip(axes, SETS, ("Easy", "Medium", "Hard"), colors):
+        values = [100 * data["sudoku"][name]["scores"][dataset]["solved"] for name in names]
+        ax.bar(range(4), values, color=["#b8c5bc"] * 3 + [color], width=0.65)
+        for i, value in enumerate(values):
+            ax.text(i, value + 2, f"{value:.2f}", ha="center", fontsize=6.5)
+        reference = data["paper_table3"]["NCM"][SETS.index(dataset)]
+        ax.axhline(reference, color=MUTED, ls="--", lw=0.8)
+        ax.set_title(title, fontsize=9)
+        ax.set_xticks(range(4), labels, fontsize=6.8)
+        ax.set_ylim(0, 112)
+    axes[0].set_ylabel("boards solved (%)")
+    _save(fig, "sudoku-completed-runs")
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--plot", action="store_true", help="skip collection and plot from data/results.json")
@@ -238,7 +273,8 @@ def main() -> int:
         DATA.parent.mkdir(parents=True, exist_ok=True)
         DATA.write_text(json.dumps(collect(), indent=1) + "\n")
     data = json.loads(DATA.read_text())
-    for fig in (fig_overview, fig_codec_refinement, fig_latency, fig_val_curves, fig_sudoku_cells):
+    for fig in (fig_overview, fig_codec_refinement, fig_latency, fig_val_curves, fig_sudoku_cells,
+                fig_completed_sudoku):
         fig(data)
     print(f"wrote {DATA.relative_to(ROOT)} and {len(list(FIGS.glob('*.svg')))} figures to {FIGS.relative_to(ROOT)}")
     return 0

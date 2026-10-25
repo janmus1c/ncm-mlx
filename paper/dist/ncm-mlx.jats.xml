@@ -33,10 +33,13 @@ and study it on an Apple M5 Pro laptop and single NVIDIA GPUs. On a
 synthetic 15,360-sentence language, a 5M-parameter NCM generator is
 faster than a character-level autoregressive (AR) model of similar
 generator size at small batches but less accurate (89.8% vs 98.6% valid
-sentences). On the published Sudoku boards, NCM with conditioning
-corruption and unique-solution puzzles solves 96.25% of easy, 76.65% of
-medium and 31.90% of hard boards after 8.192M generator presentations.
-The original reports 99.5%, 96.5% and 86.1% with a roughly 4× larger
+sentences). On the published Sudoku boards, the MLX implementation with
+conditioning corruption and unique-solution puzzles solves 98.10% of
+easy, 83.40% of medium and 40.30% of hard boards after 16.384M generator
+presentations. This single-seed result improves on 96.25%, 76.65% and
+31.90% at half that exposure; corpus, batch and schedule also differ, so
+the comparison does not isolate a causal effect. Original NCM (Kumbong
+et al.) reports 99.5%, 96.5% and 86.1% with a roughly 4× larger
 generator and 51.2M presentations; this is an unmatched comparison. A
 separate 2.048M-presentation comparison favors NCM over the AR baseline,
 but excludes NCM’s additional codec training cost. We trace the effects
@@ -49,7 +52,7 @@ block-diagonal attention.</p>
 </front>
 <body>
 <disp-quote>
-  <p><bold>Status.</bold> Working paper, version 0.9. Every number here
+  <p><bold>Status.</bold> Working paper, version 0.10. Every number here
   is copied from a run in the code repository
   (<monospace>runs/</monospace>, summarised in
   <monospace>paper/data/results.json</monospace>) or quoted from the
@@ -147,7 +150,7 @@ block-diagonal attention.</p>
     Sudoku puzzles (the original paper’s showcase), and compared it with
     a character-level AR model of similar generator size and with a
     large chat model. The speed advantage holds on a laptop. On Sudoku
-    our best model solves 96% of easy boards (the original: 99.5%) and
+    our best model solves 98% of easy boards (the original: 99.5%) and
     beats the smaller-budget AR reference; a separate comparison matches
     generator presentations; Section 8 tells how we got there.</p>
   </sec>
@@ -780,8 +783,8 @@ block-diagonal attention.</p>
         <thead>
           <tr>
             <th>Component</th>
-            <th>Upstream</th>
-            <th>This work</th>
+            <th>Original NCM (Kumbong et al.)</th>
+            <th>MLX implementation</th>
           </tr>
         </thead>
         <tbody>
@@ -942,8 +945,8 @@ block-diagonal attention.</p>
   <disp-quote>
     <p><bold>In short.</bold> On a small invented language NCM is faster
     and somewhat less accurate than an AR model with similar generator
-    size. On Sudoku our AR result is near the paper’s AR reference; our
-    NCM does not match the paper’s NCM result.</p>
+    size. On Sudoku our AR result is near the Original AR baseline; our
+    NCM does not match Original NCM’s reported result.</p>
   </disp-quote>
   <p>Runs use an Apple M5 Pro (64 GB unified memory, macOS 26.5), an RTX
   3080 or a rented A40, as labelled for each experiment, with MLX
@@ -977,8 +980,8 @@ block-diagonal attention.</p>
         <thead>
           <tr>
             <th></th>
-            <th>NCM</th>
-            <th>AR</th>
+            <th>MLX implementation</th>
+            <th>MLX AR baseline</th>
           </tr>
         </thead>
         <tbody>
@@ -1032,6 +1035,13 @@ block-diagonal attention.</p>
   </sec>
   <sec id="sudoku">
     <title>Sudoku</title>
+    <p><bold>Comparison labels.</bold> “MLX implementation” means the
+    independently trained NCM model in this repository. “Original NCM”
+    means Kumbong et al.’s published model and checkpoint results
+    (<xref alt="Kumbong et al. 2026" rid="ref-ncm2026" ref-type="bibr">Kumbong
+    et al. 2026</xref>). The “MLX AR baseline” is trained here; the
+    “Original AR baseline” is quoted from their study. The underlying
+    method is NCM in both implementations.</p>
     <p>Each board is 81 digits; the puzzle (blanks as 0) is the prefix
     and the solution is the target. Training uses 200,000 synthetic
     puzzles from randomised backtracking with 28–45 givens. Test sets
@@ -1067,56 +1077,77 @@ block-diagonal attention.</p>
         </thead>
         <tbody>
           <tr>
-            <td>NCM, this work, E4–E6</td>
+            <td>MLX implementation, E4–E6</td>
             <td>6.4M</td>
             <td>0.0%</td>
             <td>0.0%</td>
             <td>0.0%</td>
           </tr>
           <tr>
-            <td>NCM, this work, E8 (+ corruption)</td>
+            <td>MLX implementation, E8 (+ corruption)</td>
             <td>6.4M</td>
             <td>6.2%</td>
             <td>0.35%</td>
             <td>0.0%</td>
           </tr>
           <tr>
-            <td>NCM, this work, E11 (+ 4× data)</td>
+            <td>MLX implementation, E11 (+ 4× data)</td>
             <td>6.4M</td>
             <td>55.2%</td>
             <td>18.1%</td>
             <td>1.6%</td>
           </tr>
           <tr>
-            <td>NCM, this work, E13 (+ stronger corruption)</td>
+            <td>MLX implementation, E13 (+ stronger corruption)</td>
             <td>6.4M</td>
             <td>70.9%</td>
             <td>31.2%</td>
             <td>4.0%</td>
           </tr>
           <tr>
-            <td>NCM, this work, E14 (+ 16× data)</td>
+            <td>MLX implementation, E14 (+ 16× data)</td>
             <td>6.4M</td>
             <td>87.4%</td>
             <td>53.4%</td>
             <td>11.2%</td>
           </tr>
           <tr>
-            <td><bold>NCM, this work, E15 (all levers)</bold></td>
+            <td>MLX implementation, E15</td>
             <td>6.4M</td>
-            <td><bold>96.2%</bold></td>
-            <td><bold>76.6%</bold></td>
-            <td><bold>31.9%</bold></td>
+            <td>96.25%</td>
+            <td>76.65%</td>
+            <td>31.90%</td>
           </tr>
           <tr>
-            <td>AR, this work</td>
+            <td>MLX implementation, E18 (base data)</td>
+            <td>6.4M</td>
+            <td>84.25%</td>
+            <td>49.10%</td>
+            <td>10.55%</td>
+          </tr>
+          <tr>
+            <td>MLX implementation, E19 pilot</td>
+            <td>6.4M</td>
+            <td>90.20%</td>
+            <td>59.75%</td>
+            <td>16.55%</td>
+          </tr>
+          <tr>
+            <td><bold>MLX implementation, E19 funded</bold></td>
+            <td>6.4M</td>
+            <td><bold>98.10%</bold></td>
+            <td><bold>83.40%</bold></td>
+            <td><bold>40.30%</bold></td>
+          </tr>
+          <tr>
+            <td>MLX AR baseline</td>
             <td>6.3M</td>
             <td>13.8%</td>
             <td>3.0%</td>
             <td>0.4%</td>
           </tr>
           <tr>
-            <td>AR, this work, E11’s budget (2M sequences)</td>
+            <td>MLX AR baseline, E11’s budget (2M sequences)</td>
             <td>6.3M</td>
             <td>20.5%</td>
             <td>4.9%</td>
@@ -1130,21 +1161,21 @@ block-diagonal attention.</p>
             <td>0%</td>
           </tr>
           <tr>
-            <td>AR greedy, paper</td>
+            <td>Original AR baseline (Kumbong et al.)</td>
             <td>25M</td>
             <td>14.6%</td>
             <td>5.1%</td>
             <td>1.0%</td>
           </tr>
           <tr>
-            <td>MDLM, paper</td>
+            <td>MDLM (reported by Kumbong et al.)</td>
             <td>29M</td>
             <td>92.0%</td>
             <td>77.1%</td>
             <td>30.2%</td>
           </tr>
           <tr>
-            <td>NCM, paper</td>
+            <td>Original NCM (Kumbong et al.)</td>
             <td>25M</td>
             <td>99.5%</td>
             <td>96.5%</td>
@@ -1153,24 +1184,24 @@ block-diagonal attention.</p>
         </tbody>
       </table>
     </table-wrap>
-    <p>The first AR row is within a few percentage points of the paper’s
-    AR reference, but this numerical proximity does not establish a
-    reproduction of its model or training recipe. Without conditioning
-    corruption (E4–E6) our NCM solves nothing; with it (E8) it solves
-    6.2% of easy boards and fills 74.7% of blank cells correctly, more
-    than the AR model’s 71.0%, while still solving fewer boards. E11
-    solves 55.2% of easy boards; at the same 2.048M generator
-    presentations, the AR model solves 20.5%, 4.9% and 0.5%. This
-    matches generator data exposure, not total training cost, FLOPs or
-    system size. Section 8 records the changes.</p>
+    <p>The first AR row is within a few percentage points of the
+    Original AR baseline, but this numerical proximity does not
+    establish a reproduction of its model or training recipe. Without
+    conditioning corruption (E4–E6) our NCM solves nothing; with it (E8)
+    it solves 6.2% of easy boards and fills 74.7% of blank cells
+    correctly, more than the AR model’s 71.0%, while still solving fewer
+    boards. E11 solves 55.2% of easy boards; at the same 2.048M
+    generator presentations, the AR model solves 20.5%, 4.9% and 0.5%.
+    This matches generator data exposure, not total training cost, FLOPs
+    or system size. Section 8 records the changes.</p>
     <p>The shared E6 codec contains 13,816,704 gradient-trained values,
     49,152 EMA-trained codebook values and 49,344 EMA accumulators:
     13,915,200 saved scalar values in total. Its learned first-level
     down/up convolutions account for 10,617,344 trainable values. The
     6,440,128 generator values are additional; generator-size
-    comparisons exclude the codec. For E15, the artifact retains 96.25 /
-    76.65 / 31.90%; the table preserves historical one-decimal
-    summaries. Each test set has 2,000 boards. Runs generally use one
+    comparisons exclude the codec. Older rows preserve historical
+    rounding; E15 and the newly completed runs retain their two-decimal
+    solved rates. Each test set has 2,000 boards. Runs generally use one
     training seed, and repeated sampling seeds do not quantify training
     variability.</p>
     <p>Historical synchronized timings use temperature 1.0 while Sudoku
@@ -1181,38 +1212,151 @@ block-diagonal attention.</p>
     includes the output host copy, prefix work and final decoder, and
     records shared-device contention; cross-hardware timing ratios are
     not controlled comparisons.</p>
-    <fig>
-      <caption><p>Cell accuracy when decoding from the first
+    <p><bold>Smaller-generator result.</bold> Easy-board accuracy is
+    within 1.40 percentage points of Original NCM (98.10% versus 99.50%)
+    with a 6.44M versus 25.46M generator: 3.95× smaller and 3.125× fewer
+    generator presentations. This is a useful small-model result, not
+    overall task parity: medium and hard remain 13.10 and 45.80 points
+    behind. The separate codec is excluded from this size ratio, and the
+    recipes and representation differ.</p>
+    <sec id="completed-e18-and-e19-experiments">
+      <title>Completed E18 and E19 experiments</title>
+      <p>E18 tests stronger corruption on the base 200,000-puzzle corpus
+      at E15’s 8.192M-presentation budget. Its 84.25 / 49.10 / 10.55%
+      solve rates remain below both E14 and E15. Stronger corruption is
+      therefore not a universal improvement, and this negative result
+      remains part of the evidence.</p>
+      <p>The short E19 pilot uses the frozen E6 codec and 8M cached
+      unique puzzles in addition to the base corpus. It completes 23,895
+      updates at batch 128 (3,058,560 presentations), solving 90.20 /
+      59.75 / 16.55%. E19-funded starts a fresh generator with the same
+      corpus and a separate 128,000-update cosine schedule. At
+      16,384,000 presentations it solves 98.10 / 83.40 / 40.30%,
+      improving on E15 by 1.85 / 6.75 / 8.40 percentage points. The
+      exposure doubles while batch size, corpus and schedule differ.
+      These comparisons establish outcomes of whole recipes, not a
+      controlled effect of any one change.</p>
+      <table-wrap>
+        <caption>
+          <p>Completed training and checkpoint selection (training-loop
+          seconds).</p>
+        </caption>
+        <table>
+          <thead>
+            <tr>
+              <th>Run</th>
+              <th align="right">Updates × batch</th>
+              <th align="right">Presentations</th>
+              <th align="right">Best step</th>
+              <th align="right">Train seconds</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>E18</td>
+              <td align="right">128,000 × 64</td>
+              <td align="right">8,192,000</td>
+              <td align="right">128,000</td>
+              <td align="right">23,366.69</td>
+            </tr>
+            <tr>
+              <td>E19 pilot</td>
+              <td align="right">23,895 × 128</td>
+              <td align="right">3,058,560</td>
+              <td align="right">23,895</td>
+              <td align="right">10,225.84</td>
+            </tr>
+            <tr>
+              <td>E19 funded</td>
+              <td align="right">128,000 × 128</td>
+              <td align="right">16,384,000</td>
+              <td align="right">127,000</td>
+              <td align="right">54,419.81</td>
+            </tr>
+          </tbody>
+        </table>
+      </table-wrap>
+      <p>The funded run completes its full schedule without a time-limit
+      stop or optimizer reset; its final resumable snapshot is step
+      128,000, while held-out evaluation uses the best-validation step
+      127,000. Best weighted validation CE is 0.133244. The complete
+      remote pipeline takes 55,700.91 s, including preprocessing,
+      evaluation, benchmarking and transfer but excluding rental startup
+      and the final cleanup wait. All 17 downloaded report/artifact
+      files match their completion hashes. Source revision is
+      <monospace>80dd445e5d17f54f53687a88459e011de4f9006f</monospace>;
+      the generator SHA-256 and full result extract are retained in the
+      repository’s E19 report. Full-state snapshots preserve optimizer
+      and random state; this uninterrupted run is not a test of
+      cross-backend exact recovery.</p>
+      <p>Funded validation solves 70.90% of 1,000 boards. On
+      easy/medium/hard tests, blank-cell accuracy is 99.69 / 97.12 /
+      86.99% and givens preservation is 100 / 100 / 99.60%; full-depth
+      codec validation reconstruction is separately 100%. Wilson 95%
+      intervals for the solved rates are 97.40–98.61 / 81.71–84.97 /
+      38.17–42.47%. These assume independent test boards, exclude
+      training-seed variability and do not establish paired significance
+      against prior runs. Per-board prediction archives were not
+      retained. A second training seed is the next validation step.</p>
+      <fig>
+        <caption><p>Completed MLX implementation recipes, with actual
+        generator presentations beneath each run. Each bar uses 2,000
+        held-out boards. Dashed lines show Original NCM (Kumbong et
+        al.), with its larger generator and 51.2M presentations; they
+        are not matched-budget targets.</p></caption>
+        <graphic mimetype="image" mime-subtype="svg+xml" xlink:href="figures/sudoku-completed-runs.svg" />
+      </fig>
+      <p>Funded synchronized generation at temperature 1.0 uses three
+      warmups and 20 timed iterations, 12 generator forwards and
+      completion through a host copy. Batch 1/16/64/256 p50 latency is
+      26.477 / 47.905 / 174.279 / 583.670 ms; p95 is 26.690 / 48.308 /
+      174.552 / 584.715 ms. This timing does not measure greedy quality
+      decoding. Preflight records zero GPU utilization, zero allocated
+      memory and no compute applications; an immediate pre-benchmark
+      contention sample is not retained, so these are not certified
+      idle-device limits. Neither cross-host A40 timings nor RTX 3080
+      comparisons isolate a hardware speed ratio.</p>
+      <p>The first funded allocation fails during shell preflight,
+      before any training step, and is deleted. The failure is SIGPIPE
+      from an early-closing version-check pipeline under
+      <monospace>pipefail</monospace>; three regression cases reproduce
+      it, and the corrected fresh attempt passes all 78 tests. Image
+      startup timeouts recover before readiness. These are setup
+      incidents, not extra training runs or reset-state
+      continuations.</p>
+      <fig>
+        <caption><p>Cell accuracy when decoding from the first
+        <inline-formula><alternatives>
+        <tex-math><![CDATA[k]]></tex-math>
+        <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>
+        levels of the codec, against the share of codes used. E4 stores
+        almost all information in one level; E5 and E6 refine
+        gradually.</p></caption>
+        <graphic mimetype="image" mime-subtype="svg+xml" xlink:href="figures/codec-refinement.svg" />
+      </fig>
+      <fig>
+        <caption><p>Validation cross-entropy per code during generator
+        training.</p></caption>
+        <graphic mimetype="image" mime-subtype="svg+xml" xlink:href="figures/sudoku-val-curves.svg" />
+      </fig>
+      <fig>
+        <caption><p>Blank cells filled with the reference digit, per
+        test set. Chance is about 11%.</p></caption>
+        <graphic mimetype="image" mime-subtype="svg+xml" xlink:href="figures/sudoku-blank-cells.svg" />
+      </fig>
+      <p><bold>Why per-cell gains do not become solved boards.</bold> A
+      board is about 300 codes. Teacher-forced accuracy per level in E6
+      ranges from 25% (level 0, which the puzzle barely determines) to
+      99.6% (the last level); generating greedily, an error at an early
+      level changes the inputs of every later level. E8’s corruption
+      training attacks exactly this compounding. Even 98% accuracy per
+      cell, with independent errors, would solve only
       <inline-formula><alternatives>
-      <tex-math><![CDATA[k]]></tex-math>
-      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>
-      levels of the codec, against the share of codes used. E4 stores
-      almost all information in one level; E5 and E6 refine
-      gradually.</p></caption>
-      <graphic mimetype="image" mime-subtype="svg+xml" xlink:href="figures/codec-refinement.svg" />
-    </fig>
-    <fig>
-      <caption><p>Validation cross-entropy per code during generator
-      training.</p></caption>
-      <graphic mimetype="image" mime-subtype="svg+xml" xlink:href="figures/sudoku-val-curves.svg" />
-    </fig>
-    <fig>
-      <caption><p>Blank cells filled with the reference digit, per test
-      set. Chance is about 11%.</p></caption>
-      <graphic mimetype="image" mime-subtype="svg+xml" xlink:href="figures/sudoku-blank-cells.svg" />
-    </fig>
-    <p><bold>Why per-cell gains do not become solved boards.</bold> A
-    board is about 300 codes. Teacher-forced accuracy per level in E6
-    ranges from 25% (level 0, which the puzzle barely determines) to
-    99.6% (the last level); generating greedily, an error at an early
-    level changes the inputs of every later level. E8’s corruption
-    training attacks exactly this compounding. Even 98% accuracy per
-    cell, with independent errors, would solve only
-    <inline-formula><alternatives>
-    <tex-math><![CDATA[0.98^{41} \approx 44\%]]></tex-math>
-    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msup><mml:mn>0.98</mml:mn><mml:mn>41</mml:mn></mml:msup><mml:mo>≈</mml:mo><mml:mn>44</mml:mn><mml:mi>%</mml:mi></mml:mrow></mml:math></alternatives></inline-formula>
-    of easy boards, which have 41 blanks. The paper’s generator was
-    trained on about 51 million sequences; E6 saw 0.5 million.</p>
+      <tex-math><![CDATA[0.98^{41} \approx 44\%]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msup><mml:mn>0.98</mml:mn><mml:mn>41</mml:mn></mml:msup><mml:mo>≈</mml:mo><mml:mn>44</mml:mn><mml:mi>%</mml:mi></mml:mrow></mml:math></alternatives></inline-formula>
+      of easy boards, which have 41 blanks. The paper’s generator was
+      trained on about 51 million sequences; E6 saw 0.5 million.</p>
+    </sec>
   </sec>
   <sec id="a-large-chat-model-as-reference">
     <title>A large chat model as reference</title>
@@ -1404,16 +1548,26 @@ block-diagonal attention.</p>
           <td>E18</td>
           <td>Both levers, base data only</td>
           <td>E14 budget, corruption 0.50 → 0.10</td>
-          <td><italic>in progress</italic></td>
-          <td></td>
+          <td>84.25% / 49.10% / 10.55%</td>
+          <td>Below E14 and E15; stronger corruption alone is not
+          sufficient</td>
         </tr>
         <tr>
-          <td>E19</td>
-          <td>Paper-scale budget on a rented GPU</td>
-          <td>E15 recipe, 8M unique puzzles, ≈45M sequences, NVIDIA
+          <td>E19 pilot</td>
+          <td>Larger-corpus short schedule</td>
+          <td>+8M unique puzzles; 3.059M presentations, batch 128,
           A40</td>
-          <td><italic>planned</italic></td>
-          <td></td>
+          <td>90.20% / 59.75% / 16.55%</td>
+          <td>Below E15 at less exposure; not a matched comparison</td>
+        </tr>
+        <tr>
+          <td>E19 funded</td>
+          <td>Larger corpus and longer schedule</td>
+          <td>Fresh initialization; 16.384M presentations, batch 128,
+          A40</td>
+          <td>98.10% / 83.40% / 40.30%</td>
+          <td>New local best at twice E15 exposure; still below
+          upstream</td>
         </tr>
       </tbody>
     </table>
@@ -1421,15 +1575,15 @@ block-diagonal attention.</p>
   <p><bold>What the journey shows.</bold> The first Sudoku configuration
   failed for a reason no reconstruction test would reveal: its codec
   rebuilds boards perfectly yet places nearly all information in one
-  level (Figure 3, E4), so the generator faces one large guess instead
-  of a series of small ones. The fixes taken from upstream each helped a
-  little and none was enough on its own. Reading the paper’s appendix in
-  full showed the two largest gaps: conditioning corruption and a
-  training budget about a hundred times larger. Corruption alone (E8)
-  produced the first solved boards and lifted blank-cell accuracy by 20
-  points on every test set. Its validation loss was
-  <italic>worse</italic> than without corruption, a reminder that
-  teacher-forced loss does not measure what generation needs.</p>
+  level (the codec-refinement figure, E4), so the generator faces one
+  large guess instead of a series of small ones. The fixes taken from
+  upstream each helped a little and none was enough on its own. Reading
+  the paper’s appendix in full showed the two largest gaps: conditioning
+  corruption and a training budget about a hundred times larger.
+  Corruption alone (E8) produced the first solved boards and lifted
+  blank-cell accuracy by 20 points on every test set. Its validation
+  loss was <italic>worse</italic> than without corruption, a reminder
+  that teacher-forced loss does not measure what generation needs.</p>
 </sec>
 <sec id="discussion">
   <title>Discussion</title>
@@ -1455,12 +1609,14 @@ block-diagonal attention.</p>
 <sec id="limitations">
   <title>Limitations</title>
   <p>Most generator runs use at most 6.4M parameters; width-512
-  ablations use 25M. Training budgets range from minutes to hours. The
-  only language-like task is synthetic; the paper’s text benchmarks
-  (LM1B, OpenWebText, XSum, WMT14) were not run. Latency measurements
-  share the GPU with other workloads unless stated. The upstream
-  training code is not public, so recipe details not stated in the paper
-  are guesses.</p>
+  ablations use 25M. Training budgets range from minutes to about 15
+  hours of generator training per run. The strongest result uses one
+  training seed and remains 45.8 percentage points below the original on
+  hard boards; uncertainty across seeds is unknown. The only
+  language-like task is synthetic; the paper’s text benchmarks (LM1B,
+  OpenWebText, XSum, WMT14) were not run. Latency measurements share the
+  GPU with other workloads unless stated. The upstream training code is
+  not public, so recipe details not stated in the paper are guesses.</p>
 </sec>
 <sec id="related-work">
   <title>Related work</title>
@@ -1619,9 +1775,9 @@ paper/build.sh                                     # rebuild this paper</code>
   16-code hierarchy. All use an 81-cell prefix, eight attention heads,
   generator seed 0, AdamW with weight decay 0.01, a cosine learning-rate
   schedule and compiled generator training. Generator dropout is 0.1 at
-  width 256 and 0.2 at width 512; warmup is 200 steps at width 256 and
-  1,000 at width 512. The codec is additional to the generator sizes
-  below.</p>
+  width 256 and 0.2 at width 512; warmup is 200 steps at width 256
+  except E19, which uses 1,000; width 512 also uses 1,000. The codec is
+  additional to the generator sizes below.</p>
   <table-wrap>
     <caption>
       <p>Later Sudoku generator settings. Steps are completed steps for
@@ -1704,6 +1860,30 @@ paper/build.sh                                     # rebuild this paper</code>
           <td>6e-4</td>
           <td>0.50 → 0.10</td>
         </tr>
+        <tr>
+          <td>E18</td>
+          <td>8 × 256</td>
+          <td>128,000</td>
+          <td>64</td>
+          <td>6e-4</td>
+          <td>0.50 → 0.10</td>
+        </tr>
+        <tr>
+          <td>E19 pilot</td>
+          <td>8 × 256</td>
+          <td>23,895</td>
+          <td>128</td>
+          <td>6e-4</td>
+          <td>0.50 → 0.10</td>
+        </tr>
+        <tr>
+          <td>E19 funded</td>
+          <td>8 × 256</td>
+          <td>128,000</td>
+          <td>128</td>
+          <td>6e-4</td>
+          <td>0.50 → 0.10</td>
+        </tr>
       </tbody>
     </table>
   </table-wrap>
@@ -1716,6 +1896,10 @@ paper/build.sh                                     # rebuild this paper</code>
   (Section 6.5). E12’s recorded run completed 50,776 steps; the
   repository’s current E12 configuration specifies 200,000, so running
   that configuration unchanged does not reproduce the reported exposure.
+  E18 adds no unique-puzzle corpus. Both E19 runs add one million
+  greedy-unique puzzles per seed 201–208; their separate schedules use
+  full-state snapshots every 1,000 updates. The original million-step
+  E19 configuration remains unstarted and is not either reported result.
   Full settings and checkpoint prerequisites are in the corresponding
   <monospace>configs/sudoku-e*.json</monospace> files and
   <monospace>docs/EXPERIMENTS.md</monospace>.</p>
@@ -1724,7 +1908,9 @@ paper/build.sh                                     # rebuild this paper</code>
   <title>Appendix B: Environment</title>
   <p>Apple M5 Pro, 64 GB unified memory, macOS 26.5; MLX 0.32.3, NumPy,
   Python 3.12.14 managed with mise and uv. Figures: matplotlib. Paper:
-  Pandoc and Typst.</p>
+  Pandoc and Typst. E18: RTX 3080, Python 3.12.15; both E19 runs: NVIDIA
+  A40, Python 3.12.3, MLX 0.32.3 CUDA. Preflight and contention
+  qualifications accompany each run in the experiment log.</p>
 </sec>
 <sec id="appendix-c-version-history">
   <title>Appendix C: Version history</title>
@@ -1801,6 +1987,12 @@ paper/build.sh                                     # rebuild this paper</code>
           <td>Submission preparation: public-data figure rebuild
           command, qualified memory-bandwidth discussion, later Sudoku
           settings and AI assistance disclosure.</td>
+        </tr>
+        <tr>
+          <td>0.10</td>
+          <td>2026-10-25</td>
+          <td>Completed E18/E19 results, checkpoint provenance, A40
+          timings, uncertainty and explicit budget differences.</td>
         </tr>
       </tbody>
     </table>

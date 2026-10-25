@@ -22,7 +22,7 @@ updated: 2026-10-25
 
 ## Measured (see EXPERIMENTS.md, E1)
 
-| | NCM | AR baseline |
+| | MLX implementation | MLX AR baseline |
 |---|---|---|
 | Valid sentences, T=1.0 | 89.8% | 98.6% |
 | Latency p50, batch 1 | 4.5 ms | ~20–30 ms |
@@ -31,9 +31,9 @@ updated: 2026-10-25
 
 All numbers are for 5M-parameter toy models on a synthetic language, on a desktop with other GPU services running.
 
-**Sudoku (historical E4–E16).** Previous best NCM (E15: stronger conditioning corruption, unique puzzles, 8.2M training sequences): 96.2 / 76.6 / 31.9% solved on the upstream easy/medium/hard sets (paper: 99.5 / 96.5 / 86.1% with a 4× larger model and 51M sequences). At E11's matched 2.05M-sequence budget, the same-size AR baseline reaches 20.5 / 4.9 / 0.5%, against NCM's 55.2 / 18.1 / 1.6%. Trains on Apple Silicon, NVIDIA (RTX 3080) and NVIDIA A40 GPUs.
+**Sudoku (historical E4–E16).** Previous best MLX implementation (E15: stronger conditioning corruption, unique puzzles, 8.2M training sequences): 96.2 / 76.6 / 31.9% solved on the upstream easy/medium/hard sets (Original NCM, Kumbong et al.: 99.5 / 96.5 / 86.1% with a 4× larger generator and 51M presentations). At E11's matched 2.05M-sequence budget, the same-size AR baseline reaches 20.5 / 4.9 / 0.5%, against NCM's 55.2 / 18.1 / 1.6%. Trains on Apple Silicon, NVIDIA (RTX 3080) and NVIDIA A40 GPUs.
 
-E19-funded is now the best completed local Sudoku run: **98.10 / 83.40 / 40.30%** on easy/medium/hard boards, n = 2,000 each, greedy generation. It completed 128,000 updates at batch 128 (16.384M presentations), twice E15/E18's exposure, so this is not an equal-budget advantage. The shorter E19-budget pilot completed 23,895 updates and scores 90.20/59.75/16.55%. E20, a fresh seed 1 replication of the funded recipe, is prepared. The original million-step E19 recipe remains unstarted. See the [completed report](research/e19-funded-report.md) and [experiment history](EXPERIMENTS.md).
+E19-funded is now the best completed local Sudoku run: **98.10 / 83.40 / 40.30%** on easy/medium/hard boards, n = 2,000 each, greedy generation. It completed 128,000 updates at batch 128 (16.384M presentations), twice E15/E18's exposure, so this is not an equal-budget advantage. The shorter E19-budget pilot completed 23,895 updates and scores 90.20/59.75/16.55%. E20, a fresh seed 1 replication of the funded recipe, is in progress. The original million-step E19 recipe remains unstarted. See the [completed report](research/e19-funded-report.md) and [experiment history](EXPERIMENTS.md).
 
 ## Not done
 

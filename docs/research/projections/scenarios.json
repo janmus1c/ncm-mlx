@@ -1,0 +1,81 @@
+{
+  "kind": "planning_scenarios_not_quality_forecasts",
+  "baseline_run": "sudoku-e19-funded",
+  "baseline_generator_parameters": 6440128,
+  "baseline_training_hours": 15.116613888888889,
+  "baseline_presentations": 16384000,
+  "assumption": "Same generator, batch, accelerator and observed mean time per presentation",
+  "sensitivity": "Arbitrary +/-20% runtime sensitivity, not a confidence or prediction interval",
+  "excludes": [
+    "rental startup",
+    "data generation and transfer",
+    "encoding",
+    "evaluation",
+    "codec training",
+    "failures",
+    "new model shapes",
+    "real-text workloads"
+  ],
+  "training_scenarios": [
+    {
+      "generator_presentations": 8192000,
+      "linear_training_hours": 7.558306944444444,
+      "sensitivity_hours": [
+        6.046645555555556,
+        9.069968333333334
+      ]
+    },
+    {
+      "generator_presentations": 16384000,
+      "linear_training_hours": 15.116613888888889,
+      "sensitivity_hours": [
+        12.093291111111112,
+        18.139936666666667
+      ]
+    },
+    {
+      "generator_presentations": 32768000,
+      "linear_training_hours": 30.233227777777778,
+      "sensitivity_hours": [
+        24.186582222222224,
+        36.279873333333335
+      ]
+    },
+    {
+      "generator_presentations": 51200000,
+      "linear_training_hours": 47.23941840277778,
+      "sensitivity_hours": [
+        37.791534722222224,
+        56.687302083333336
+      ]
+    }
+  ],
+  "planned_level_budgets": [
+    {
+      "levels": 3,
+      "generator_forwards": 3,
+      "quality": null
+    },
+    {
+      "levels": 6,
+      "generator_forwards": 6,
+      "quality": null
+    },
+    {
+      "levels": 9,
+      "generator_forwards": 9,
+      "quality": null
+    },
+    {
+      "levels": 12,
+      "generator_forwards": 12,
+      "quality": null
+    }
+  ],
+  "original_reference": {
+    "label": "Original NCM (Kumbong et al.)",
+    "generator_parameters": 25460000,
+    "generator_presentations": 51200000,
+    "source": "https://arxiv.org/html/2610.14162v1"
+  }
+}

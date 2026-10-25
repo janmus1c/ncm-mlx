@@ -8,15 +8,19 @@ updated: 2026-10-25
 
 E19-funded completed all 128,000 generator updates and improves the best local Sudoku scores to **98.10 / 83.40 / 40.30%** on easy/medium/hard boards. Each set contains 2,000 boards, evaluated once with greedy generation. This is a single-seed result at twice E15's generator exposure, not an equal-budget or upstream-reproduction claim.
 
+“MLX implementation” denotes this repository’s independently trained NCM model, including every E-numbered run. “Original NCM (Kumbong et al.)” denotes their cited published result. These are different models and checkpoints.
+
 ## Quality and comparisons
 
-| Run | Generator presentations | Easy solved | Medium solved | Hard solved |
+| MLX implementation or cited reference | Generator presentations | Easy solved | Medium solved | Hard solved |
 |---|---:|---:|---:|---:|
 | E18, stronger corruption on base data | 8,192,000 | 84.25% | 49.10% | 10.55% |
 | E19-budget pilot | 3,058,560 | 90.20% | 59.75% | 16.55% |
 | E15, previous local best | 8,192,000 | 96.25% | 76.65% | 31.90% |
 | E19-funded | 16,384,000 | 98.10% | 83.40% | 40.30% |
-| Original NCM, published reference | 51,200,000 | 99.50% | 96.50% | 86.10% |
+| Original NCM (Kumbong et al.) | 51,200,000 | 99.50% | 96.50% | 86.10% |
+
+The MLX implementation’s generator is **6.44M versus Original NCM’s 25.46M parameters (3.95× smaller)**. Its easy accuracy is within 1.40 percentage points using 3.125× fewer generator presentations. This size ratio excludes the separate codecs; medium/hard gaps and different recipes prevent an overall parity or equal-cost efficiency claim.
 
 E19-funded gains **1.85 / 6.75 / 8.40 percentage points** over E15 and remains **1.40 / 13.10 / 45.80 points** below the original paper. The original uses a larger generator, different representation and task setup; its figures are published references from [Kumbong et al., Table 3 and Appendix C](https://arxiv.org/html/2610.14162v1), not measurements made here. E18 remains a negative result against E14 and E15. Differences in corpus, batch, schedule, exposure and hardware prevent these rows from isolating a causal effect.
 
@@ -55,4 +59,4 @@ Before preflight, GPU utilisation and allocated memory were 0, with no compute a
 
 E20 repeats the funded scientific recipe with training seed 1 and the same data split, frozen codec, batch and target updates. Its operational time cap is shorter; any early truncation must be reported. This will provide a second seed, not by itself a robust estimate of broad training variability. The original million-step E19 recipe remains unstarted.
 
-The [sanitized result extract](completed-sudoku-results.json) contains complete quality reports, parameter accounting, runtime metadata and benchmark rows for E18 and both completed E19 variants. [Experiment history](../EXPERIMENTS.md) and [benchmark methodology](../benchmarks.md) retain the wider comparisons. The combined working-paper update follows these verified results; older releases remain immutable.
+The [sanitized result extract](completed-sudoku-results.json) contains complete quality reports, parameter accounting, runtime metadata and benchmark rows for E18 and both completed E19 variants. [Experiment history](../EXPERIMENTS.md) and [benchmark methodology](../benchmarks.md) retain the wider comparisons. The [combined working-paper v0.10](https://doi.org/10.5281/zenodo.23640777) incorporates these verified results; older releases remain immutable.

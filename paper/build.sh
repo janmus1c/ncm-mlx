@@ -23,7 +23,8 @@ for f in $formats; do
             --epub-cover-image=assets/cover.png -o dist/ncm-mlx.epub ;;
     tex)  pandoc manuscript.md "${readable[@]}" --number-sections -s -o dist/ncm-mlx.tex ;;
     jats) with_figures svg | pandoc "${readable[@]}" -s -t jats_archiving -o dist/ncm-mlx.jats.xml ;;
-    docx) with_figures png | pandoc "${readable[@]}" --number-sections -o dist/ncm-mlx.docx ;;
+    docx) with_figures png | pandoc "${readable[@]}" --number-sections -o dist/ncm-mlx.docx
+          ../.venv/bin/python format_docx.py dist/ncm-mlx.docx ;;
     *) echo "unknown format: $f" >&2; exit 2 ;;
   esac
   echo "built dist/ncm-mlx.$( [ "$f" = jats ] && echo jats.xml || echo "$f" )"

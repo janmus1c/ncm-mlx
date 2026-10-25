@@ -6,14 +6,14 @@ updated: 2026-10-25
 
 # Research roadmap
 
-This is the canonical roadmap for NCM-MLX. [STATUS](STATUS.md) describes implemented behavior; [EXPERIMENTS](EXPERIMENTS.md) records measured outcomes. A planned milestone is not a supported feature or a performance claim. There are no committed delivery dates: training and benchmark milestones depend on an explicit compute allocation.
+This is the canonical roadmap for NCM-MLX. [STATUS](STATUS.md) describes implemented behavior; [EXPERIMENTS](EXPERIMENTS.md) records measured outcomes. A planned milestone is not a supported feature or a performance claim. There are no committed delivery dates: training and benchmark milestones depend on an explicit compute allocation. Planning charts for compute, fixed levels and evidence gates are in [roadmap scenarios](research/planning-projections.md); they do not predict future quality.
 
 ## Priorities and dependencies
 
 | Priority | Milestone | Current state | Dependency |
 |---|---|---|---|
 | P0 | Evaluation integrity | Batch coverage guard implemented; broader audit planned | Required for every new comparison |
-| P1 | Complete current Sudoku evidence | E18 and both E19 runs completed; E20 seed replication prepared | Publish the combined evidence; verify the next seed within its allocation |
+| P1 | Complete current Sudoku evidence | E18 and both E19 runs completed; E20 seed replication in progress | Publish the combined evidence; verify the next seed within its allocation |
 | P1 | Establish an upstream-checkpoint reference | Planned; checkpoints incompatible today | Independent conversion, format mapping and parity checks |
 | P1 | Establish a real-text baseline | Planned; no real-text quality validation today | Dataset rights, tokenizer/padding contract and matched budgets |
 | P2 | Measure fixed level budgets and Sudoku early exit | Planned; full hierarchy remains the only sampling policy | Evaluation integrity and full-depth per-board baseline |

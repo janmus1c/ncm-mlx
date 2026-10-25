@@ -2,12 +2,14 @@
 title: NCM quality and inference benchmarks
 description: Reproduce synchronized MLX generation timings and interpret TinyWorld and Sudoku quality, model sizes, matched budgets, hardware differences and uncertainty.
 status: current
-updated: 2026-10-24
+updated: 2026-10-25
 ---
 
 # NCM quality and inference benchmarks
 
 Quality, latency and training cost answer different questions. This page defines the measurements; [EXPERIMENTS.md](EXPERIMENTS.md) preserves the experiment history, and [`paper/data/results.json`](../paper/data/results.json) contains a public extract of measured results. Raw run logs and weights are not committed. Results describe experimental small models, not a general-purpose language model or a reproduction of upstream's full text benchmarks.
+
+**Model labels.** “MLX implementation” is this repository’s independently trained NCM model; all E-numbered rows refer to it. “Original NCM (Kumbong et al.)” is a cited result from the original study, not a model evaluated or trained here. The MLX AR baseline is separate from the Original AR baseline reported in that study.
 
 ## Quality: TinyWorld and Sudoku
 
@@ -15,7 +17,7 @@ TinyWorld is a finite synthetic grammar. Its generated-sentence metrics check gr
 
 Sudoku generation is conditioned on the puzzle cells. Greedy decoding (`temperature=0.0`) gives one candidate per board, with no search, reranking or solver repair. Each external difficulty set has 2,000 boards; the generated validation split has 1,000. A solved board is a valid Sudoku grid that preserves the givens. Cell accuracy against the supplied solution, blank-cell accuracy and the fraction preserving all givens are separate metrics. A valid alternative completion can matter on non-unique validation puzzles; the external boards are intended to have unique solutions.
 
-| Experiment | Easy solved | Medium solved | Hard solved | Generator presentations |
+| MLX implementation run | Easy solved | Medium solved | Hard solved | Generator presentations |
 |---|---:|---:|---:|---:|
 | E13 | 70.85% | 31.25% | 4.05% | 2,048,000 |
 | E15, previous best | 96.25% | 76.65% | 31.90% | 8,192,000 |
@@ -36,7 +38,9 @@ Codec reconstruction reads true held-out solutions through the encoder and decod
 
 The E11 NCM/AR comparison matches generator width/depth, dataset and 32,000 × 64 generator presentations. It reports NCM 55.2 / 18.1 / 1.6% versus AR 20.5 / 4.9 / 0.5% in the historical rounded summary. The AR baseline has a KV cache and puzzle-prefix prefill. It is a practical reference model, not an extensively tuned baseline.
 
-Matching generator presentations does not match FLOPs, training time, optimizer path, or total system size: NCM also trains and retains a codec. E15 has no equal-budget AR quality result. Comparing E15 with the older AR run or with the original paper is an unmatched comparison. Upstream reports 99.5 / 96.5 / 86.1% with a 25.46M generator and 51.2M generator presentations, separate difficulty-specific checkpoints, and a different board tokenization. Those published numbers are reference results, not measurements made by this project. [Original paper, Tables 3, 5 and 6](https://arxiv.org/html/2610.14162v1).
+Matching generator presentations does not match FLOPs, training time, optimizer path, or total system size: NCM also trains and retains a codec. E15 has no equal-budget AR quality result. Comparing E15 with the older AR run or with the original paper is an unmatched comparison. Original NCM (Kumbong et al.) reports 99.5 / 96.5 / 86.1% with a 25.46M generator and 51.2M generator presentations, separate difficulty-specific checkpoints, and a different board tokenization. Those published numbers are reference results, not measurements made by this project. [Original paper, Tables 3, 5 and 6](https://arxiv.org/html/2610.14162v1).
+
+The strongest small-generator result is easy-board accuracy of 98.10% versus Original NCM’s 99.50%, with 6.44M versus 25.46M generator parameters (3.95× smaller) and 16.384M versus 51.2M generator presentations. Medium/hard gaps are 13.10/45.80 percentage points. This does not establish general quality parity or matched-cost efficiency; the codec is additional.
 
 ## Parameter accounting
 

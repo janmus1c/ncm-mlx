@@ -30,7 +30,7 @@ This is experimental research software for **TinyWorld synthetic text and Sudoku
 
 ## Measured results, with limits
 
-The best completed Sudoku experiment, E19-funded, solves **98.10% easy, 83.40% medium and 40.30% hard** on 2,000 published test boards per difficulty. Its 6.4M-parameter generator uses a separate codec. The larger upstream model and its longer training budget remain ahead, particularly on hard puzzles. These figures are point estimates from one training run, not evidence of equal-budget parity with the original paper.
+The best completed Sudoku experiment, E19-funded, solves **98.10% easy, 83.40% medium and 40.30% hard** on 2,000 published test boards per difficulty. Its 6.4M-parameter generator uses a separate codec. Original NCM (Kumbong et al.) reports 99.50 / 96.50 / 86.10% with a 25.46M generator and 51.2M presentations. The MLX implementation uses a 6.44M generator (3.95× smaller) and 16.384M presentations. Its easy score is within 1.40 points, while medium and hard remain substantially behind. The codec is additional to both generators. These figures are point estimates from one training run, not evidence of equal-budget parity with the original paper.
 
 E17's interrupted run was recovered for its remaining 2,000 updates and solves **71.25 / 31.75 / 3.70%**. The old checkpoint contained weights only; optimizer and random state reset. E18 later completed without a recovery reset and solves **84.25 / 49.10 / 10.55%**, below E15. The E19 pilot and funded run are also complete; the funded result uses twice E15's exposure. Full measurements and qualifications live in the [completed report](research/e19-funded-report.md) and [experiment record](EXPERIMENTS.md).
 

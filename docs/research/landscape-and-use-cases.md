@@ -2,7 +2,7 @@
 title: Parallel generation and candidate use cases
 description: Where coarse-to-fine NCM fits among parallel generation methods, what this repository measures and which proposed uses remain untested.
 status: exploratory
-updated: 2026-10-24
+updated: 2026-10-25
 ---
 
 # Parallel generation and candidate use cases
@@ -23,9 +23,9 @@ See [VAR, Tian et al.](https://arxiv.org/abs/2404.02905), [masked diffusion, Sah
 
 ## Evidence established so far
 
-The original paper reports text and Sudoku results, including 99.5 / 96.5 / 86.1% solved on easy/medium/hard Sudoku. Those are upstream reference results. Its Sudoku generator has about 25.46M parameters and sees 51.2M training presentations; its task representation and difficulty-specific checkpoints differ from this repository. These differences prevent an equal-budget reproduction claim.
+Original NCM (Kumbong et al.) reports text and Sudoku results, including 99.5 / 96.5 / 86.1% solved on easy/medium/hard Sudoku. Those are upstream reference results. Its Sudoku generator has about 25.46M parameters and sees 51.2M training presentations; its task representation and difficulty-specific checkpoints differ from this repository. These differences prevent an equal-budget reproduction claim.
 
-Locally, the early E4–E6 NCM runs solved no external boards. Conditioning corruption, training exposure and unique training puzzles improved later runs: E15 reaches 96.25 / 76.65 / 31.90% after 8.192M generator presentations. Its 6.44M generator also uses a separate codec with 13.915M saved values, including EMA state. E17's recovered 71.25 / 31.75 / 3.70% remains qualified by reset optimizer and random state. Negative results and intermediate steps remain in [EXPERIMENTS](../EXPERIMENTS.md).
+In the MLX implementation, the early E4–E6 runs solved no external boards. Conditioning corruption, training exposure and unique training puzzles improved later runs: E15 reaches 96.25 / 76.65 / 31.90% after 8.192M generator presentations. E19-funded later reaches 98.10 / 83.40 / 40.30% at 16.384M presentations, twice E15’s exposure. Its easy score is within 1.40 points of Original NCM, while medium/hard remain substantially behind. The MLX implementation’s 6.44M generator is 3.95× smaller than Original NCM’s generator and also uses a separate codec with 13.915M saved values, including EMA state. E17's recovered 71.25 / 31.75 / 3.70% remains qualified by reset optimizer and random state. Negative results and intermediate steps remain in [EXPERIMENTS](../EXPERIMENTS.md).
 
 The local general-model reference also solved no boards in its small no-reasoning evaluation, while its reasoning-enabled trial was stopped under heavy contention. That experiment does not establish a general limit on chat models, long reasoning, search or solver-assisted systems.
 

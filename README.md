@@ -108,7 +108,7 @@ Experiment E1 in [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md). Hardware: M5 Pro,
 
 **Generator vs an autoregressive baseline** of the same width and depth, trained on identical data:
 
-| | NCM (this repo) | Character AR + KV cache |
+| | MLX implementation | MLX AR baseline + KV cache |
 |---|---|---|
 | Parameters | 1.3M codec + 5.0M generator | 4.8M |
 | Training time | 52 s + 266 s | 134 s |
@@ -120,7 +120,7 @@ Experiment E1 in [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md). Hardware: M5 Pro,
 
 **Latency.** p50 over 30 iterations after 3 warm-ups, timed until the tokens are copied back to the CPU:
 
-| Batch | NCM p50 | AR p50 | NCM sequences/s | AR sequences/s |
+| Batch | MLX implementation p50 | MLX AR baseline p50 | MLX implementation sequences/s | MLX AR baseline sequences/s |
 |---|---|---|---|---|
 | 1 | **4.5 ms** | 30.5 ms* | 222 | 33 |
 | 16 | **5.8 ms** | 22.9 ms | 2,779 | 698 |
@@ -133,22 +133,26 @@ Experiment E1 in [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md). Hardware: M5 Pro,
 
 The upstream paper's 10–31× speedups compare NCM with **diffusion** language models on GPUs. Nothing here claims a speedup over large LLMs.
 
-### Sudoku against the paper
+### MLX implementation compared with Original NCM
 
-Puzzle-conditioned models, scored on the paper's own published test boards (2,000 per difficulty) with its "solved" rule: a valid grid that keeps every given. Greedy decoding. E11, E14 and E15 trained on an RTX 3080; full recipes and timings are in [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md).
+“MLX implementation” means this repository’s independently trained NCM model; “Original NCM” means the model reported by Kumbong et al. These are different implementations and checkpoints. All E-numbered runs are local MLX experiments.
 
-| Model | Params | Training sequences | Easy (40 givens) | Medium (35) | Hard (30) |
+Puzzle-conditioned models, scored on Kumbong et al.’s published test boards (2,000 per difficulty) with its "solved" rule: a valid grid that keeps every given. Greedy decoding. E11, E14 and E15 trained on an RTX 3080; full recipes and timings are in [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md).
+
+| Model | Generator params | Generator presentations | Easy (40 givens) | Medium (35) | Hard (30) |
 |---|---|---|---|---|---|
-| **NCM, larger corpus and schedule (E19-funded)** | 6.4M | 16.384M | **98.10%** | **83.40%** | **40.30%** |
-| NCM, stronger corruption + unique puzzles (E15) | 6.4M | 8.2M | 96.25% | 76.65% | 31.90% |
-| NCM, conditioning corruption (E14) | 6.4M | 8.2M | 87.4% | 53.4% | 11.2% |
-| AR, same width and depth (E11) | 6.3M | 2.05M | 20.5% | 4.9% | 0.5% |
-| AR, original baseline (E4) | 6.3M | 0.64M | 13.8% | 3.0% | 0.4% |
+| **MLX implementation, larger corpus and schedule (E19-funded)** | 6.44M | 16.384M | **98.10%** | **83.40%** | **40.30%** |
+| MLX implementation, stronger corruption + unique puzzles (E15) | 6.4M | 8.2M | 96.25% | 76.65% | 31.90% |
+| MLX implementation, conditioning corruption (E14) | 6.4M | 8.2M | 87.4% | 53.4% | 11.2% |
+| MLX AR baseline, same width and depth (E11) | 6.3M | 2.05M | 20.5% | 4.9% | 0.5% |
+| MLX AR baseline (E4) | 6.3M | 0.64M | 13.8% | 3.0% | 0.4% |
 | Qwen3.8 27B 4-bit, no reasoning, 50 boards each | 27B | Pretrained reference | 0% | 0% | 0% |
-| AR greedy, paper | 25M | Not stated here | 14.6% | 5.1% | 1.0% |
-| **NCM, paper** | 25M | 51M | **99.5%** | **96.5%** | **86.1%** |
+| Original AR baseline (Kumbong et al.) | 25M | Not stated here | 14.6% | 5.1% | 1.0% |
+| **Original NCM (Kumbong et al.)** | 25.46M | 51.2M | **99.5%** | **96.5%** | **86.1%** |
 
-The original AR baseline is close to the paper's AR row, a limited sanity check on the boards, scoring and conditioning path. The best local NCM result (E19-funded) remains below the paper, especially on hard boards. At the matched 2.05M-sequence budget, NCM E11 solves 55.2 / 18.1 / 1.6% against AR's 20.5 / 4.9 / 0.5%; the larger-budget E15 and E19-funded comparisons are not budget-matched. Training data and conditioning corruption are the strongest levers measured so far. These parameter columns count generators; the Sudoku codec stores another 13.9M scalar values, including learned resampling layers and EMA state. See [parameter accounting and measurement limits](docs/benchmarks.md).
+The MLX AR baseline is close to the Original AR baseline row, a limited sanity check on the boards, scoring and conditioning path. The best local NCM result (E19-funded) remains below the paper, especially on hard boards. At the matched 2.05M-sequence budget, NCM E11 solves 55.2 / 18.1 / 1.6% against AR's 20.5 / 4.9 / 0.5%; the larger-budget E15 and E19-funded comparisons are not budget-matched. Training data and conditioning corruption are the strongest levers measured so far. These parameter columns count generators; the Sudoku codec stores another 13.9M scalar values, including learned resampling layers and EMA state. See [parameter accounting and measurement limits](docs/benchmarks.md).
+
+**Smaller-generator result.** The MLX implementation reaches **98.10% on easy boards versus Original NCM’s 99.50%**, using a **6.44M versus 25.46M generator** (3.95× smaller) and **16.384M versus 51.2M generator presentations**. Medium and hard remain 13.10 and 45.80 percentage points behind. The size ratio covers generators only: the MLX codec stores another 13.9M values. Different recipes and system costs prevent an overall efficiency or parity claim.
 
 **Interruption study (E17).** The completed weights-only continuation solves **71.25 / 31.75 / 3.70%**, close to E13. Its optimizer and random state reset after interruption, so it does not establish a benefit from its data construction. E18 subsequently completed at **84.25 / 49.10 / 10.55%**, below E15; stronger corruption alone did not improve the base-data comparison at this budget. [Reproduction and uncertainty](docs/reproducibility.md) explain which comparisons can be repeated and what the numbers establish.
 
@@ -172,7 +176,7 @@ Full source-by-source map: [`docs/research/upstream-map.md`](docs/research/upstr
 
 - Synthetic language and Sudoku only; quality on real text is unknown.
 - Conditioning is a fixed-length token prefix only (Sudoku). No prompts of free text, so not useful for summarisation, translation or instructions yet.
-- Sudoku: 40.30% of hard boards solved in E19-funded, against 86.1% in the paper, with different model size and training budget.
+- Sudoku: 40.30% of hard boards solved in E19-funded, against 86.1% for Original NCM (Kumbong et al.), with different model size and training budget.
 - Weights are incompatible with the released NCM checkpoints.
 - Generator training can use `mx.compile`; neither inference sampler is compiled. The latency gap may change when both samplers are compiled.
 - On Metal, fp32 matmuls run at reduced precision (~1e-3 relative error, measured); exactness tests therefore run on the CPU device.
@@ -190,7 +194,7 @@ The core implementation, toy comparison and full-state recovery are complete. Pl
 
 The completed **E19-funded** run is the new local best: **98.10 / 83.40 / 40.30%** solved on easy/medium/hard boards (2,000 each). It uses 16.384M generator presentations, twice E15's budget; it does not establish an equal-budget advantage. The short E19 pilot scores 90.20 / 59.75 / 16.55% at 3.059M presentations. [Full report and machine-readable results](docs/research/e19-funded-report.md) retain timings, checkpoint identity, uncertainty, failures and comparison limits. E20 is a separate seed replication; the original million-step recipe remains unstarted.
 
-Priorities, dependencies and completion criteria: [`docs/NEXT.md`](docs/NEXT.md). Current state: [`docs/STATUS.md`](docs/STATUS.md). Follow releases through the [research updates feed](https://janmus1c.github.io/ncm-mlx/feed.xml).
+Compute scenarios and planned level budgets: [roadmap projections](docs/research/planning-projections.md). Priorities, dependencies and completion criteria: [`docs/NEXT.md`](docs/NEXT.md). Current state: [`docs/STATUS.md`](docs/STATUS.md). Follow releases through the [research updates feed](https://janmus1c.github.io/ncm-mlx/feed.xml).
 
 Long runs support full-state pause/resume and atomic checkpoints. Start Mac experiments with `scripts/launch_experiment.sh` so terminal closure does not kill them. See [`docs/RECOVERY.md`](docs/RECOVERY.md) for pause signals, restart commands, pod recovery and the limits of legacy weights-only checkpoints.
 
@@ -240,6 +244,6 @@ The method is from **Hermann Kumbong, Ishan S. Khare, Iddah Mlauzi, Andrew Woen,
 }
 ```
 
-Cite this implementation using the [archived software v0.1.0](https://doi.org/10.5281/zenodo.23620792). The companion [working paper v0.9](https://doi.org/10.5281/zenodo.23620914) reports the experiments and limitations; it has not been peer reviewed.
+Cite this implementation using the [archived software v0.1.0](https://doi.org/10.5281/zenodo.23620792). The companion [working paper v0.10](https://doi.org/10.5281/zenodo.23640777) reports the experiments and limitations; it has not been peer reviewed.
 
 This repository: MIT licence, see [`LICENSE`](LICENSE), [`THIRD_PARTY.md`](THIRD_PARTY.md) and [`CITATION.cff`](CITATION.cff). No model weights or downloaded evaluation data are redistributed in the source release. To contribute or reproduce an experiment, start with [`CONTRIBUTING.md`](CONTRIBUTING.md). The [capability overview](docs/capabilities.md), [`AGENTS.md`](AGENTS.md) and [`llms.txt`](llms.txt) provide concise entry points for automated tools.
