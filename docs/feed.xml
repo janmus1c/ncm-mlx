@@ -5,11 +5,21 @@
   <subtitle>Software and working-paper releases for an independent MLX implementation of Next-Concept Modeling.</subtitle>
   <link rel="self" type="application/atom+xml" href="https://janmus1c.github.io/ncm-mlx/feed.xml" />
   <link rel="alternate" href="https://janmus1c.github.io/ncm-mlx/" />
-  <updated>2026-10-25T11:54:17.720827Z</updated>
+  <updated>2026-10-27T09:33:29.086196Z</updated>
   <author>
     <name>NCM-MLX project</name>
     <uri>https://github.com/janmus1c/ncm-mlx</uri>
   </author>
+  <entry>
+    <id>https://doi.org/10.5281/zenodo.23686842</id>
+    <title>Working paper v0.11: two-seed Sudoku assessment and planned text research</title>
+    <link rel="alternate" href="https://janmus1c.github.io/ncm-mlx/research/e20-seed-report/" />
+    <link rel="related" href="https://doi.org/10.5281/zenodo.23686842" />
+    <link rel="related" href="https://github.com/janmus1c/ncm-mlx/releases/tag/paper-v0.11" />
+    <published>2026-10-27T09:33:29.086196Z</published>
+    <updated>2026-10-27T09:33:29.086196Z</updated>
+    <summary type="text">Completed E20 records 97.25 / 79.60 / 33.25% easy/medium/hard solving, compared with seed 0's 98.10 / 83.40 / 40.30% at equal generator exposure. A partial small-model success with a substantial hard-board deficit, two-seed uncertainty and explicit historical audit limits. Controlled text generation is the next research direction, not a validated capability. Unreviewed working paper.</summary>
+  </entry>
   <entry>
     <id>https://doi.org/10.5281/zenodo.23640777</id>
     <title>Working paper v0.10: completed E18 and E19 results</title>
