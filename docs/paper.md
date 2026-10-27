@@ -6,11 +6,11 @@ description: Read the NCM-MLX working paper, its experimental evidence, version 
 # Working paper
 
 **Coarse-to-Fine Text Generation on a Laptop: A Native MLX Study of Next-Concept Modeling**<br>
-Jan Music · Working paper v0.10 · 2026-10-25 · [DOI: 10.5281/zenodo.23640777](https://doi.org/10.5281/zenodo.23640777)
+Jan Music · Working paper v0.11 · 2026-10-27 · [Versioned release](https://github.com/janmus1c/ncm-mlx/releases/tag/paper-v0.11)
 
 ## Abstract
 
-Next-concept modeling (NCM) writes a sequence the way a painter works: a rough sketch first, then finer and finer detail, with every piece of a level produced at once. We independently implement NCM from its paper and released configurations in MLX, Apple's array framework, and study it on an Apple M5 Pro laptop and single NVIDIA GPUs. On a synthetic 15,360-sentence language, a 5M-parameter NCM generator is faster than a character-level autoregressive (AR) model of similar generator size at small batches but less accurate (89.8% vs 98.6% valid sentences). On the published Sudoku boards, the MLX implementation with conditioning corruption and unique-solution puzzles solves 98.10% of easy, 83.40% of medium and 40.30% of hard boards after 16.384M generator presentations. This single-seed result improves on 96.25%, 76.65% and 31.90% at half that exposure; corpus, batch and schedule also differ, so the comparison does not isolate a causal effect. Original NCM (Kumbong et al.) reports 99.5%, 96.5% and 86.1% with a roughly 4× larger generator and 51.2M presentations; this is an unmatched comparison. A separate 2.048M-presentation comparison favors NCM over the AR baseline, but excludes NCM's additional codec training cost. We trace the effects of the level schedule, learned first level, conditioning corruption and training exposure. We also measure reduced precision in fp32 matrix products on Apple GPUs and a 1.35× training improvement from segmented block-diagonal attention.
+Next-Concept Modeling (NCM) generates a sequence through successive levels of discrete latent codes, predicting each level in parallel. We independently implement the method in MLX and study synthetic language and Sudoku on Apple Silicon and NVIDIA GPUs. On a finite synthetic grammar, a 5M-parameter generator achieves lower small-batch latency than a similarly sized autoregressive generator, with lower sentence validity (89.8% versus 98.6%). Two Sudoku training seeds use the same 6.44M-parameter generator recipe and 16.384M presentations each. Retained greedy evaluation aggregates report easy/medium/hard solve rates of 98.10/83.40/40.30% for seed 0 and 97.25/79.60/33.25% for seed 1, with 2,000 boards per difficulty. The hard-set difference is 7.05 percentage points; two seeds do not establish population training variability or its cause. Original NCM reports 99.50/96.50/86.10% with a 25.46M generator, 51.2M presentations and a different task setup. Our generator is 3.95 times smaller, excluding its additional codec; the comparison establishes neither task parity nor matched-cost efficiency. E20 completes its schedule without a recorded reset or truncation, but missing per-board predictions and remote provenance manifests limit independent audit. We characterize this phase as a partial implementation and small-model success, retain the substantial hard-Sudoku deficit, and define controlled text evaluation as the next research direction rather than a demonstrated capability.
 
 [Read the working paper (PDF)](https://janmus1c.github.io/ncm-mlx/paper/ncm-mlx.pdf){ .primary-link }
 
@@ -25,7 +25,7 @@ Next-concept modeling (NCM) writes a sequence the way a painter works: a rough s
 | [LaTeX](../paper/dist/ncm-mlx.tex) | Starting point for a submission, rather than a publisher-ready template |
 | [JATS XML](../paper/dist/ncm-mlx.jats.xml) | Structured scholarly archiving |
 
-Version 0.10 reports completed E18, E19 pilot and E19-funded results, with actual training exposure, checkpoint provenance, uncertainty and synchronized A40 timings. It clearly distinguishes the MLX implementation from Original NCM (Kumbong et al.) and highlights the smaller-generator easy-board result with its limitations. This is an unreviewed working paper. The [Zenodo record](https://doi.org/10.5281/zenodo.23640777) archives the checked PDF; [paper releases](https://github.com/janmus1c/ncm-mlx/releases/tag/paper-v0.10) preserve all six editions.
+Version 0.11 adds completed E20 and a [two-seed assessment](research/e20-seed-report.md): preserved easy/medium performance, a 7.05-point hard-set spread, aggregate-only audit limits and a controlled-text research direction. It characterizes the Sudoku phase as a partial success, without reference parity or a demonstrated text capability. The [paper release](https://github.com/janmus1c/ncm-mlx/releases/tag/paper-v0.11) preserves all six editions. The [earlier v0.10 DOI archive](https://doi.org/10.5281/zenodo.23640777) remains unchanged and does not identify this revision. This is an unreviewed working paper.
 
 The [Markdown manuscript](../paper/manuscript.md), [references](../paper/references.bib) and [figure data](../paper/data/results.json) are committed with the editions. The [build guide](../paper/README.md) explains how to rebuild them without private run logs. The manuscript's version history records substantive changes; it is separate from the software release version.
 
@@ -38,8 +38,7 @@ For the method, cite [Kumbong et al., *Next-Concept Modeling*](https://arxiv.org
   author = {Jan Music},
   title = {Coarse-to-Fine Text Generation on a Laptop: A Native MLX Study of Next-Concept Modeling},
   year = {2026},
-  note = {Unreviewed working paper, version 0.10},
-  doi = {10.5281/zenodo.23640777},
-  url = {https://doi.org/10.5281/zenodo.23640777}
+  note = {Unreviewed working paper, version 0.11},
+  url = {https://github.com/janmus1c/ncm-mlx/releases/tag/paper-v0.11}
 }
 ```

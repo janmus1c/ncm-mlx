@@ -55,8 +55,8 @@ Temperature 1.0, uncompiled sampler, 3 warmups, 20 timed iterations, 12 generato
 
 Before preflight, GPU utilisation and allocated memory were 0, with no compute applications. Health observations tracked the owned training process during the run; an exact immediate pre-benchmark load sample was not retained. Do not certify these as uncontended hardware limits or derive a hardware speed ratio against the pilot's different A40 host or the RTX 3080 runs.
 
-## Next validation
+## Subsequent seed replication
 
-E20 repeats the funded scientific recipe with training seed 1 and the same data split, frozen codec, batch and target updates. Its operational time cap is shorter; any early truncation must be reported. This will provide a second seed, not by itself a robust estimate of broad training variability. The original million-step E19 recipe remains unstarted.
+E20 has completed the funded scientific recipe with training seed 1 and equal exposure: 97.25 / 79.60 / 33.25%, below seed 0 by 0.85 / 3.80 / 7.05 points. Neither run reaches its operational cap. The [two-seed assessment](e20-seed-report.md) records the interpretation, historical provenance limits and next research phase. Two seeds do not reliably estimate broad training variability. The original million-step E19 recipe remains unstarted.
 
-The [sanitized result extract](completed-sudoku-results.json) contains complete quality reports, parameter accounting, runtime metadata and benchmark rows for E18 and both completed E19 variants. [Experiment history](../EXPERIMENTS.md) and [benchmark methodology](../benchmarks.md) retain the wider comparisons. The [combined working-paper v0.10](https://doi.org/10.5281/zenodo.23640777) incorporates these verified results; older releases remain immutable.
+The [sanitized result extract](completed-sudoku-results.json) contains complete quality reports, parameter accounting, runtime metadata and benchmark rows for E18, both completed E19 variants and E20. [Experiment history](../EXPERIMENTS.md) and [benchmark methodology](../benchmarks.md) retain the wider comparisons. The [combined working-paper v0.10](https://doi.org/10.5281/zenodo.23640777) archives the E18/E19 evidence. Working paper v0.11 adds E20 with the audit limits in the subsequent assessment; older releases remain immutable.

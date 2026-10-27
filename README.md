@@ -25,6 +25,8 @@ MLX makes these experiments runnable on consumer Apple Silicon GPUs; Linux NVIDI
 
 ---
 
+**Research update · 2026-10-27.** E20 completed the funded Sudoku recipe with a second training seed: **97.25 / 79.60 / 33.25%** easy/medium/hard, against seed 0’s **98.10 / 83.40 / 40.30%**, at equal exposure. This is a partial small-generator success with a substantial hard-board gap. The [two-seed assessment](docs/research/e20-seed-report.md) explains the results and audit limits. Controlled text generation is the next research direction; it is not a supported capability yet.
+
 ## Contents
 
 - [What it does](#what-it-does) · [How generation works](#how-generation-works) · [Quickstart](#quickstart) · [Results](#results)

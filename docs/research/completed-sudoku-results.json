@@ -1,7 +1,7 @@
 {
-  "recorded_date": "2026-10-25",
+  "recorded_date": "2026-10-27",
   "status": "completed",
-  "scope": "Independent MLX Sudoku runs; no equal-budget or upstream reproduction claim",
+  "scope": "Completed E18, E19 pilot, E19-funded and E20 recorded results. Retained aggregate reports and benchmark metadata; E20 provenance limits are explicit.",
   "experiments": {
     "sudoku-e18": {
       "config": "configs/sudoku-e18.json",
@@ -656,7 +656,271 @@
           0.381709,
           0.424663
         ]
-      }
+      },
+      "training_seed": 0
+    },
+    "sudoku-e20-seed1": {
+      "config": "configs/sudoku-e20-seed1.json",
+      "source_commit": "4ad3646189197fe1ca76e45308848793fefe9a3f",
+      "source_identity_status": "Controller-declared commit; no remote source digest inventory retained.",
+      "generator_sha256": "b6ddadb7278e7f1c5542eecef676840f39cb829e802d189b65f2dadd645c2b3d",
+      "evaluation_sha256": "4626617cc962794c34917fe86be15160f387d8c049a85273aad396cc3f2102e4",
+      "training": {
+        "steps": 128000,
+        "best_step": 128000,
+        "train_seconds": 54122.43
+      },
+      "training_seed": 1,
+      "batch_size": 128,
+      "sequence_presentations": 16384000,
+      "pipeline_seconds": 55543.618,
+      "runtime": {
+        "mlx": "0.32.3",
+        "device": "Device(gpu, 0)",
+        "metal": false,
+        "cuda": true,
+        "machine": "x86_64",
+        "macos": "",
+        "python": "3.12.3",
+        "chip": "NVIDIA A40",
+        "memory_gb": 0.0
+      },
+      "parameters": {
+        "codec": 13915200,
+        "generator": 6440128
+      },
+      "codec_validation": {
+        "char_acc_by_levels_used": [
+          0.1573,
+          0.157,
+          0.1578,
+          0.1638,
+          0.1635,
+          0.2002,
+          0.2593,
+          0.3349,
+          0.4487,
+          0.5671,
+          0.7239,
+          1.0
+        ],
+        "seq_exact_by_levels_used": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "codebook_utilization": [
+          1.0,
+          0.9375,
+          0.6875,
+          0.625,
+          0.5,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "code_perplexity": [
+          15.93,
+          14.68,
+          10.79,
+          9.83,
+          7.07,
+          15.77,
+          15.49,
+          15.83,
+          15.92,
+          15.56,
+          15.45,
+          14.53
+        ]
+      },
+      "generator_validation_teacher_forced": {
+        "ce_per_level": [
+          0.896,
+          0.1557,
+          0.41,
+          0.2739,
+          0.1699,
+          0.336,
+          0.1066,
+          0.1613,
+          0.1204,
+          0.1451,
+          0.1854,
+          0.051
+        ],
+        "acc_per_level": [
+          0.671,
+          0.972,
+          0.8427,
+          0.891,
+          0.9407,
+          0.8723,
+          0.9612,
+          0.9383,
+          0.9552,
+          0.9429,
+          0.9278,
+          0.9802
+        ]
+      },
+      "best_validation_weighted_ce": 0.1425576433121019,
+      "generation_temperature": 0.0,
+      "quality": {
+        "val": {
+          "solved": 0.71,
+          "valid_grid": 0.712,
+          "respects_givens": 0.997,
+          "cell_acc": 0.9005,
+          "blank_cell_acc": 0.8323,
+          "n": 1000.0
+        },
+        "upstream-easy": {
+          "solved": 0.9725,
+          "valid_grid": 0.9725,
+          "respects_givens": 1.0,
+          "cell_acc": 0.9979,
+          "blank_cell_acc": 0.9959,
+          "n": 2000.0
+        },
+        "upstream-medium": {
+          "solved": 0.796,
+          "valid_grid": 0.796,
+          "respects_givens": 0.999,
+          "cell_acc": 0.9796,
+          "blank_cell_acc": 0.9641,
+          "n": 2000.0
+        },
+        "upstream-hard": {
+          "solved": 0.3325,
+          "valid_grid": 0.335,
+          "respects_givens": 0.993,
+          "cell_acc": 0.905,
+          "blank_cell_acc": 0.8492,
+          "n": 2000.0
+        }
+      },
+      "benchmark": {
+        "runtime": {
+          "mlx": "0.32.3",
+          "device": "Device(gpu, 0)",
+          "metal": false,
+          "cuda": true,
+          "machine": "x86_64",
+          "macos": "",
+          "python": "3.12.3",
+          "chip": "NVIDIA A40",
+          "memory_gb": 0.0
+        },
+        "seq_len": 81,
+        "levels": [
+          1,
+          2,
+          4,
+          6,
+          9,
+          13,
+          18,
+          26,
+          37,
+          50,
+          67,
+          81
+        ],
+        "temperature": 1.0,
+        "warmup": 3,
+        "iterations": 20,
+        "sampler_compiled": false,
+        "synchronization": "numpy_host_copy",
+        "rows": [
+          {
+            "batch": 1,
+            "first_call_ms": 518.31,
+            "p50_ms": 29.453,
+            "p95_ms": 30.323,
+            "mean_ms": 29.243,
+            "stdev_ms": 0.981,
+            "sequences_per_s": 34.0,
+            "chars_per_s": 2750.0,
+            "peak_memory_mb": 130.2,
+            "model_forwards": 12
+          },
+          {
+            "batch": 16,
+            "first_call_ms": 53.67,
+            "p50_ms": 48.506,
+            "p95_ms": 49.274,
+            "mean_ms": 48.49,
+            "stdev_ms": 0.708,
+            "sequences_per_s": 329.9,
+            "chars_per_s": 26718.0,
+            "peak_memory_mb": 552.4,
+            "model_forwards": 12
+          },
+          {
+            "batch": 64,
+            "first_call_ms": 157.03,
+            "p50_ms": 174.326,
+            "p95_ms": 175.352,
+            "mean_ms": 173.246,
+            "stdev_ms": 3.481,
+            "sequences_per_s": 367.1,
+            "chars_per_s": 29737.0,
+            "peak_memory_mb": 1911.2,
+            "model_forwards": 12
+          },
+          {
+            "batch": 256,
+            "first_call_ms": 596.91,
+            "p50_ms": 581.791,
+            "p95_ms": 583.397,
+            "mean_ms": 581.875,
+            "stdev_ms": 0.798,
+            "sequences_per_s": 440.0,
+            "chars_per_s": 35642.0,
+            "peak_memory_mb": 2981.0,
+            "model_forwards": 12
+          }
+        ]
+      },
+      "wilson95_solved": {
+        "val": [
+          0.681115,
+          0.737278
+        ],
+        "upstream-easy": [
+          0.964377,
+          0.978812
+        ],
+        "upstream-medium": [
+          0.77778,
+          0.813085
+        ],
+        "upstream-hard": [
+          0.312192,
+          0.353451
+        ]
+      },
+      "evidence_status": "Recorded aggregate evaluation; retained bytes verified, not independently rescored.",
+      "limitations": [
+        "No per-board predictions or checkpoint-bound ordered evaluation-input manifest were retained; local board hashes match the published files but remote evaluation identity and duplicate-free coverage are not independently verified.",
+        "The CUDA benchmark GPU-load log is empty; preflight observations do not establish contention at benchmark time.",
+        "Different physical A40 allocations; neither strict hardware identity nor cross-host timing attribution is established.",
+        "Wilson intervals describe board sampling under independence assumptions, not training-seed uncertainty or correction for repeated benchmark-guided recipe selection."
+      ]
     }
   }
 }

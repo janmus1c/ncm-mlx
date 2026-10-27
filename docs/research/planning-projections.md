@@ -40,6 +40,8 @@ Quality at these budgets is unknown. Measure solved boards, givens preservation,
 | Real-text baseline | Dataset rights, tokenizer/padding contract, reproducible metrics and matched budgets | Sudoku timings and scores do not project to text |
 | Upstream checkpoint reference | Independent format conversion and parity checks | No accuracy parity claim until measured |
 
+E20 supplies a second training seed at the funded exposure: 97.25 / 79.60 / 33.25%, versus seed 0’s 98.10 / 83.40 / 40.30%. The [two-seed assessment](e20-seed-report.md) retains both outcomes and their audit limits; none of these scenarios predicts how another seed will score.
+
 The strongest completed small-generator finding is **98.10% versus 99.50% on easy boards**, using a **3.95× smaller generator** and **3.125× fewer generator presentations**. Medium and hard gaps remain 13.10 and 45.80 percentage points. More training might help, plateau or worsen held-out results; the current experiments do not identify a scaling law.
 
 [Machine-readable assumptions](projections/scenarios.json) can be rebuilt with `uv run --group paper python scripts/project_roadmap.py`. Private account balances and spending plans are not included here.

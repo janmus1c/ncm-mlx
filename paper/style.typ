@@ -79,7 +79,7 @@
   show figure.caption: it => {
     set text(size: 9pt)
     set par(justify: true)
-    [#strong[#it.supplement #context it.counter.display(it.numbering):] #it.body]
+    block(sticky: it.position == top)[#strong[#it.supplement #context it.counter.display(it.numbering):] #it.body]
   }
   set figure(gap: 0.8em)
   show figure: set block(above: 1.4em, below: 1.4em)
@@ -87,6 +87,7 @@
     top: if y == 0 { 0.8pt + ink } else { none },
     bottom: if y == 0 { 0.5pt + ink } else { none },
   ), inset: (x: 6pt, y: 4.5pt))
+  set table.cell(breakable: false)
   show table: set text(size: 9pt)
   show table.cell: set align(left)
   show table.cell: set par(justify: false)

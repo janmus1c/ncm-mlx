@@ -30,9 +30,13 @@ This is experimental research software for **TinyWorld synthetic text and Sudoku
 
 ## Measured results, with limits
 
-The best completed Sudoku experiment, E19-funded, solves **98.10% easy, 83.40% medium and 40.30% hard** on 2,000 published test boards per difficulty. Its 6.4M-parameter generator uses a separate codec. Original NCM (Kumbong et al.) reports 99.50 / 96.50 / 86.10% with a 25.46M generator and 51.2M presentations. The MLX implementation uses a 6.44M generator (3.95× smaller) and 16.384M presentations. Its easy score is within 1.40 points, while medium and hard remain substantially behind. The codec is additional to both generators. These figures are point estimates from one training run, not evidence of equal-budget parity with the original paper.
+The best completed Sudoku experiment, E19-funded, solves **98.10% easy, 83.40% medium and 40.30% hard** on 2,000 published test boards per difficulty. Its 6.4M-parameter generator uses a separate codec. Original NCM (Kumbong et al.) reports 99.50 / 96.50 / 86.10% with a 25.46M generator and 51.2M presentations. The MLX implementation uses a 6.44M generator (3.95× smaller) and 16.384M presentations. Its easy score is within 1.40 points, while medium and hard remain substantially behind. The codec is additional to both generators. E20 repeats the same scientific recipe with another training seed and reports **97.25 / 79.60 / 33.25%** at equal exposure. Both outcomes must be retained; neither establishes equal-budget parity with the original paper. The [two-seed assessment](research/e20-seed-report.md) explains the 7.05-point hard-set spread, missing historical audit records and why the phase is a partial success.
 
 E17's interrupted run was recovered for its remaining 2,000 updates and solves **71.25 / 31.75 / 3.70%**. The old checkpoint contained weights only; optimizer and random state reset. E18 later completed without a recovery reset and solves **84.25 / 49.10 / 10.55%**, below E15. The E19 pilot and funded run are also complete; the funded result uses twice E15's exposure. Full measurements and qualifications live in the [completed report](research/e19-funded-report.md) and [experiment record](EXPERIMENTS.md).
+
+## Next research phase
+
+Controlled text generation is the next main direction. The plan starts with a reproducible data/tokenizer contract, separate reconstruction and generation metrics, an autoregressive baseline and measurements on Apple Silicon. Sudoku remains a diagnostic track. These are research plans; natural-text quality and application usefulness are unvalidated. See the [roadmap](NEXT.md) for dependencies and acceptance criteria.
 
 ## Source, paper and citation
 

@@ -1,0 +1,131 @@
+{
+  "source": "docs/research/completed-sudoku-results.json",
+  "status": "descriptive analysis of retained aggregates; no new model evaluation",
+  "training_seeds": [
+    0,
+    1
+  ],
+  "generator_presentations_per_seed": 16384000,
+  "original_ncm_source": "https://arxiv.org/html/2610.14162v1",
+  "interval_method": "Wilson 95%, z=1.959963984540054; board independence assumed",
+  "limitations": [
+    "Two seeds do not estimate population training variability reliably.",
+    "The same benchmark boards recur across runs; do not pool them as independent boards.",
+    "No paired significance, board-overlap or causal mechanism is inferred from aggregates.",
+    "Historical remote evaluation/source identity gaps remain; see the run evidence.",
+    "Repeated benchmark-guided recipe selection is not accounted for by these intervals."
+  ],
+  "difficulties": {
+    "easy": {
+      "seed_0": {
+        "n": 2000,
+        "solved_boards": 1962,
+        "solved_percent": 98.1,
+        "wilson95_percent": [
+          97.402959,
+          98.612622
+        ],
+        "invalid_grids": 38,
+        "valid_grids_violating_givens": 0,
+        "boards_violating_givens": 0,
+        "blank_cell_accuracy_percent": 99.69,
+        "gap_below_original_ncm_pp": 1.4
+      },
+      "seed_1": {
+        "n": 2000,
+        "solved_boards": 1945,
+        "solved_percent": 97.25,
+        "wilson95_percent": [
+          96.437689,
+          97.88115
+        ],
+        "invalid_grids": 55,
+        "valid_grids_violating_givens": 0,
+        "boards_violating_givens": 0,
+        "blank_cell_accuracy_percent": 99.59,
+        "gap_below_original_ncm_pp": 2.25
+      },
+      "seed_1_minus_seed_0_pp": -0.85,
+      "descriptive_two_seed_mean_percent": 97.675,
+      "observed_range_percent": [
+        97.25,
+        98.1
+      ],
+      "quoted_original_ncm_percent": 99.5
+    },
+    "medium": {
+      "seed_0": {
+        "n": 2000,
+        "solved_boards": 1668,
+        "solved_percent": 83.4,
+        "wilson95_percent": [
+          81.705591,
+          84.96635
+        ],
+        "invalid_grids": 332,
+        "valid_grids_violating_givens": 0,
+        "boards_violating_givens": 0,
+        "blank_cell_accuracy_percent": 97.12,
+        "gap_below_original_ncm_pp": 13.1
+      },
+      "seed_1": {
+        "n": 2000,
+        "solved_boards": 1592,
+        "solved_percent": 79.6,
+        "wilson95_percent": [
+          77.77798,
+          81.308531
+        ],
+        "invalid_grids": 408,
+        "valid_grids_violating_givens": 0,
+        "boards_violating_givens": 2,
+        "blank_cell_accuracy_percent": 96.41,
+        "gap_below_original_ncm_pp": 16.9
+      },
+      "seed_1_minus_seed_0_pp": -3.8,
+      "descriptive_two_seed_mean_percent": 81.5,
+      "observed_range_percent": [
+        79.6,
+        83.4
+      ],
+      "quoted_original_ncm_percent": 96.5
+    },
+    "hard": {
+      "seed_0": {
+        "n": 2000,
+        "solved_boards": 806,
+        "solved_percent": 40.3,
+        "wilson95_percent": [
+          38.170901,
+          42.466289
+        ],
+        "invalid_grids": 1192,
+        "valid_grids_violating_givens": 2,
+        "boards_violating_givens": 8,
+        "blank_cell_accuracy_percent": 86.99,
+        "gap_below_original_ncm_pp": 45.8
+      },
+      "seed_1": {
+        "n": 2000,
+        "solved_boards": 665,
+        "solved_percent": 33.25,
+        "wilson95_percent": [
+          31.219152,
+          35.345069
+        ],
+        "invalid_grids": 1330,
+        "valid_grids_violating_givens": 5,
+        "boards_violating_givens": 14,
+        "blank_cell_accuracy_percent": 84.92,
+        "gap_below_original_ncm_pp": 52.85
+      },
+      "seed_1_minus_seed_0_pp": -7.05,
+      "descriptive_two_seed_mean_percent": 36.775,
+      "observed_range_percent": [
+        33.25,
+        40.3
+      ],
+      "quoted_original_ncm_percent": 86.1
+    }
+  }
+}

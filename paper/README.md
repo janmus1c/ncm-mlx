@@ -1,6 +1,6 @@
 # Paper
 
-An unreviewed working paper on this independent implementation. Version 0.10 records completed E18 and E19 results, actual training exposure, uncertainty and checkpoint provenance. It retains the experimental limitations and disclosure of OpenAI Codex assistance with code, documentation and manuscript drafting and revision.
+An unreviewed working paper on this independent implementation. Version 0.11 adds completed E20, a two-seed assessment, hard-board failure accounting, explicit historical provenance limits and a gated text-research direction. It retains E18/E19 results, negative outcomes, experimental limitations and the disclosure of OpenAI Codex assistance with implementation, experiments, analysis, figures, documentation and manuscript drafting and revision.
 
 | File | What it is |
 |---|---|
@@ -11,6 +11,14 @@ An unreviewed working paper on this independent implementation. Version 0.10 rec
 | `figures/` | SVG, PDF and PNG figures. |
 | `style.typ`, `web.css`, `assets/` | PDF layout (NeurIPS conventions), HTML/EPUB style, logo and e-book cover. |
 | `dist/` | Built editions: PDF, HTML, EPUB, LaTeX, JATS XML, DOCX. Committed so they can be read without a toolchain; rebuild with `./build.sh` in the same commit as any manuscript change. |
+
+## Rebuild the replication assessment
+
+```bash
+python paper/analyze_replication.py  # standard library; committed aggregate inputs
+```
+
+This derives counts, Wilson intervals, descriptive two-seed means and gaps to the quoted reference. It does not rerun models or infer paired significance, population seed variance or causal mechanisms.
 
 ## Rebuild the figures
 

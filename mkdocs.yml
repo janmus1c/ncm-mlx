@@ -37,6 +37,7 @@ nav:
       - Related work: related-work.md
       - Upstream map: research/upstream-map.md
       - Experiments: EXPERIMENTS.md
+      - Two-seed assessment: research/e20-seed-report.md
       - Status: STATUS.md
       - Next: NEXT.md
   - Reference:

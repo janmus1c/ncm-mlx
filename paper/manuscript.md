@@ -3,17 +3,17 @@ title: "Coarse-to-Fine Text Generation on a Laptop: A Native MLX Study of Next-C
 author:
   - name: Jan Music
     affiliation: Independent
-date: "v0.10 · 2026-10-25"
+date: "v0.11 · 2026-10-27"
 keywords: [coarse-to-fine generation, residual vector quantisation, parallel decoding, Apple Silicon, MLX]
 section-numbering: "1.1"
 lang: en-GB
 abstract: |
-  Next-concept modeling (NCM) writes a sequence the way a painter works: a rough sketch first, then finer and finer detail, with every piece of a level produced at once. We independently implement NCM from its paper and released configurations in MLX, Apple's array framework, and study it on an Apple M5 Pro laptop and single NVIDIA GPUs. On a synthetic 15,360-sentence language, a 5M-parameter NCM generator is faster than a character-level autoregressive (AR) model of similar generator size at small batches but less accurate (89.8% vs 98.6% valid sentences). On the published Sudoku boards, the MLX implementation with conditioning corruption and unique-solution puzzles solves 98.10% of easy, 83.40% of medium and 40.30% of hard boards after 16.384M generator presentations. This single-seed result improves on 96.25%, 76.65% and 31.90% at half that exposure; corpus, batch and schedule also differ, so the comparison does not isolate a causal effect. Original NCM (Kumbong et al.) reports 99.5%, 96.5% and 86.1% with a roughly 4× larger generator and 51.2M presentations; this is an unmatched comparison. A separate 2.048M-presentation comparison favors NCM over the AR baseline, but excludes NCM's additional codec training cost. We trace the effects of the level schedule, learned first level, conditioning corruption and training exposure. We also measure reduced precision in fp32 matrix products on Apple GPUs and a 1.35× training improvement from segmented block-diagonal attention.
+  Next-Concept Modeling (NCM) generates a sequence through successive levels of discrete latent codes, predicting each level in parallel. We independently implement the method in MLX and study synthetic language and Sudoku on Apple Silicon and NVIDIA GPUs. On a finite synthetic grammar, a 5M-parameter generator achieves lower small-batch latency than a similarly sized autoregressive generator, with lower sentence validity (89.8% versus 98.6%). Two Sudoku training seeds use the same 6.44M-parameter generator recipe and 16.384M presentations each. Retained greedy evaluation aggregates report easy/medium/hard solve rates of 98.10/83.40/40.30% for seed 0 and 97.25/79.60/33.25% for seed 1, with 2,000 boards per difficulty. The hard-set difference is 7.05 percentage points; two seeds do not establish population training variability or its cause. Original NCM reports 99.50/96.50/86.10% with a 25.46M generator, 51.2M presentations and a different task setup. Our generator is 3.95 times smaller, excluding its additional codec; the comparison establishes neither task parity nor matched-cost efficiency. E20 completes its schedule without a recorded reset or truncation, but missing per-board predictions and remote provenance manifests limit independent audit. We characterize this phase as a partial implementation and small-model success, retain the substantial hard-Sudoku deficit, and define controlled text evaluation as the next research direction rather than a demonstrated capability.
 bibliography: references.bib
 link-citations: true
 ---
 
-> **Status.** Working paper, version 0.10. Every number here is copied from a run in the code repository (`runs/`, summarised in `paper/data/results.json`) or quoted from the cited paper and marked as quoted. Experiments still running are marked *in progress* and never estimated. Appendix C lists the changes between versions.
+> **Status.** Working paper, version 0.11. Every number here is copied from a run in the code repository (`runs/`, summarised in `paper/data/results.json`) or quoted from the cited paper and marked as quoted. Experiments still running are marked *in progress* and never estimated. Appendix C lists the changes between versions.
 
 # Reading guide
 
@@ -46,7 +46,7 @@ Fewer, wider model runs suit a laptop GPU: one run reads the weights once and do
 
 ## What we did
 
-We rebuilt NCM from scratch for Apple's MLX framework [@mlx2023], tested it on a small invented language and on Sudoku puzzles (the original paper's showcase), and compared it with a character-level AR model of similar generator size and with a large chat model. The speed advantage holds on a laptop. On Sudoku our best model solves 98% of easy boards (the original: 99.5%) and beats the smaller-budget AR reference; a separate comparison matches generator presentations; Section 8 tells how we got there.
+We rebuilt NCM from scratch for Apple's MLX framework [@mlx2023], tested it on a small invented language and on Sudoku puzzles (the original paper's showcase), and compared it with a character-level AR model of similar generator size and with a large chat model. The speed advantage holds on a laptop. On Sudoku, two training seeds solve 97.25–98.10% of easy boards but only 33.25–40.30% of hard boards. Original NCM reports 99.5% and 86.1%, respectively, under a different setup. A historical comparison matches generator presentations against our AR baseline; Section 8 records the experiments. NCM is a generation method used here for two tasks, not a Sudoku-specific expansion of the term or an instruction-following language model.
 
 # Glossary
 
@@ -172,9 +172,9 @@ This is the coarse-to-fine analogue of scheduled sampling [@ss2015]. The paper n
 
 For $k = 0, \dots, K-1$: run the generator on $\mathrm{input}_k$ and the prefix, sample all $l_k$ codes of level $k$ at once, add their contribution $q_k$ to the reconstruction and shrink it into $\mathrm{input}_{k+1}$. Finally decode $\hat z_{K-1}$ to tokens. Cost: $K$ generator passes and one decoder pass, independent of how long each level is.
 
-: Differences between this implementation and the released NCM Sudoku setting [@ncm2026, Tables 5–6].
+: Initial E6 settings versus released Original NCM Sudoku settings [@ncm2026, Tables 5–6]. Later runs change exposure and corruption; see Appendix A.
 
-| Component | Original NCM (Kumbong et al.) | MLX implementation |
+| Component | Original NCM (Kumbong et al.) | MLX starting recipe (E6) |
 |---|---|---|
 | Tokens per board | 89 (cells and separators) | 81 (cells) |
 | Levels × codes | 12 × 16, $l_{K-1} = 89$ | 12 × 16, $l_{K-1} = 81$ |
@@ -252,7 +252,8 @@ Each board is 81 digits; the puzzle (blanks as 0) is the prefix and the solution
 | MLX implementation, E15 | 6.4M | 96.25% | 76.65% | 31.90% |
 | MLX implementation, E18 (base data) | 6.4M | 84.25% | 49.10% | 10.55% |
 | MLX implementation, E19 pilot | 6.4M | 90.20% | 59.75% | 16.55% |
-| **MLX implementation, E19 funded** | 6.4M | **98.10%** | **83.40%** | **40.30%** |
+| MLX implementation, E19 funded (seed 0) | 6.4M | 98.10% | 83.40% | 40.30% |
+| MLX implementation, E20 (seed 1) | 6.4M | 97.25% | 79.60% | 33.25% |
 | MLX AR baseline | 6.3M | 13.8% | 3.0% | 0.4% |
 | MLX AR baseline, E11's budget (2M sequences) | 6.3M | 20.5% | 4.9% | 0.5% |
 | Qwen3.8 27B, 4-bit, no reasoning (50 boards each) | 27B | 0% | 0% | 0% |
@@ -262,11 +263,11 @@ Each board is 81 digits; the puzzle (blanks as 0) is the prefix and the solution
 
 The first AR row is within a few percentage points of the Original AR baseline, but this numerical proximity does not establish a reproduction of its model or training recipe. Without conditioning corruption (E4–E6) our NCM solves nothing; with it (E8) it solves 6.2% of easy boards and fills 74.7% of blank cells correctly, more than the AR model's 71.0%, while still solving fewer boards. E11 solves 55.2% of easy boards; at the same 2.048M generator presentations, the AR model solves 20.5%, 4.9% and 0.5%. This matches generator data exposure, not total training cost, FLOPs or system size. Section 8 records the changes.
 
-The shared E6 codec contains 13,816,704 gradient-trained values, 49,152 EMA-trained codebook values and 49,344 EMA accumulators: 13,915,200 saved scalar values in total. Its learned first-level down/up convolutions account for 10,617,344 trainable values. The 6,440,128 generator values are additional; generator-size comparisons exclude the codec. Older rows preserve historical rounding; E15 and the newly completed runs retain their two-decimal solved rates. Each test set has 2,000 boards. Runs generally use one training seed, and repeated sampling seeds do not quantify training variability.
+The shared E6 codec contains 13,816,704 gradient-trained values, 49,152 EMA-trained codebook values and 49,344 EMA accumulators: 13,915,200 saved scalar values in total. Its learned first-level down/up convolutions account for 10,617,344 trainable values. The 6,440,128 generator values are additional; generator-size comparisons exclude the codec. Older rows preserve historical rounding; E15 and the newly completed runs retain their two-decimal solved rates. Each test set has 2,000 boards. Most recipes use one training seed; E19-funded and E20 provide two seeds of the same scientific recipe. Repeated sampling seeds do not quantify training variability.
 
 Historical synchronized timings use temperature 1.0 while Sudoku quality uses greedy temperature 0.0. Both samplers remain uncompiled; `mx.compile` is used only for generator training when configured. Latency therefore does not directly time the solved-board decoding setting. The benchmark includes the output host copy, prefix work and final decoder, and records shared-device contention; cross-hardware timing ratios are not controlled comparisons.
 
-**Smaller-generator result.** Easy-board accuracy is within 1.40 percentage points of Original NCM (98.10% versus 99.50%) with a 6.44M versus 25.46M generator: 3.95× smaller and 3.125× fewer generator presentations. This is a useful small-model result, not overall task parity: medium and hard remain 13.10 and 45.80 points behind. The separate codec is excluded from this size ratio, and the recipes and representation differ.
+**Smaller-generator result.** Easy-board accuracy is within 1.40 percentage points of Original NCM (98.10% versus 99.50%) with a 6.44M versus 25.46M generator: 3.95× smaller and 3.125× fewer generator presentations. This is a useful small-model result, not overall task parity: medium and hard remain 13.10 and 45.80 points behind. The separate codec is excluded from this size ratio, and the recipes and representation differ. E20 retains the same generator size and exposure but its easy score is 2.25 points below Original NCM; its medium/hard gaps are 16.90/52.85 points. The best-seed proximity on easy boards is not a reproducibility guarantee.
 
 ### Completed E18 and E19 experiments
 
@@ -284,9 +285,34 @@ The short E19 pilot uses the frozen E6 codec and 8M cached unique puzzles in add
 
 The funded run completes its full schedule without a time-limit stop or optimizer reset; its final resumable snapshot is step 128,000, while held-out evaluation uses the best-validation step 127,000. Best weighted validation CE is 0.133244. The complete remote pipeline takes 55,700.91 s, including preprocessing, evaluation, benchmarking and transfer but excluding rental startup and the final cleanup wait. All 17 downloaded report/artifact files match their completion hashes. Source revision is `80dd445e5d17f54f53687a88459e011de4f9006f`; the generator SHA-256 and full result extract are retained in the repository's E19 report. Full-state snapshots preserve optimizer and random state; this uninterrupted run is not a test of cross-backend exact recovery.
 
-Funded validation solves 70.90% of 1,000 boards. On easy/medium/hard tests, blank-cell accuracy is 99.69 / 97.12 / 86.99% and givens preservation is 100 / 100 / 99.60%; full-depth codec validation reconstruction is separately 100%. Wilson 95% intervals for the solved rates are 97.40–98.61 / 81.71–84.97 / 38.17–42.47%. These assume independent test boards, exclude training-seed variability and do not establish paired significance against prior runs. Per-board prediction archives were not retained. A second training seed is the next validation step.
+Funded validation solves 70.90% of 1,000 boards. On easy/medium/hard tests, blank-cell accuracy is 99.69 / 97.12 / 86.99% and givens preservation is 100 / 100 / 99.60%; full-depth codec validation reconstruction is separately 100%. Wilson 95% intervals for the solved rates are 97.40–98.61 / 81.71–84.97 / 38.17–42.47%. These assume independent test boards, exclude training-seed variability and do not establish paired significance against prior runs. Per-board prediction archives were not retained. E20 supplies a second training seed below.
 
-![Completed MLX implementation recipes, with actual generator presentations beneath each run. Each bar uses 2,000 held-out boards. Dashed lines show Original NCM (Kumbong et al.), with its larger generator and 51.2M presentations; they are not matched-budget targets.](figures/sudoku-completed-runs.pdf){width=100%}
+### E20: a second training seed
+
+E20 repeats the E19-funded scientific recipe with configured training seed 1 instead of 0. Both complete 128,000 updates at batch 128, using the frozen E6 codec, 200,000 base puzzles plus 8M cached unique puzzles, corruption 0.50→0.10, learning rate 0.0006 and 1,000-step warmup. Shared codec and corpus input-manifest hashes match. The configured seed affects initialization, minibatch order, dropout and corruption; internal generator streams use that seed plus one. These influences are not separately controlled.
+
+The run name, output path and operational cap also change. E20's cap is 960 rather than 1,440 minutes; neither run reaches its cap. E20 records no optimizer reset or truncation, and its final full-state snapshot and selected best checkpoint are both step 128,000. Training-loop time is 54,122.43 s; pipeline time is 55,543.62 s under the E19 timing boundary. Best weighted code CE is 0.142558, compared with 0.133244 for seed 0. Separate physical A40 allocations and missing remote source inventories prevent a strict same-host causal attribution.
+
+: Two-seed held-out aggregates. Each seed reports the same 2,000-board benchmark per difficulty; the mean is descriptive, not a pooled independent sample.
+
+| Quantity | Easy | Medium | Hard |
+|---|---:|---:|---:|
+| Seed 0 solved boards | 1,962 | 1,668 | 806 |
+| Seed 1 solved boards | 1,945 | 1,592 | 665 |
+| Seed 1 solved rate | 97.25% | 79.60% | 33.25% |
+| Seed 1 minus seed 0 | −0.85 pp | −3.80 pp | −7.05 pp |
+| Two-seed mean | 97.675% | 81.500% | 36.775% |
+| Seed 1 Wilson 95% interval | 96.44–97.88% | 77.78–81.31% | 31.22–35.35% |
+
+Both seeds retain strong easy-board performance and substantially weaker hard performance. E19-funded remains the best observed seed; neither two-seed means nor board-level Wilson intervals reliably estimate the population distribution of training outcomes. The intervals also exclude related-board dependence and repeated benchmark-guided recipe selection. Without per-board predictions, paired significance and agreement between the solved-board sets cannot be computed. No additional model evaluation is included in this version.
+
+E20 validation solves 71.00%, compared with 70.90% for E19-funded, while hard blank-cell accuracy falls from 86.99% to 84.92%. Similar validation solving therefore does not imply similar external hard-set performance. The saved hard aggregates identify 670 valid grids, of which 665 preserve the givens: 1,330 failures are invalid grids and five additional failures are valid grids contradicting clues. Fourteen boards violate givens overall. Clue preservation alone cannot repair the dominant invalid-grid failure; the aggregates do not identify its internal cause.
+
+**Audit boundary.** All 15 retained E20 completion files match recorded hashes; inference tensors equal the saved best-model tensors, and optimizer/training steps agree at 128,000. Generator SHA-256 is `b6ddadb7278e7f1c5542eecef676840f39cb829e802d189b65f2dadd645c2b3d`; the declared source is `4ad3646189197fe1ca76e45308848793fefe9a3f`. These checks establish retained-byte integrity and internal consistency, not independent reproduction. No checkpoint-bound ordered scoring manifest, per-board predictions or remote source digest inventory was retained. Current local board files match the published hashes, but they were absent from the remote transfer-verification manifest. Actual remote evaluation identity, complete duplicate-free coverage and exact source bytes remain independently unverified. Reported outcomes are historical aggregates with these limits.
+
+E20's recorded synchronized benchmark uses temperature 1, three warmups and 20 iterations. Batch 1/16/64/256 p50 is 29.453/48.506/174.326/581.791 ms; p95 is 30.323/49.274/175.352/583.397 ms. The CUDA GPU-load log is empty because the wrapper used a Metal-only probe. Contention at benchmark time is unknown, and these timings neither measure greedy quality generation nor establish a seed-dependent speed effect.
+
+![Completed MLX implementation recipes, with rounded generator presentations beneath each run; exact exposures are in the tables. Each bar reports 2,000 held-out boards; retained aggregate and provenance limitations apply. Dashed lines show Original NCM (Kumbong et al.), with its larger generator and 51.2M presentations; they are not matched-budget targets.](figures/sudoku-completed-runs.pdf){width=100%}
 
 Funded synchronized generation at temperature 1.0 uses three warmups and 20 timed iterations, 12 generator forwards and completion through a host copy. Batch 1/16/64/256 p50 latency is 26.477 / 47.905 / 174.279 / 583.670 ms; p95 is 26.690 / 48.308 / 174.552 / 584.715 ms. This timing does not measure greedy quality decoding. Preflight records zero GPU utilization, zero allocated memory and no compute applications; an immediate pre-benchmark contention sample is not retained, so these are not certified idle-device limits. Neither cross-host A40 timings nor RTX 3080 comparisons isolate a hardware speed ratio.
 
@@ -303,6 +329,10 @@ The first funded allocation fails during shell preflight, before any training st
 ## A large chat model as reference
 
 Qwen3.8 27B (4-bit, served locally) answered each board in one request at temperature 0 with reasoning disabled. It solved none of 150 boards; its blank-cell accuracy was 11–15%, near chance, and about half its replies were not a 9 × 9 grid. With reasoning enabled and up to 6,000 tokens per board it did not finish ten boards in 95 minutes on the shared GPU. This is a reference point, not a matched comparison: the model is about 4,000 times larger and was not trained on the task.
+
+```{=typst}
+#pagebreak(weak: true)
+```
 
 # The journey: experiment by experiment
 
@@ -332,21 +362,26 @@ Qwen3.8 27B (4-bit, served locally) answered each board in one request at temper
 | E15 | Both levers + unique-solution puzzles | E14 budget, corruption 0.50 → 0.10, +4M unique puzzles | 96.2% / 76.6% / 31.9% | Within 3.3 points on easy; roughly one quarter of upstream's generator size and one sixth of generator exposure |
 | E18 | Both levers, base data only | E14 budget, corruption 0.50 → 0.10 | 84.25% / 49.10% / 10.55% | Below E14 and E15; stronger corruption alone is not sufficient |
 | E19 pilot | Larger-corpus short schedule | +8M unique puzzles; 3.059M presentations, batch 128, A40 | 90.20% / 59.75% / 16.55% | Below E15 at less exposure; not a matched comparison |
-| E19 funded | Larger corpus and longer schedule | Fresh initialization; 16.384M presentations, batch 128, A40 | 98.10% / 83.40% / 40.30% | New local best at twice E15 exposure; still below upstream |
+| E19 funded | Larger corpus and longer schedule | Fresh initialization; 16.384M presentations, batch 128, A40 | 98.10% / 83.40% / 40.30% | Best observed seed at twice E15 exposure; still below Original NCM |
+| E20 | Does the funded recipe repeat? | Fresh seed 1, same scientific settings and exposure | 97.25% / 79.60% / 33.25% | Easy/medium gains persist; hard result varies by 7.05 points; audit limits remain |
 
 **What the journey shows.** The first Sudoku configuration failed for a reason no reconstruction test would reveal: its codec rebuilds boards perfectly yet places nearly all information in one level (the codec-refinement figure, E4), so the generator faces one large guess instead of a series of small ones. The fixes taken from upstream each helped a little and none was enough on its own. Reading the paper's appendix in full showed the two largest gaps: conditioning corruption and a training budget about a hundred times larger. Corruption alone (E8) produced the first solved boards and lifted blank-cell accuracy by 20 points on every test set. Its validation loss was *worse* than without corruption, a reminder that teacher-forced loss does not measure what generation needs.
 
 # Discussion
 
-**What carries over to a laptop.** The measured Apple Silicon runs show lower NCM latency at batch 1–16 than an AR model with similar generator size. The advantage shrinks with batch size and the number of codes; the historical 12-level Sudoku run, with 314 codes plus an 81-token prefix, is slower than AR from batch 64 on. These shared-device observations do not isolate dispatch, memory traffic or kernel costs.
+**What carries over to a laptop.** Measured Apple Silicon runs show lower small-batch NCM latency than an AR model of similar generator size on the tested synthetic task. The advantage shrinks with batch size and code count; historical 12-level Sudoku generation is slower than AR from batch 64 on. These observations do not establish natural-text speed or isolate dispatch, memory traffic and kernel costs. The completed E19/E20 training runs use CUDA, not the Mac.
 
-**What does not carry over without the full recipe.** The codec-side components we added (E5, E6) improved every secondary metric a little and none moved solved boards; conditioning corruption (E8) did. The paper's result rests on a combination of recipe and scale that small, short runs do not reach. A codec whose coarse levels look informative is necessary but far from sufficient.
+**Partial success at the tested scale.** A 6.44M generator learns substantial puzzle-conditioned structure: both funded-recipe seeds solve more than 97% of easy boards and 79% of medium boards. Both exceed E15's reported rates, with twice its generator exposure and a changed overall recipe. This is sufficient evidence to continue studying the implementation. It is not an estimate of minimum required capacity, a scaling law or a demonstration of human-style logical reasoning. The additional codec prevents treating generator size as whole-system size.
 
-**Negative results worth reporting.** Two first choices made the method fail in ways reconstruction metrics hide: a level schedule that concentrates information in one level, and an area-pooled first level that encodes nothing. Both pass a codec test with 100% reconstruction.
+**Why hard Sudoku remains unresolved.** The hard benchmark provides 30 clues, leaving 51 blanks, versus 40 clues and 41 blanks on easy boards. Every constraint and input clue must be satisfied simultaneously. Errors can be correlated, and a small change in average cell accuracy can accompany a larger change in exact-board accuracy. Neither clue count nor these aggregates reveals which logical dependencies the model fails to represent. The reference comparison also changes capacity, exposure, representation, corpus and difficulty-specific training. Those are candidate explanations, not experimentally established causes. Earlier width-512 trials do not justify promising that widening alone closes the gap.
+
+**How to challenge the interpretation.** Before further long runs, retain checkpoint-bound input identities, per-board outputs and per-level diagnostics. Use a fresh untouched test set after fixing the selection protocol, since repeated examination of these benchmarks can guide recipe choices. Additional seeds characterize variation; separate random streams and controlled interventions are needed to identify whether initialization, order, dropout or corruption matters. True-code interventions on a diagnostic subset can test error propagation. Matched-data capacity and exposure ablations can test scale without conflating both. Checkpoint selection must use validation data rather than the external benchmark. These are proposed tests, not completed findings.
+
+**Decision for the next phase.** The project can proceed to controlled text research without declaring the Sudoku reproduction complete. Keep the small generator as a reference while investigating independently converted Original NCM weights. Conversion parity would validate inference compatibility; it would not reproduce training or validate our smaller model. Begin text with a pinned permitted corpus, explicit tokenizer and padding boundaries, and document-separated splits. Report reconstruction and free-running generation separately, include readable failures and an autoregressive comparison with total-cost qualifications. Synthetic TinyStories would be an initial engineering benchmark; naturally occurring text and conditional tasks require further evidence. No instruction-following, summarization, translation or useful application integration follows from Sudoku scores.
 
 # Limitations
 
-Most generator runs use at most 6.4M parameters; width-512 ablations use 25M. Training budgets range from minutes to about 15 hours of generator training per run. The strongest result uses one training seed and remains 45.8 percentage points below the original on hard boards; uncertainty across seeds is unknown. The only language-like task is synthetic; the paper's text benchmarks (LM1B, OpenWebText, XSum, WMT14) were not run. Latency measurements share the GPU with other workloads unless stated. The upstream training code is not public, so recipe details not stated in the paper are guesses.
+Most generator recipes use at most 6.4M parameters; width-512 ablations use about 25M. E19-funded and E20 provide only two training seeds of one recipe, not a reliable population variance estimate. The best hard score remains 45.80 points below Original NCM; the second seed remains 52.85 points below. No current-budget AR comparison, matched total-cost study or natural-text validation is available. Full-depth codec validation reconstruction does not prove useful coarse representations under generated errors. Historical aggregate-only scoring, missing remote manifests, repeated benchmark-guided development and unknown benchmark contention limit independent audit and generalization. The original training implementation is not released; unstated recipe details remain uncertain. Existing measurements establish neither production reliability nor a benefit in a user application.
 
 # Related work
 
@@ -354,7 +389,7 @@ Parallel and coarse-to-fine decoding for text includes discrete diffusion [@mdlm
 
 # Conclusion
 
-NCM can be implemented natively in MLX with a training/generation equivalence invariant checked exactly on CPU. These experiments show low small-batch latency and a remaining accuracy gap to upstream Sudoku results. Conditioning corruption addresses the mismatch between true training codes and sampled inference codes; it produced the first solved boards, while increased data exposure improved the result further. Model-sampled corruption did not improve the tested configuration (E9). Larger budgets, repeated training seeds and real-text evaluation remain research work.
+This independent MLX implementation preserves exact CPU training/per-level inference equivalence and demonstrates coarse-to-fine generation on a finite synthetic language and Sudoku. The funded small-generator recipe reports 97.25–98.10% easy, 79.60–83.40% medium and 33.25–40.30% hard solving across two seeds at equal exposure. We regard this as partial implementation and small-model success, with substantial failures on hard boards and unresolved provenance and reproducibility limits. It does not reproduce Original NCM's scores or establish matched-cost superiority. The observed seed difference warrants better diagnostics rather than attributing the deficit to a single component. The next research phase will test text generation and its quality/cost tradeoff; those capabilities remain unvalidated.
 
 # Code and reproducibility {.unnumbered}
 
@@ -370,7 +405,7 @@ paper/build.sh                                     # rebuild this paper
 
 # AI assistance {.unnumbered}
 
-OpenAI Codex assisted with code, documentation and manuscript drafting and revision. It is not an author. This assistance does not constitute independent verification of the results or human review of the manuscript.
+OpenAI Codex assisted with implementation, experiments, analysis, figures, documentation and manuscript drafting and revision. It is not an author. This assistance does not constitute independent verification of the results or human review of the manuscript.
 
 # References {.unnumbered}
 
@@ -390,7 +425,7 @@ OpenAI Codex assisted with code, documentation and manuscript drafting and revis
 | E8 | as E5 | 16 | E6 codec | — | 8 × 256 | 4,000 (6e-4) | corruption 0.30 → 0.05, compiled |
 | E9 | as E5 | 16 | E6 codec | — | 8 × 256 | 4,000 (6e-4) | as E8, model-sampled |
 
-Later Sudoku runs reuse the frozen E6 codec and its 12-level, 16-code hierarchy. All use an 81-cell prefix, eight attention heads, generator seed 0, AdamW with weight decay 0.01, a cosine learning-rate schedule and compiled generator training. Generator dropout is 0.1 at width 256 and 0.2 at width 512; warmup is 200 steps at width 256 except E19, which uses 1,000; width 512 also uses 1,000. The codec is additional to the generator sizes below.
+Later Sudoku runs reuse the frozen E6 codec and its 12-level, 16-code hierarchy. All use an 81-cell prefix, eight attention heads, configured generator seed 0 except E20 (seed 1), AdamW with weight decay 0.01, a cosine learning-rate schedule and compiled generator training. Generator dropout is 0.1 at width 256 and 0.2 at width 512; warmup is 200 steps at width 256 except E19/E20, which use 1,000; width 512 also uses 1,000. The codec is additional to the generator sizes below.
 
 : Later Sudoku generator settings. Steps are completed steps for the reported results; corruption gives the first and last replacement probabilities.
 
@@ -407,12 +442,13 @@ Later Sudoku runs reuse the frozen E6 codec and its 12-level, 16-code hierarchy.
 | E18 | 8 × 256 | 128,000 | 64 | 6e-4 | 0.50 → 0.10 |
 | E19 pilot | 8 × 256 | 23,895 | 128 | 6e-4 | 0.50 → 0.10 |
 | E19 funded | 8 × 256 | 128,000 | 128 | 6e-4 | 0.50 → 0.10 |
+| E20 | 8 × 256 | 128,000 | 128 | 6e-4 | 0.50 → 0.10 |
 
-The base data are 200,000 training puzzles and 1,000 validation puzzles, with split seed 0 and 28–45 givens. E15 adds one million greedy-unique puzzles for each seed 201–204; E16 adds one million for each seed 205–206. E17 adds the unique subset of one million random-removal candidates for each seed 101–104; its final 2,000 steps are a weights-only continuation with reset optimizer and random state (Section 6.5). E12's recorded run completed 50,776 steps; the repository's current E12 configuration specifies 200,000, so running that configuration unchanged does not reproduce the reported exposure. E18 adds no unique-puzzle corpus. Both E19 runs add one million greedy-unique puzzles per seed 201–208; their separate schedules use full-state snapshots every 1,000 updates. The original million-step E19 configuration remains unstarted and is not either reported result. Full settings and checkpoint prerequisites are in the corresponding `configs/sudoku-e*.json` files and `docs/EXPERIMENTS.md`.
+The base data are 200,000 training puzzles and 1,000 validation puzzles, with split seed 0 and 28–45 givens. E15 adds one million greedy-unique puzzles for each seed 201–204; E16 adds one million for each seed 205–206. E17 adds the unique subset of one million random-removal candidates for each seed 101–104; its final 2,000 steps are a weights-only continuation with reset optimizer and random state (Section 6.5). E12's recorded run completed 50,776 steps; the repository's current E12 configuration specifies 200,000, so running that configuration unchanged does not reproduce the reported exposure. E18 adds no unique-puzzle corpus. Both E19 runs and E20 add one million greedy-unique puzzles per seed 201–208; their separate schedules use full-state snapshots every 1,000 updates. The original million-step E19 configuration remains unstarted and is not either reported result. Full settings and checkpoint prerequisites are in the corresponding `configs/sudoku-e*.json` files and `docs/EXPERIMENTS.md`.
 
 # Appendix B: Environment {.unnumbered}
 
-Apple M5 Pro, 64 GB unified memory, macOS 26.5; MLX 0.32.3, NumPy, Python 3.12.14 managed with mise and uv. Figures: matplotlib. Paper: Pandoc and Typst. E18: RTX 3080, Python 3.12.15; both E19 runs: NVIDIA A40, Python 3.12.3, MLX 0.32.3 CUDA. Preflight and contention qualifications accompany each run in the experiment log.
+Apple M5 Pro, 64 GB unified memory, macOS 26.5; MLX 0.32.3, NumPy, Python 3.12.14 managed with mise and uv. Figures: matplotlib. Paper: Pandoc and Typst. E18: RTX 3080, Python 3.12.15; both E19 runs and E20: NVIDIA A40, Python 3.12.3, MLX 0.32.3 CUDA. Preflight and contention qualifications accompany each run in the experiment log.
 
 # Appendix C: Version history {.unnumbered}
 
@@ -428,3 +464,4 @@ Apple M5 Pro, 64 GB unified memory, macOS 26.5; MLX 0.32.3, NumPy, Python 3.12.1
 | 0.8 | 2026-10-24 | Release audit: codec/system parameter accounting, budget and sampling qualifications, prior-art scope and simplified visual identity. |
 | 0.9 | 2026-10-24 | Submission preparation: public-data figure rebuild command, qualified memory-bandwidth discussion, later Sudoku settings and AI assistance disclosure. |
 | 0.10 | 2026-10-25 | Completed E18/E19 results, checkpoint provenance, A40 timings, uncertainty and explicit budget differences. |
+| 0.11 | 2026-10-27 | Completed E20 seed replication; two-seed assessment, hard-board failure accounting, explicit provenance limits and a gated text-research direction. |

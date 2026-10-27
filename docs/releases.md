@@ -7,11 +7,17 @@ description: Versioned NCM-MLX research software releases, supported workflows, 
 
 Follow new software and paper versions through the [research updates feed](feed.xml) or [GitHub releases feed](https://github.com/janmus1c/ncm-mlx/releases.atom).
 
+## Working paper v0.11 — two-seed assessment and next research phase
+
+[Working paper v0.11](https://github.com/janmus1c/ncm-mlx/releases/tag/paper-v0.11) adds E20’s completed seed-1 run: **97.25 / 79.60 / 33.25%**, n = 2,000 per difficulty. E19-funded’s seed-0 result remains **98.10 / 83.40 / 40.30%**, at the same 16.384M presentations and 6.44M generator size. Both seeds finish their full schedules without a recorded reset or truncation.
+
+The [assessment](research/e20-seed-report.md) treats this as a partial small-model success, retains the hard-board deficit and reports missing per-board predictions, remote provenance manifests and benchmark contention. It distinguishes measurements from hypotheses and defines tests needed to challenge the interpretation. Controlled text generation is the next research direction, with explicit data, quality and cost gates. No new training or model evaluation is included. The revision is an unreviewed working paper; it does not imply arXiv acceptance or peer review. Earlier releases and their DOI records remain immutable.
+
 ## Working paper v0.10 — completed larger-corpus results
 
 The [archived paper v0.10](https://doi.org/10.5281/zenodo.23640777) reports E18 and both completed E19 runs. The MLX implementation solves **98.10 / 83.40 / 40.30%** on easy/medium/hard boards, n = 2,000 each. Easy accuracy is within 1.40 points of **Original NCM (Kumbong et al.)**, with a 6.44M versus 25.46M generator. The medium/hard gaps, additional codec and unmatched training recipes remain explicit; the result is not overall parity or an equal-budget efficiency claim.
 
-The [paper release](https://github.com/janmus1c/ncm-mlx/releases/tag/paper-v0.10) preserves all six editions, source data and figures at a new immutable tag. The [completed report](research/e19-funded-report.md) gives checkpoint provenance, timing boundaries, uncertainty and setup failures. [Roadmap scenarios](research/planning-projections.md) are separate planning assumptions, not future quality claims. E20 is an ongoing seed replication with no completed result yet. Earlier paper versions and software v0.1.0 remain unchanged. The paper is a preprint, without peer review or arXiv acceptance.
+The [paper release](https://github.com/janmus1c/ncm-mlx/releases/tag/paper-v0.10) preserves all six editions, source data and figures at a new immutable tag. The [completed report](research/e19-funded-report.md) gives checkpoint provenance, timing boundaries, uncertainty and setup failures. [Roadmap scenarios](research/planning-projections.md) are separate planning assumptions, not future quality claims. E20 was pending at v0.10; its completed result and qualifications are reported in v0.11 above. Earlier paper versions and software v0.1.0 remain unchanged. The paper is a preprint, without peer review or arXiv acceptance.
 
 ## Version 0.1.0 — initial research release
 

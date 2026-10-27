@@ -1,19 +1,25 @@
 ---
 title: Research roadmap
 status: current
-updated: 2026-10-25
+updated: 2026-10-27
 ---
 
 # Research roadmap
 
 This is the canonical roadmap for NCM-MLX. [STATUS](STATUS.md) describes implemented behavior; [EXPERIMENTS](EXPERIMENTS.md) records measured outcomes. A planned milestone is not a supported feature or a performance claim. There are no committed delivery dates: training and benchmark milestones depend on an explicit compute allocation. Planning charts for compute, fixed levels and evidence gates are in [roadmap scenarios](research/planning-projections.md); they do not predict future quality.
 
+## Decision after E20
+
+The current phase is a partial success, with retained easy/medium performance across two seeds and an unresolved hard-board gap. The [two-seed assessment](research/e20-seed-report.md) records the evidence and its audit limits. The next main milestone is a reproducible controlled-text experiment, while Sudoku remains a bounded diagnostic track. Matching Original NCM’s hard score is not a prerequisite for text research. Keep the 6.44M generator as a baseline; larger models and longer runs need a specific hypothesis and compute allocation. No text feature, future score or delivery date is promised.
+
+Before new runs, retain per-board predictions and ordered source/data/checkpoint-bound evaluation manifests, and use a backend-appropriate GPU-load probe. These missing E20 records cannot be reconstructed retrospectively.
+
 ## Priorities and dependencies
 
 | Priority | Milestone | Current state | Dependency |
 |---|---|---|---|
 | P0 | Evaluation integrity | Batch coverage guard implemented; broader audit planned | Required for every new comparison |
-| P1 | Complete current Sudoku evidence | E18 and both E19 runs completed; E20 seed replication in progress | Combined working paper v0.10 published; verify the next seed within its allocation |
+| P1 | Close current Sudoku evidence | E18, both E19 runs and E20 completed; two-seed assessment recorded | Retain provenance limits; new paired evaluation is a separate measurement |
 | P1 | Establish an upstream-checkpoint reference | Planned; checkpoints incompatible today | Independent conversion, format mapping and parity checks |
 | P1 | Establish a real-text baseline | Planned; no real-text quality validation today | Dataset rights, tokenizer/padding contract and matched budgets |
 | P2 | Measure fixed level budgets and Sudoku early exit | Planned; full hierarchy remains the only sampling policy | Evaluation integrity and full-depth per-board baseline |
@@ -41,7 +47,7 @@ Before new experiments:
 
 1. E18 is complete and recorded: 84.25 / 49.10 / 10.55% on easy/medium/hard. Preserve its negative comparison with E14 and E17's optimizer/random-state reset qualification. Read [RECOVERY](RECOVERY.md) before any future interruption or continuation.
 2. Evaluate completed checkpoints on all 2,000 boards per upstream difficulty using fixed sampling settings. Record steps, effective sequence exposure, wall time, hardware and contention.
-3. E19-budget and E19-funded are complete. Preserve all snapshots and held-out results: the pilot scores 90.20 / 59.75 / 16.55%; the funded run scores 98.10 / 83.40 / 40.30% at twice E15's exposure. The [combined E18/E19 working paper v0.10](https://doi.org/10.5281/zenodo.23640777) is published, retaining setup failures and budget differences. E20 is a fresh seed 1 replication of the funded recipe with explicit operational caps. The original million-step E19 recipe remains unstarted.
+3. E19-budget and E19-funded are complete. Preserve all snapshots and held-out results: the pilot scores 90.20 / 59.75 / 16.55%; the funded run scores 98.10 / 83.40 / 40.30% at twice E15's exposure. The [combined E18/E19 working paper v0.10](https://doi.org/10.5281/zenodo.23640777) is published, retaining setup failures and budget differences. E20 completes the same scientific recipe with seed 1 at equal exposure, scoring 97.25 / 79.60 / 33.25%. Report both seeds, not only the best. The hard difference is 7.05 points; two seeds do not establish population variability or its cause. The [v0.11 assessment](research/e20-seed-report.md) retains missing per-board/source/evaluation provenance and benchmark-contention limitations. The original million-step E19 recipe remains unstarted.
 4. Add paired per-board comparisons and multiple training seeds. Run an AR comparison matched to E15's budget before describing E15 as an equal-budget advantage.
 
 **Completion gate:** final checkpoint identities and held-out outcomes are recorded, uncertainty and training-budget differences remain visible, and a separate reproduction can recover the scoring inputs. Width-512 and model-sampled corruption are already tested in E10/E12 and E9; do not repeat them as untested ideas.

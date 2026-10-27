@@ -41,6 +41,7 @@ SUDOKU_RUNS = {
     "E18": ("sudoku-e18-eval.json", "sudoku-e18-train.log", [1, 2, 4, 6, 9, 13, 18, 26, 37, 50, 67, 81]),
     "E19 pilot": ("sudoku-e19-budget-eval.json", "sudoku-e19-budget-train.log", [1, 2, 4, 6, 9, 13, 18, 26, 37, 50, 67, 81]),
     "E19 funded": ("sudoku-e19-funded-eval.json", "sudoku-e19-funded-train.log", [1, 2, 4, 6, 9, 13, 18, 26, 37, 50, 67, 81]),
+    "E20": ("sudoku-e20-seed1-eval.json", "sudoku-e20-seed1-train.log", [1, 2, 4, 6, 9, 13, 18, 26, 37, 50, 67, 81]),
 }
 SETS = ["upstream-easy", "upstream-medium", "upstream-hard"]
 GEN_STEP = re.compile(r"gen step\s+(\d+)\s+loss ([\d.]+)\s+val ([\d.]+)")
@@ -78,7 +79,7 @@ def collect() -> dict:
             "scores": {s: d["sudoku"]["0.0"][s] for s in SETS + ["val"] if s in d["sudoku"]["0.0"]},
             "val_curve": curve,
         }
-        if name in {"E18", "E19 pilot", "E19 funded"}:
+        if name in {"E18", "E19 pilot", "E19 funded", "E20"}:
             slug = ev.removesuffix("-eval.json")
             completed = json.loads((ROOT / "docs/research/completed-sudoku-results.json").read_text())
             evidence = completed["experiments"][slug]
@@ -247,19 +248,19 @@ def fig_sudoku_cells(data: dict) -> None:
 
 
 def fig_completed_sudoku(data: dict) -> None:
-    names = ["E15", "E18", "E19 pilot", "E19 funded"]
-    labels = ["E15\n8.192M", "E18\n8.192M", "Pilot\n3.059M", "Funded\n16.384M"]
+    names = ["E15", "E18", "E19 pilot", "E19 funded", "E20"]
+    labels = ["E15\n8.2M", "E18\n8.2M", "Pilot\n3.1M", "E19\n16.4M", "E20\n16.4M"]
     colors = [ACCENT, "#6b7fa8", WARM]
     fig, axes = plt.subplots(1, 3, figsize=(6.4, 2.8), sharey=True)
     for ax, dataset, title, color in zip(axes, SETS, ("Easy", "Medium", "Hard"), colors):
         values = [100 * data["sudoku"][name]["scores"][dataset]["solved"] for name in names]
-        ax.bar(range(4), values, color=["#b8c5bc"] * 3 + [color], width=0.65)
+        ax.bar(range(5), values, color=["#b8c5bc"] * 3 + [color, "#8a6a12"], width=0.65)
         for i, value in enumerate(values):
             ax.text(i, value + 2, f"{value:.2f}", ha="center", fontsize=6.5)
         reference = data["paper_table3"]["NCM"][SETS.index(dataset)]
         ax.axhline(reference, color=MUTED, ls="--", lw=0.8)
         ax.set_title(title, fontsize=9)
-        ax.set_xticks(range(4), labels, fontsize=6.8)
+        ax.set_xticks(range(5), labels, fontsize=6.3)
         ax.set_ylim(0, 112)
     axes[0].set_ylabel("boards solved (%)")
     _save(fig, "sudoku-completed-runs")
