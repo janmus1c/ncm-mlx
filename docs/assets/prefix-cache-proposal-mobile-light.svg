@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 1070" role="img" aria-labelledby="title description">
+<title id="title">Compute once. Reuse the prefix.</title><desc id="description">Proposed generation-local cache: retain prefix keys and values during level zero, reuse them while computing each later concept level, then decode once. The implementation and speed benefit remain untested.</desc>
+<rect width="420" height="1070" rx="16" fill="#ffffff"/>
+<g font-family="Inter, Helvetica Neue, Arial, sans-serif" fill="#20252b">
+<text x="28" y="49" font-size="24" font-weight="650" fill="#20252b" text-anchor="start">Compute once. Reuse the prefix.</text>
+<text x="28" y="89" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">Proposed NCM inference</text>
+<text x="28" y="115" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">full hierarchy retained</text>
+<rect x="28" y="146" width="364" height="215" rx="4" fill="#f3f5f7"/>
+<text x="48" y="178" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">01  FIRST LEVEL</text>
+<text x="48" y="223" font-size="25" font-weight="600" fill="#20252b" text-anchor="start">Build prefix K/V</text>
+<text x="48" y="265" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">Retain each layer&#x27;s state</text>
+<text x="48" y="296" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">Fill during level zero</text>
+<text x="48" y="327" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">No separate prefix pass</text>
+<path d="M210 374v30m-5 -6l5 6 5 -6" fill="none" stroke="#59636e" stroke-width="2"/>
+<rect x="28" y="411" width="364" height="215" rx="4" fill="#f3f5f7"/>
+<text x="48" y="443" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">02  LATER LEVELS</text>
+<text x="48" y="488" font-size="25" font-weight="600" fill="#20252b" text-anchor="start">Reuse fixed prefix</text>
+<text x="48" y="530" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">Compute current-level queries</text>
+<text x="48" y="561" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">Read prefix + level K/V</text>
+<text x="48" y="592" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">Preserve masks and positions</text>
+<path d="M210 639v30m-5 -6l5 6 5 -6" fill="none" stroke="#59636e" stroke-width="2"/>
+<rect x="28" y="676" width="364" height="215" rx="4" fill="#f3f5f7"/>
+<text x="48" y="708" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">03  FINAL OUTPUT</text>
+<text x="48" y="753" font-size="25" font-weight="600" fill="#20252b" text-anchor="start">Decode once</text>
+<text x="48" y="795" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">Same full code hierarchy</text>
+<text x="48" y="826" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">Same checkpoint</text>
+<text x="48" y="857" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">Equivalence must be tested</text>
+<path d="M28 933H392" stroke="#d6dce2"/>
+<text x="28" y="970" font-size="17" font-weight="400" fill="#59636e" text-anchor="start">Proposed, unmeasured optimization.</text>
+<text x="28" y="997" font-size="17" font-weight="400" fill="#59636e" text-anchor="start">Reuse requires an unchanged full</text>
+<text x="28" y="1024" font-size="17" font-weight="400" fill="#59636e" text-anchor="start">prefix.</text>
+</g></svg>

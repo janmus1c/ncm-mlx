@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 485" role="img" aria-labelledby="title description">
+<title id="title">Propose. Verify. Commit.</title><desc id="description">A future greedy text verifier: propose target-token candidates from committed history, check their longest matching prefix with the autoregressive target, commit matches plus the target correction or bonus, and rewind rejected cache entries. No local speed result is established.</desc>
+<rect width="1080" height="485" rx="16" fill="#13161a"/>
+<g font-family="Inter, Helvetica Neue, Arial, sans-serif" fill="#f1f2f3">
+<text x="32" y="49" font-size="32" font-weight="650" fill="#f1f2f3" text-anchor="start">Propose. Verify. Commit.</text>
+<text x="32" y="93" font-size="20" font-weight="400" fill="#b4bac1" text-anchor="start">Proposed text experiment · greedy target verification</text>
+<rect x="32" y="135" width="312" height="215" rx="4" fill="#1c2025"/>
+<text x="52" y="167" font-size="16" font-weight="400" fill="#b4bac1" text-anchor="start">01  CHEAP PROPOSAL</text>
+<text x="52" y="212" font-size="25" font-weight="600" fill="#f1f2f3" text-anchor="start">Draft the next block</text>
+<text x="52" y="254" font-size="17" font-weight="400" fill="#b4bac1" text-anchor="start">Use committed history</text>
+<text x="52" y="285" font-size="17" font-weight="400" fill="#b4bac1" text-anchor="start">Propose target token IDs</text>
+<text x="52" y="316" font-size="17" font-weight="400" fill="#b4bac1" text-anchor="start">Count all drafting work</text>
+<path d="M349 236h30m-6 -5l6 5 -6 5" fill="none" stroke="#b4bac1" stroke-width="2"/>
+<rect x="384" y="135" width="312" height="215" rx="4" fill="#1c2025"/>
+<text x="404" y="167" font-size="16" font-weight="400" fill="#b4bac1" text-anchor="start">02  TARGET CHECK</text>
+<text x="404" y="212" font-size="25" font-weight="600" fill="#f1f2f3" text-anchor="start">Verify causally</text>
+<text x="404" y="254" font-size="17" font-weight="400" fill="#b4bac1" text-anchor="start">Check the matching prefix</text>
+<text x="404" y="285" font-size="17" font-weight="400" fill="#b4bac1" text-anchor="start">Stop at the first mismatch</text>
+<text x="404" y="316" font-size="17" font-weight="400" fill="#b4bac1" text-anchor="start">Later states are provisional</text>
+<path d="M701 236h30m-6 -5l6 5 -6 5" fill="none" stroke="#b4bac1" stroke-width="2"/>
+<rect x="736" y="135" width="312" height="215" rx="4" fill="#1c2025"/>
+<text x="756" y="167" font-size="16" font-weight="400" fill="#b4bac1" text-anchor="start">03  STATE UPDATE</text>
+<text x="756" y="212" font-size="25" font-weight="600" fill="#f1f2f3" text-anchor="start">Commit and rewind</text>
+<text x="756" y="254" font-size="17" font-weight="400" fill="#b4bac1" text-anchor="start">Keep matched tokens</text>
+<text x="756" y="285" font-size="17" font-weight="400" fill="#b4bac1" text-anchor="start">Add target correction/bonus</text>
+<text x="756" y="316" font-size="17" font-weight="400" fill="#b4bac1" text-anchor="start">Discard rejected cache state</text>
+<path d="M32 389H1048" stroke="#454c55"/>
+<text x="32" y="427" font-size="18" font-weight="400" fill="#b4bac1" text-anchor="start">Honor EOS and the remaining output budget.</text>
+<text x="32" y="457" font-size="18" font-weight="400" fill="#b4bac1" text-anchor="start">Greedy identity is a separate contract from stochastic sampling.</text>
+</g></svg>

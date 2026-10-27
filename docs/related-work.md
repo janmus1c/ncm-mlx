@@ -50,3 +50,7 @@ Use synchronized wall-clock timing, matched budgets and task-specific quality me
 NCM-MLX copies no upstream NCM source. Its MIT license covers this implementation; upstream code, checkpoints and datasets retain their own terms. See [CITATION.cff](../CITATION.cff), the [source map](research/upstream-map.md) and [reproducibility guide](reproducibility.md). Descriptions of other repositories are limited to their inspected revisions and should be rechecked before adopting their code or artifacts.
 
 Update this comparison when a material implementation feature or compatibility claim changes. Keep measured NCM-MLX scores in the experiment log rather than duplicating a changing leaderboard here.
+
+## Inference optimization literature
+
+The [prefix-caching and speculative-drafting review](research/prefix-caching-and-speculative-drafting.md) examines primary literature on K/V reuse, speculative verification, drafter alignment and parallel proposals, with a versioned source ledger. Its [experiment protocol](research/inference-experiment-protocol.md) separates equivalent cache execution from changes to generation policy and future text-model training. These are research proposals rather than new measured capabilities.

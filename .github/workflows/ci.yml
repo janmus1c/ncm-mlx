@@ -24,6 +24,7 @@ jobs:
       - run: uv run ruff check .
       - run: uv run pytest -q
       - run: uv run python scripts/validate_repository.py
+      - run: uv run python scripts/analyze_inference_research.py --check
       - run: uv build --out-dir dist
       - name: Install and check the wheel outside the source tree
         run: |

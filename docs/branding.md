@@ -17,6 +17,7 @@ The project name is **NCM-MLX**. Its descriptive title is **Next-Concept Modelin
 uv run --group paper python scripts/render_branding.py
 uv run python scripts/render_diagrams.py
 uv run --group paper python scripts/render_research_visuals.py
+uv run python scripts/render_inference_research.py
 ```
 
 This requires Typst and the development dependencies. The script copies the canonical vector mark to `paper/assets/logo.svg` and renders the EPUB cover and 1200 × 630 social preview using Typst. The cover reads its title, author and version from `paper/manuscript.md`; update the manuscript rather than editing the PNG. Rendering uses Helvetica Neue; another machine needs that font for matching typography. No font files are redistributed.
@@ -32,3 +33,5 @@ The README and architecture guide use native SVG illustrations rather than diagr
 `scripts/render_research_visuals.py` extends the same palettes and vector primitives with Sudoku inference, the E19/E20 seed comparison and the research evidence gates. The Sudoku schedule is read from `configs/sudoku-e20-seed1.json`; the bar chart reads `docs/research/e20-seed-assessment.json` and is rendered with Matplotlib. These commands do not run a model or add experimental evidence.
 
 Each figure has light/dark and desktop/mobile compositions. Grid icons are schematic. The result chart preserves the 0–100% scale, both training seeds, sample counts, historical audit limits and the unmatched Original NCM reference. The research overview explicitly distinguishes measured work from planned text validation.
+
+The inference review uses `scripts/render_inference_research.py` for two additional schematic flows: generation-local prefix reuse and greedy draft verification. Both are explicitly proposed and unmeasured. Their SVGs also have light/dark and separate phone layouts.

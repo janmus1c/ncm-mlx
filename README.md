@@ -222,6 +222,8 @@ The completed **E19-funded** run is the new local best: **98.10 / 83.40 / 40.30%
 
 Compute scenarios and planned level budgets: [roadmap projections](docs/research/planning-projections.md). Priorities, dependencies and completion criteria: [`docs/NEXT.md`](docs/NEXT.md). Current state: [`docs/STATUS.md`](docs/STATUS.md). Follow releases through the [research updates feed](https://janmus1c.github.io/ncm-mlx/feed.xml).
 
+The [prefix-caching and speculative-drafting review](docs/research/prefix-caching-and-speculative-drafting.md) connects primary literature to this implementation, with [proposed experiments](docs/research/inference-experiment-protocol.md). It separates analytic opportunities from measured performance and future text capabilities.
+
 Long runs support full-state pause/resume and atomic checkpoints. Start Mac experiments with `scripts/launch_experiment.sh` so terminal closure does not kill them. See [`docs/RECOVERY.md`](docs/RECOVERY.md) for pause signals, restart commands, pod recovery and the limits of legacy weights-only checkpoints.
 
 ## For agents

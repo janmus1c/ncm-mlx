@@ -116,6 +116,8 @@ Specify how random keys follow sample identities when batches shrink. Test mixed
 
 ## P2 — prefix caching and compiled inference
 
+The [literature review](research/prefix-caching-and-speculative-drafting.md) analyzes the current attention contract, cache scope and future drafting options. The [proposed protocol](research/inference-experiment-protocol.md) defines correctness gates, measurement requirements and the decision before new drafter training. Neither establishes an implemented optimization or a local speedup.
+
 ### Prefix KV caching
 
 Implement generation-local prefix caches, with explicit support for block-diagonal and block-causal attention or an explicit rejection of unsupported configurations. Preserve position resets, prefix visibility, conditioning and training/inference equivalence. A blank Sudoku cell is meaningful input, not padding. Future variable-length text prefixes need their own padding contract.

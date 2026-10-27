@@ -38,6 +38,8 @@ nav:
       - Upstream map: research/upstream-map.md
       - Experiments: EXPERIMENTS.md
       - Two-seed assessment: research/e20-seed-report.md
+      - Caching and drafting review: research/prefix-caching-and-speculative-drafting.md
+      - Inference experiment protocol: research/inference-experiment-protocol.md
       - Status: STATUS.md
       - Next: NEXT.md
   - Reference:

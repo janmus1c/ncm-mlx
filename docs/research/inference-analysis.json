@@ -1,0 +1,61 @@
+{
+  "status": "analytic accounting and finite probability checks; no new model experiment",
+  "config": "configs/sudoku-e20-seed1.json",
+  "config_sha256": "664a8295fb98ac9cbdb6aa5eab7e7a5f6a1f199a573bc12d481f927bea558e4b",
+  "attention": "block_diagonal",
+  "levels": [
+    1,
+    2,
+    4,
+    6,
+    9,
+    13,
+    18,
+    26,
+    37,
+    50,
+    67,
+    81
+  ],
+  "prefix_positions": 81,
+  "sum_level_positions": 314,
+  "linear_token_work_per_transformer_layer": {
+    "repeated_prefix": 1286,
+    "prefix_once": 395,
+    "removed_positions": 891
+  },
+  "logical_allowed_attention_pairs_per_layer_per_head": {
+    "repeated_prefix": 120392,
+    "prefix_once": 48221,
+    "scope": "mask-allowed pairs, not physical kernel operations or measured latency"
+  },
+  "retained_prefix_kv_payload": {
+    "layers": 8,
+    "width": 256,
+    "kv_heads_equal_query_heads": true,
+    "fp32_bytes_per_sample": 1327104,
+    "fp16_bytes_per_sample": 663552,
+    "scope": "logical K/V payload; excludes allocator capacity, temporaries and model weights"
+  },
+  "tinyworld_comparison": {
+    "config": "configs/toy-grammar-12k.json",
+    "config_sha256": "a78d542ca4893b56a31af64ef128832e8b2a4e71a8467a72962cd69638ee7533",
+    "prefix_positions": 1,
+    "level_count": 6,
+    "repeated_prefix_positions_per_layer": 69,
+    "prefix_once_positions_per_layer": 64
+  },
+  "probability_checks": {
+    "arithmetic": "exact rational enumeration, not Monte Carlo",
+    "one_step_fixtures": 4,
+    "latent_conditioned_two_token_fixtures": 2,
+    "latent_mixture_matches_target_joint": true,
+    "scope": "finite mathematical fixtures only; no model, kernel, cache or speed validation"
+  },
+  "assumptions": [
+    "Deterministic evaluation mode with a fixed full prefix and unchanged model parameters.",
+    "Build the prefix cache during the first concept-level forward; reuse it for later levels.",
+    "Do not cache generated-level states across changing concept levels.",
+    "No inference speed or accuracy forecast follows from these counts."
+  ]
+}

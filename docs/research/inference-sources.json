@@ -1,0 +1,291 @@
+{
+  "title": "Prefix caching and speculative drafting: source ledger",
+  "checked": "2026-10-27",
+  "scope": "Targeted primary-source review, not an exhaustive systematic survey or model reproduction. Read scopes are explicit.",
+  "local_source_commit": "c2b731963c7a9b10dad4209ec70cfa1ebd21f5d4",
+  "sources": [
+    {
+      "id": "S01",
+      "authors": "Kumbong et al.",
+      "title": "Next-Concept Modeling: Fast, Parallel Coarse-to-Fine Text Generation",
+      "version": "2610.14162v1",
+      "url": "https://arxiv.org/abs/2610.14162v1",
+      "read_scope": "method §3; appendix A",
+      "supports": "Hierarchy, conditional decoder factorization and latent marginal; no port performance inferred.",
+      "kind": "primary paper",
+      "checked": "2026-10-27"
+    },
+    {
+      "id": "S02",
+      "authors": "Shazeer",
+      "title": "Fast Transformer Decoding: One Write-Head is All You Need",
+      "version": "1911.02150v1",
+      "url": "https://arxiv.org/abs/1911.02150v1",
+      "read_scope": "abstract",
+      "supports": "KV memory-bandwidth motivation and multi-query attention; architectural change, not a cache-only patch.",
+      "kind": "primary paper",
+      "checked": "2026-10-27"
+    },
+    {
+      "id": "S03",
+      "authors": "Kwon et al.",
+      "title": "Efficient Memory Management for Large Language Model Serving with PagedAttention",
+      "version": "2309.06180v1",
+      "url": "https://arxiv.org/abs/2309.06180v1",
+      "read_scope": "abstract",
+      "supports": "Paged KV allocation and sharing; no throughput figure transferred to this repository.",
+      "kind": "primary paper",
+      "checked": "2026-10-27"
+    },
+    {
+      "id": "S04",
+      "authors": "Zheng et al.",
+      "title": "SGLang: Efficient Execution of Structured Language Model Programs",
+      "version": "2312.07104v2",
+      "url": "https://arxiv.org/abs/2312.07104v2",
+      "read_scope": "§3; selected appendix A",
+      "supports": "Cross-request causal-prefix reuse; different scope from within-generation NCM prefix reuse.",
+      "kind": "primary paper",
+      "checked": "2026-10-27"
+    },
+    {
+      "id": "S05",
+      "authors": "Leviathan, Kalman and Matias",
+      "title": "Fast Inference from Transformers via Speculative Decoding",
+      "version": "2211.17192v2",
+      "url": "https://arxiv.org/abs/2211.17192v2",
+      "read_scope": "§2–3; appendix A.1",
+      "supports": "Acceptance/correction, distribution preservation and idealized cost assumptions.",
+      "kind": "primary paper",
+      "checked": "2026-10-27"
+    },
+    {
+      "id": "S06",
+      "authors": "Chen et al.",
+      "title": "Accelerating Large Language Model Decoding with Speculative Sampling",
+      "version": "2302.01318v1",
+      "url": "https://arxiv.org/abs/2302.01318v1",
+      "read_scope": "algorithm 2; §4–5",
+      "supports": "Conditional block verification, hardware numerics and draft-cost trade-off.",
+      "kind": "primary paper",
+      "checked": "2026-10-27"
+    },
+    {
+      "id": "S07",
+      "authors": "Zhou et al.",
+      "title": "DistillSpec: Improving Speculative Decoding via Knowledge Distillation",
+      "version": "2310.08461v2",
+      "url": "https://arxiv.org/abs/2310.08461v2",
+      "read_scope": "§3–5; selected appendix A",
+      "supports": "Distribution alignment, on-policy draft data and task-dependent distillation objectives.",
+      "kind": "primary paper",
+      "checked": "2026-10-27"
+    },
+    {
+      "id": "S08",
+      "authors": "Miao et al.",
+      "title": "SpecInfer: Accelerating Generative Large Language Model Serving with Tree-based Speculative Inference and Verification",
+      "version": "2305.09781v4",
+      "url": "https://arxiv.org/abs/2305.09781v4",
+      "read_scope": "abstract",
+      "supports": "Tree proposal and verification family; detailed tree algorithm not reproduced.",
+      "kind": "primary paper",
+      "checked": "2026-10-27"
+    },
+    {
+      "id": "S09",
+      "authors": "Cai et al.",
+      "title": "Medusa: Simple LLM Inference Acceleration Framework with Multiple Decoding Heads",
+      "version": "2401.10774v3",
+      "url": "https://arxiv.org/abs/2401.10774v3",
+      "read_scope": "abstract",
+      "supports": "Multi-head proposals and backbone-training distinctions; no blanket exact-sampling claim.",
+      "kind": "primary paper",
+      "checked": "2026-10-27"
+    },
+    {
+      "id": "S10",
+      "authors": "Li et al.",
+      "title": "EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty",
+      "version": "2401.15077v3",
+      "url": "https://arxiv.org/abs/2401.15077v3",
+      "read_scope": "abstract; §3 excerpts",
+      "supports": "Feature-conditioned drafting; not implemented here.",
+      "kind": "primary paper",
+      "checked": "2026-10-27"
+    },
+    {
+      "id": "S11",
+      "authors": "Li et al.",
+      "title": "EAGLE-3: Scaling up Inference Acceleration of Large Language Models via Training-Time Test",
+      "version": "2503.01840v3",
+      "url": "https://arxiv.org/abs/2503.01840v3",
+      "read_scope": "abstract; method excerpts",
+      "supports": "Direct token prediction and multi-layer feature fusion; task/hardware-specific results not projected.",
+      "kind": "primary paper",
+      "checked": "2026-10-27"
+    },
+    {
+      "id": "S12",
+      "authors": "Elhoushi et al.",
+      "title": "LayerSkip: Enabling Early Exit Inference and Self-Speculative Decoding",
+      "version": "2404.16710v4",
+      "url": "https://arxiv.org/abs/2404.16710v4",
+      "read_scope": "abstract",
+      "supports": "Training-supported transformer-depth early exit; distinct from NCM concept-level budgets.",
+      "kind": "primary paper",
+      "checked": "2026-10-27"
+    },
+    {
+      "id": "S13",
+      "authors": "Arriola et al.",
+      "title": "Block Diffusion: Interpolating Between Autoregressive and Diffusion Language Models",
+      "version": "2503.09573v3",
+      "url": "https://arxiv.org/abs/2503.09573v3",
+      "read_scope": "abstract; introduction excerpts",
+      "supports": "Block structure makes some diffusion caching possible; not proof for arbitrary non-causal states.",
+      "kind": "primary paper",
+      "checked": "2026-10-27"
+    },
+    {
+      "id": "S14",
+      "authors": "Chen, Liang and Liu",
+      "title": "DFlash: Block Diffusion for Flash Speculative Decoding",
+      "version": "2602.06036v2",
+      "url": "https://arxiv.org/abs/2602.06036v2",
+      "read_scope": "§3–4; selected appendix A",
+      "supports": "Parallel drafting, target-feature KV injection and training masks; method review, not a reproduced speedup.",
+      "kind": "primary paper",
+      "checked": "2026-10-27"
+    },
+    {
+      "id": "S15",
+      "authors": "Zhang et al.",
+      "title": "DFlow: Enabling Verifier Information Flow in Block Diffusion Speculative Decoding",
+      "version": "2609.06498v1",
+      "url": "https://arxiv.org/abs/2609.06498v1",
+      "read_scope": "abstract; §3–4",
+      "supports": "Rejected-suffix states as drafter hints; never committed target-cache history. Recent preprint.",
+      "kind": "primary paper",
+      "checked": "2026-10-27"
+    },
+    {
+      "id": "S16",
+      "authors": "Zorel et al.",
+      "title": "Speculative Diffusion is a Tale of Two Tradeoffs",
+      "version": "2610.31819v1",
+      "url": "https://arxiv.org/abs/2610.31819v1",
+      "read_scope": "abstract; introduction",
+      "supports": "Distinguishes draft effort from acceptance leniency. Recent preprint; no claim of exactness for relaxed policies.",
+      "kind": "primary paper",
+      "checked": "2026-10-27"
+    },
+    {
+      "id": "S17",
+      "title": "Transformers assisted decoding documentation",
+      "url": "https://huggingface.co/docs/transformers/assisted_decoding",
+      "kind": "official documentation",
+      "checked": "2026-10-27",
+      "read_scope": "Prompt lookup and self-speculative decoding sections",
+      "supports": "A training-free lookup baseline and the distinction between matching tokenizations and text re-encoding. Moving documentation, not a compatibility test."
+    },
+    {
+      "id": "S18",
+      "title": "MLX Metal matmul dispatch",
+      "version": "v0.32.3",
+      "url": "https://github.com/ml-explore/mlx/blob/v0.32.3/mlx/backend/metal/matmul.cpp",
+      "kind": "official source",
+      "checked": "2026-10-27",
+      "read_scope": "NAX dispatch and env::enable_tf32 gates",
+      "supports": "Float32 precision settings affect eligible Metal paths; no new precision experiment performed."
+    },
+    {
+      "id": "S19",
+      "title": "MLX-LM speculative generation and cache helpers",
+      "version": "f39c4aa2af5d61a5e85bd50cc3f4294fedaff116",
+      "url": "https://github.com/ml-explore/mlx-lm/blob/f39c4aa2af5d61a5e85bd50cc3f4294fedaff116/mlx_lm/generate.py",
+      "cache_url": "https://github.com/ml-explore/mlx-lm/blob/f39c4aa2af5d61a5e85bd50cc3f4294fedaff116/mlx_lm/models/cache.py",
+      "kind": "official source",
+      "checked": "2026-10-27",
+      "read_scope": "speculative_generate_step, _prefill, _rewind_cache and cache trim predicates",
+      "supports": "Last-token prefill convention, cache-trimming requirements, strict positive output budget handling and equality-based verification. Not certification of p/q residual sampling."
+    },
+    {
+      "id": "S20",
+      "authors": "Stern, Shazeer and Uszkoreit",
+      "title": "Blockwise Parallel Decoding for Deep Autoregressive Models",
+      "version": "1811.03115v1",
+      "url": "https://arxiv.org/abs/1811.03115v1",
+      "kind": "primary paper",
+      "checked": "2026-10-27",
+      "read_scope": "abstract; algorithm overview",
+      "supports": "Greedy block proposals with longest-prefix validation; distinguishes exact and approximate operating modes."
+    }
+  ],
+  "claim_map": [
+    {
+      "claim": "NCM prefix states are independent of generated levels in evaluation mode under the inspected masks",
+      "basis": "local source analysis",
+      "paths": [
+        "ncm_mlx/models/generator.py",
+        "ncm_mlx/models/blocks.py"
+      ],
+      "status": "analytic argument; cached implementation not built"
+    },
+    {
+      "claim": "Shared partial-prefix reuse is generally invalid for the bidirectional NCM prefix",
+      "basis": "local attention dependency analysis",
+      "paths": [
+        "ncm_mlx/models/generator.py"
+      ],
+      "status": "analytic boundary; no serving cache implemented"
+    },
+    {
+      "claim": "Cache payload and avoided position counts",
+      "basis": "config-bound analytic calculation",
+      "paths": [
+        "configs/sudoku-e20-seed1.json",
+        "docs/research/inference-analysis.json",
+        "scripts/analyze_inference_research.py"
+      ],
+      "status": "recomputed; no latency implication"
+    },
+    {
+      "claim": "Standard stochastic acceptance and residual correction preserve target probabilities under their assumptions",
+      "sources": [
+        "S05",
+        "S06"
+      ],
+      "status": "published result; finite illustrative identities checked locally"
+    },
+    {
+      "claim": "Latent-conditioned factorized token proposals can be considered separately from an intractable latent marginal",
+      "sources": [
+        "S01",
+        "S05",
+        "S06"
+      ],
+      "basis": "conditional application of standard rejection identity",
+      "status": "candidate design; finite fixtures only, no general NCM sampler implementation or new theorem claim"
+    },
+    {
+      "claim": "Distillation and feature conditioning are credible directions for a future text drafter",
+      "sources": [
+        "S07",
+        "S10",
+        "S11",
+        "S14"
+      ],
+      "status": "literature-grounded hypothesis for this implementation"
+    },
+    {
+      "claim": "No local caching or speculative-drafting speedup is established",
+      "basis": "current capability boundary",
+      "paths": [
+        "docs/STATUS.md",
+        "docs/NEXT.md"
+      ],
+      "status": "research proposal only"
+    }
+  ]
+}
