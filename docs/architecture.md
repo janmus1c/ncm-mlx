@@ -48,6 +48,11 @@ TinyWorld uses a learned unconditional prefix. Sudoku embeds the 81 puzzle cells
 
 Teacher forcing supplies true coarse codes during training; inference supplies the model's own predictions. Optional conditioning corruption replaces some conditioning codes while retaining true labels. Configurations choose a linear per-level replacement schedule and uniform or model-sampled replacements. These are training choices, not denoising iterations at sampling time.
 
+<picture>
+  <source media="(max-width: 600px)" srcset="assets/sudoku-generation-mobile-dark.svg">
+  <img src="assets/sudoku-generation-dark.svg" alt="Puzzle conditioning, twelve latent code levels, one decoder pass and an independent Sudoku validity and clue-preservation check." width="1080">
+</picture>
+
 ## Implementation boundaries
 
 The implementation uses MLX and NumPy. It does not import the upstream PyTorch modules or load upstream checkpoints. Differences include tokenization, sequence lengths, decoder positions, codebook-update timing and training recipes; Sudoku and TinyWorld also use different codec designs. See the [upstream map](research/upstream-map.md) for the detailed comparison.

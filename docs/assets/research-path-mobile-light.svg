@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 1000" role="img" aria-labelledby="title description">
+<title id="title">From measured systems to controlled text research.</title><desc id="description">TinyWorld and Sudoku have measured results. Controlled text is planned, gated on data rights, held-out quality and a matched autoregressive baseline. General text quality is not established.</desc>
+<rect width="420" height="1000" rx="16" fill="#ffffff"/>
+<g font-family="Inter, Helvetica Neue, Arial, sans-serif" fill="#20252b">
+<text x="28" y="49" font-size="24" font-weight="650" fill="#20252b" text-anchor="start">Evidence first. Text research next.</text>
+<rect x="28" y="95" width="364" height="216" rx="4" fill="#f3f5f7"/>
+<text x="48" y="127" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">01  MEASURED</text>
+<text x="48" y="172" font-size="27" font-weight="600" fill="#20252b" text-anchor="start">TinyWorld</text>
+<text x="48" y="214" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">Synthetic grammar</text>
+<text x="48" y="245" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">Codec + generator + AR</text>
+<text x="48" y="276" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">Quality and latency trade-off</text>
+<path d="M210 321v30m-5 -6l5 6 5 -6" fill="none" stroke="#59636e" stroke-width="2"/>
+<rect x="28" y="358" width="364" height="216" rx="4" fill="#f3f5f7"/>
+<text x="48" y="390" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">02  MEASURED</text>
+<text x="48" y="435" font-size="27" font-weight="600" fill="#20252b" text-anchor="start">Sudoku</text>
+<text x="48" y="477" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">E19 and E20 completed</text>
+<text x="48" y="508" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">Easy / medium retained</text>
+<text x="48" y="539" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">Hard-board gap unresolved</text>
+<path d="M210 584v30m-5 -6l5 6 5 -6" fill="none" stroke="#59636e" stroke-width="2"/>
+<rect x="28" y="621" width="364" height="216" rx="4" fill="none" stroke="#d6dce2" stroke-dasharray="5 5"/>
+<text x="48" y="653" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">03  PLANNED</text>
+<text x="48" y="698" font-size="27" font-weight="600" fill="#20252b" text-anchor="start">Controlled text</text>
+<text x="48" y="740" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">Pin data rights and splits</text>
+<text x="48" y="771" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">Measure held-out quality</text>
+<text x="48" y="802" font-size="18" font-weight="400" fill="#59636e" text-anchor="start">Match an AR training budget</text>
+<path d="M28 897H392" stroke="#d6dce2"/>
+<text x="28" y="932" font-size="19" font-weight="600" fill="#20252b" text-anchor="start">Next gates, not promised capabilities.</text>
+<text x="28" y="964" font-size="17" font-weight="400" fill="#59636e" text-anchor="start">Real-text quality is not established today.</text>
+</g></svg>

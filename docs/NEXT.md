@@ -14,6 +14,11 @@ The current phase is a partial success, with retained easy/medium performance ac
 
 Before new runs, retain per-board predictions and ordered source/data/checkpoint-bound evaluation manifests, and use a backend-appropriate GPU-load probe. These missing E20 records cannot be reconstructed retrospectively.
 
+<picture>
+  <source media="(max-width: 600px)" srcset="assets/research-path-mobile-dark.svg">
+  <img src="assets/research-path-dark.svg" alt="Measured TinyWorld and Sudoku evidence followed by planned controlled-text validation gates." width="1080">
+</picture>
+
 ## Priorities and dependencies
 
 | Priority | Milestone | Current state | Dependency |

@@ -11,6 +11,11 @@ The current Sudoku study is a **partial success**. The MLX implementation trains
 
 The next main research direction is text generation, beginning with a controlled corpus, separate codec and generation evaluation, and an autoregressive baseline. Sudoku remains a bounded diagnostic track. Text support is planned, not implemented or validated by these results. This update analyzes saved outputs; it includes no new training, model evaluation or accelerator benchmark.
 
+<picture>
+  <source media="(max-width: 600px)" srcset="../assets/sudoku-seeds-mobile-dark.svg">
+  <img src="../assets/sudoku-seeds-dark.svg" alt="E19 and E20 solve rates across easy, medium and hard Sudoku; quoted Original NCM results use a different recipe." width="1080">
+</picture>
+
 ## What the model actually does
 
 NCM means **Next-Concept Modeling**, the method introduced by [Kumbong et al.](https://arxiv.org/abs/2610.14162). It is a generation method, rather than a synonym for Sudoku or an alternative definition of an LLM. Conventional autoregressive text generation predicts the next token conditioned on previous tokens. NCM predicts all latent codes within one refinement level in parallel, then conditions the next level on the accumulated reconstruction.

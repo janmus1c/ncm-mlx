@@ -139,11 +139,19 @@ The upstream paper's 10–31× speedups compare NCM with **diffusion** language 
 
 “MLX implementation” means this repository’s independently trained NCM model; “Original NCM” means the model reported by Kumbong et al. These are different implementations and checkpoints. All E-numbered runs are local MLX experiments.
 
+<picture>
+  <source media="(prefers-color-scheme: dark) and (max-width: 600px)" srcset="docs/assets/sudoku-generation-mobile-dark.svg">
+  <source media="(max-width: 600px)" srcset="docs/assets/sudoku-generation-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/sudoku-generation-dark.svg">
+  <img src="docs/assets/sudoku-generation-light.svg" alt="Sudoku inference: an 81-cell puzzle prefix conditions twelve code levels; decode once, then independently check grid validity and every clue. Failures remain in the denominator." width="1080">
+</picture>
+
 Puzzle-conditioned models, scored on Kumbong et al.’s published test boards (2,000 per difficulty) with its "solved" rule: a valid grid that keeps every given. Greedy decoding. E11, E14 and E15 trained on an RTX 3080; full recipes and timings are in [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md).
 
 | Model | Generator params | Generator presentations | Easy (40 givens) | Medium (35) | Hard (30) |
 |---|---|---|---|---|---|
 | **MLX implementation, larger corpus and schedule (E19-funded)** | 6.44M | 16.384M | **98.10%** | **83.40%** | **40.30%** |
+| MLX implementation, same recipe with training seed 1 (E20) | 6.44M | 16.384M | 97.25% | 79.60% | 33.25% |
 | MLX implementation, stronger corruption + unique puzzles (E15) | 6.4M | 8.2M | 96.25% | 76.65% | 31.90% |
 | MLX implementation, conditioning corruption (E14) | 6.4M | 8.2M | 87.4% | 53.4% | 11.2% |
 | MLX AR baseline, same width and depth (E11) | 6.3M | 2.05M | 20.5% | 4.9% | 0.5% |
@@ -153,6 +161,15 @@ Puzzle-conditioned models, scored on Kumbong et al.’s published test boards (2
 | **Original NCM (Kumbong et al.)** | 25.46M | 51.2M | **99.5%** | **96.5%** | **86.1%** |
 
 The MLX AR baseline is close to the Original AR baseline row, a limited sanity check on the boards, scoring and conditioning path. The best local NCM result (E19-funded) remains below the paper, especially on hard boards. At the matched 2.05M-sequence budget, NCM E11 solves 55.2 / 18.1 / 1.6% against AR's 20.5 / 4.9 / 0.5%; the larger-budget E15 and E19-funded comparisons are not budget-matched. Training data and conditioning corruption are the strongest levers measured so far. These parameter columns count generators; the Sudoku codec stores another 13.9M scalar values, including learned resampling layers and EMA state. See [parameter accounting and measurement limits](docs/benchmarks.md).
+
+<picture>
+  <source media="(prefers-color-scheme: dark) and (max-width: 600px)" srcset="docs/assets/sudoku-seeds-mobile-dark.svg">
+  <source media="(max-width: 600px)" srcset="docs/assets/sudoku-seeds-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/sudoku-seeds-dark.svg">
+  <img src="docs/assets/sudoku-seeds-light.svg" alt="Measured Sudoku solve rates: E19 seed 0 scores 98.10, 83.40 and 40.30%; E20 seed 1 scores 97.25, 79.60 and 33.25%. Original NCM reference scores use a different model and budget." width="1080">
+</picture>
+
+Both seeds use the same scientific recipe and 16.384M generator presentations. E19-funded remains the best observed seed; E20 is 0.85, 3.80 and 7.05 percentage points lower on easy, medium and hard boards. Two seeds do not establish population training variability or identify the cause. Historical aggregate reports lack per-board predictions and complete remote evaluation/source manifests; see the [two-seed assessment](docs/research/e20-seed-report.md).
 
 **Smaller-generator result.** The MLX implementation reaches **98.10% on easy boards versus Original NCM’s 99.50%**, using a **6.44M versus 25.46M generator** (3.95× smaller) and **16.384M versus 51.2M generator presentations**. Medium and hard remain 13.10 and 45.80 percentage points behind. The size ratio covers generators only: the MLX codec stores another 13.9M values. Different recipes and system costs prevent an overall efficiency or parity claim.
 
@@ -178,13 +195,20 @@ Full source-by-source map: [`docs/research/upstream-map.md`](docs/research/upstr
 
 - Synthetic language and Sudoku only; quality on real text is unknown.
 - Conditioning is a fixed-length token prefix only (Sudoku). No prompts of free text, so not useful for summarisation, translation or instructions yet.
-- Sudoku: 40.30% of hard boards solved in E19-funded, against 86.1% for Original NCM (Kumbong et al.), with different model size and training budget.
+- Sudoku: 33.25–40.30% of hard boards solved across E20 and E19-funded, against 86.1% for Original NCM (Kumbong et al.), with different model size and training budget.
 - Weights are incompatible with the released NCM checkpoints.
 - Generator training can use `mx.compile`; neither inference sampler is compiled. The latency gap may change when both samplers are compiled.
 - On Metal, fp32 matmuls run at reduced precision (~1e-3 relative error, measured); exactness tests therefore run on the CPU device.
 - No energy or power measurements.
 
 ## Roadmap
+
+<picture>
+  <source media="(prefers-color-scheme: dark) and (max-width: 600px)" srcset="docs/assets/research-path-mobile-dark.svg">
+  <source media="(max-width: 600px)" srcset="docs/assets/research-path-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/research-path-dark.svg">
+  <img src="docs/assets/research-path-light.svg" alt="Measured TinyWorld and Sudoku work leads to planned controlled-text research, gated on data rights, held-out quality and a matched AR baseline. Real-text quality is not established." width="1080">
+</picture>
 
 The core implementation, toy comparison and full-state recovery are complete. Planned research tracks are:
 
@@ -194,7 +218,7 @@ The core implementation, toy comparison and full-state recovery are complete. Pl
 4. Independently test level budgets, verified Sudoku early exit and prefix caching, preserving full-depth baselines and exactness checks.
 5. Compile both samplers and repeat synchronized timing comparisons.
 
-The completed **E19-funded** run is the new local best: **98.10 / 83.40 / 40.30%** solved on easy/medium/hard boards (2,000 each). It uses 16.384M generator presentations, twice E15's budget; it does not establish an equal-budget advantage. The short E19 pilot scores 90.20 / 59.75 / 16.55% at 3.059M presentations. [Full report and machine-readable results](docs/research/e19-funded-report.md) retain timings, checkpoint identity, uncertainty, failures and comparison limits. E20 is a separate seed replication; the original million-step recipe remains unstarted.
+The completed **E19-funded** run is the new local best: **98.10 / 83.40 / 40.30%** solved on easy/medium/hard boards (2,000 each). It uses 16.384M generator presentations, twice E15's budget; it does not establish an equal-budget advantage. The short E19 pilot scores 90.20 / 59.75 / 16.55% at 3.059M presentations. [Full report and machine-readable results](docs/research/e19-funded-report.md) retain timings, checkpoint identity, uncertainty, failures and comparison limits. E20 completed the same recipe with seed 1 at 97.25 / 79.60 / 33.25%; both seeds and their evidence limits are retained in the [assessment](docs/research/e20-seed-report.md). The original million-step recipe remains unstarted.
 
 Compute scenarios and planned level budgets: [roadmap projections](docs/research/planning-projections.md). Priorities, dependencies and completion criteria: [`docs/NEXT.md`](docs/NEXT.md). Current state: [`docs/STATUS.md`](docs/STATUS.md). Follow releases through the [research updates feed](https://janmus1c.github.io/ncm-mlx/feed.xml).
 
