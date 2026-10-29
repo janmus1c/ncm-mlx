@@ -39,7 +39,13 @@ Software version 0.1.0 is archived on Zenodo with DOI [10.5281/zenodo.23620792](
 
 The earlier [working paper v0.9](https://doi.org/10.5281/zenodo.23620914) has its own preprint DOI and [paper release](https://github.com/janmus1c/ncm-mlx/releases/tag/paper-v0.9). It corrects reproduction instructions and experimental settings and adds an AI-assistance disclosure. The paper is not peer reviewed, and this DOI is not an arXiv identifier. The original software tag and its v0.8 paper assets remain unchanged.
 
-No Hugging Face checkpoint upload is included: model cards and dataset provenance need review before separate artifact releases. PyPI publication is deferred while the repository installation and explicit CUDA setup remain the supported developer workflow.
+No Hugging Face checkpoint upload is included: model cards and dataset provenance need review before separate artifact releases. PyPI publication is described in [Installing from PyPI](#installing-from-pypi); the repository installation remains the reproducible research workflow.
+
+## Installing from PyPI
+
+Available after the first PyPI publish; before then `pip install ncm-mlx` finds nothing. Once published, `pip install ncm-mlx` installs on Apple Silicon, where MLX 0.32.3 is a dependency. On Linux NVIDIA use `pip install "ncm-mlx[cuda]"` and set up CUDA headers as in [platform setup](platforms.md). Without MLX the package imports and the platform-independent configuration and data code run, but the CLI needs an accelerator. The wheel contains only the `ncm_mlx` package, with no configs, checkpoints or datasets; run it with `python -m ncm_mlx`. Use a repository checkout to reproduce experiments, because the recipes live in `configs/`.
+
+Software releases are published by the `publish-pypi` workflow when a GitHub release with a `v*` tag matching the package version is published, using PyPI Trusted Publishing from the `pypi` environment. `paper-v*` releases are not uploaded. A PyPI version cannot be replaced; a correction needs a new version.
 
 ## Maintaining useful documentation
 
