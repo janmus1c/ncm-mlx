@@ -7,6 +7,10 @@ description: Versioned NCM-MLX research software releases, supported workflows, 
 
 Follow new software and paper versions through the [research updates feed](feed.xml) or [GitHub releases feed](https://github.com/janmus1c/ncm-mlx/releases.atom).
 
+## Version 0.2.0 — released NCM checkpoints in MLX
+
+Software 0.2.0 runs HazyResearch's released TinyStories and Sudoku (easy, medium, hard) checkpoints natively in MLX, inference only, through `python -m ncm_mlx official fetch | convert | generate | sudoku | bench`. Downloads are pinned to one checkpoint revision and SHA-256 checked; conversion reads the `.pt` files without PyTorch and refuses anything except tensor data. Against upstream PyTorch, per-level logits agree to 3.2e-10 (TinyStories) and 1.2e-13 (Sudoku) in exact fp64, and greedy generation is identical. Greedy solve rates on all 2,000 published boards per difficulty are 99.40 / 96.30 / 86.20% (paper: 99.5 / 96.5 / 86.1%). The [port documentation](official-checkpoints.md) gives commands, parity evidence, timings and remaining gaps; LM1B, OpenWebText, WMT14 and XSum are not converted. From-scratch training, models and recorded results are unchanged.
+
 ## Version 0.1.1 — packaging and citation metadata
 
 Software 0.1.1 is the first release published on [PyPI](https://pypi.org/project/ncm-mlx/) (`pip install ncm-mlx` on Apple Silicon; `pip install "ncm-mlx[cuda]"` on Linux NVIDIA). It adds PyPI metadata and trusted publishing, the author ORCID in citation metadata and a refreshed README. Model code, training behavior and recorded results are unchanged from 0.1.0. The project's own trained Sudoku and TinyWorld weights are published separately on Hugging Face ([sudoku](https://huggingface.co/janmusic/ncm-mlx-sudoku), [tinyworld](https://huggingface.co/janmusic/ncm-mlx-tinyworld)); they are not included in the package. Software 0.1.1 is archived on Zenodo with DOI [10.5281/zenodo.23780571](https://doi.org/10.5281/zenodo.23780571); the concept DOI [10.5281/zenodo.23620791](https://doi.org/10.5281/zenodo.23620791) always resolves to the latest software version.
