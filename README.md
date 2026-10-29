@@ -13,10 +13,11 @@
   <a href="paper/dist/ncm-mlx.pdf">Working paper</a>
 </p>
 <p align="center">
-  <a href="https://doi.org/10.5281/zenodo.23620791"><img src="https://img.shields.io/badge/software%20DOI-10.5281%2Fzenodo.23620791-24292f?style=flat-square" alt="Software DOI 10.5281/zenodo.23620791"></a>
+  <a href="https://doi.org/10.5281/zenodo.23781233"><img src="https://img.shields.io/badge/software%20DOI-10.5281%2Fzenodo.23781233-24292f?style=flat-square" alt="Software DOI 10.5281/zenodo.23781233"></a>
   <a href="https://doi.org/10.5281/zenodo.23620913"><img src="https://img.shields.io/badge/paper%20DOI-10.5281%2Fzenodo.23620913-24292f?style=flat-square" alt="Working paper DOI 10.5281/zenodo.23620913"></a>
   <a href="https://pypi.org/project/ncm-mlx/"><img src="https://img.shields.io/pypi/v/ncm-mlx?style=flat-square&color=24292f&label=PyPI" alt="PyPI version"></a>
   <a href="https://huggingface.co/collections/janmusic/next-concept-modeling-in-mlx-6ae3b295f2ed5265df0906bf"><img src="https://img.shields.io/badge/Hugging%20Face-models-24292f?style=flat-square" alt="Models on Hugging Face"></a>
+  <a href="https://huggingface.co/spaces/janmusic/ncm-refinement-demo"><img src="https://img.shields.io/badge/demo-watch%20NCM%20refine-24292f?style=flat-square" alt="Refinement demo on Hugging Face"></a>
   <a href="https://github.com/janmus1c/ncm-mlx/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/janmus1c/ncm-mlx/ci.yml?branch=main&style=flat-square&label=CI" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-24292f?style=flat-square" alt="MIT license"></a>
 </p>
@@ -38,6 +39,8 @@ python -m ncm_mlx official fetch --task tinystories && python -m ncm_mlx officia
 python -m ncm_mlx official generate --task tinystories --n 2 --levels   # stories refined level by level on the GPU
 ```
 
+Watch recorded refinements in the browser, no install needed: [refinement demo](https://huggingface.co/spaces/janmusic/ncm-refinement-demo). Converted weights: [ncm-tinystories-mlx](https://huggingface.co/janmusic/ncm-tinystories-mlx), [ncm-sudoku-mlx](https://huggingface.co/janmusic/ncm-sudoku-mlx).
+
 **Evidence (2026-10-27).** Funded Sudoku recipe, two training seeds (E20): **97.25 / 79.60 / 33.25%** easy/medium/hard, against seed 0's **98.10 / 83.40 / 40.30%**, at equal exposure. This is a partial small-generator success with a substantial hard-board gap; the [two-seed assessment](docs/research/e20-seed-report.md) explains the results and audit limits. Training text models from scratch is the next research direction; it is not a supported capability yet.
 
 To train your own models:
@@ -48,7 +51,7 @@ mise trust && mise install && mise run setup   # Apple Silicon; Linux CUDA: docs
 mise run train && mise run demo                # ~5.5 min on M5 Pro, then level-by-level samples
 ```
 
-**Cite:** [archived software v0.1.1](https://doi.org/10.5281/zenodo.23780571) and the [working paper v0.11](https://doi.org/10.5281/zenodo.23686842) (not peer reviewed). For the method itself, cite [Kumbong et al.](#acknowledgements-and-citation).
+**Cite:** [archived software v0.2.0](https://doi.org/10.5281/zenodo.23781234) and the [working paper v0.11](https://doi.org/10.5281/zenodo.23686842) (not peer reviewed). For the method itself, cite [Kumbong et al.](#acknowledgements-and-citation).
 
 > [!WARNING]
 > **Experimental research code.** Small models trained on a synthetic language and Sudoku, using Apple Silicon and NVIDIA GPUs. It is not a chat model, follows no instructions, and its from-scratch models use their own format; the released NCM checkpoints run through the separate [official port](docs/official-checkpoints.md). It is not affiliated with Stanford or HazyResearch. Results are labelled with hardware, training budget and measurement conditions.
