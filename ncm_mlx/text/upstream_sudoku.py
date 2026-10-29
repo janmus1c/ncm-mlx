@@ -29,6 +29,14 @@ def _read(path: Path) -> list[list[int]]:
     return data
 
 
+def load_tokens(path: str | Path) -> list[list[int]]:
+    """Raw token rows: 91-token puzzle prompts (BOS, board, BOS) or 89-token solutions."""
+    rows = _read(Path(path))
+    if not all(all(isinstance(t, int) and 0 <= t <= BOS for t in r) for r in rows):
+        raise ValueError(f"{path}: tokens outside the Sudoku vocabulary")
+    return rows
+
+
 def _cells(row: list[int]) -> np.ndarray:
     cells = [t for t in row if t not in (SEPARATOR, BOS)]
     if len(cells) != 81 or not all(0 <= t <= 9 for t in cells):
