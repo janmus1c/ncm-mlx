@@ -12,6 +12,14 @@
   <a href="docs/benchmarks.md">Benchmarks</a> ·
   <a href="paper/dist/ncm-mlx.pdf">Working paper</a>
 </p>
+<p align="center">
+  <a href="https://doi.org/10.5281/zenodo.23620791"><img src="https://img.shields.io/badge/software%20DOI-10.5281%2Fzenodo.23620791-24292f?style=flat-square" alt="Software DOI 10.5281/zenodo.23620791"></a>
+  <a href="https://doi.org/10.5281/zenodo.23620913"><img src="https://img.shields.io/badge/paper%20DOI-10.5281%2Fzenodo.23620913-24292f?style=flat-square" alt="Working paper DOI 10.5281/zenodo.23620913"></a>
+  <a href="https://pypi.org/project/ncm-mlx/"><img src="https://img.shields.io/pypi/v/ncm-mlx?style=flat-square&color=24292f&label=PyPI" alt="PyPI version"></a>
+  <a href="https://huggingface.co/collections/janmusic/next-concept-modeling-in-mlx-6ae3b295f2ed5265df0906bf"><img src="https://img.shields.io/badge/Hugging%20Face-models-24292f?style=flat-square" alt="Models on Hugging Face"></a>
+  <a href="https://github.com/janmus1c/ncm-mlx/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/janmus1c/ncm-mlx/ci.yml?branch=main&style=flat-square&label=CI" alt="CI status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-24292f?style=flat-square" alt="MIT license"></a>
+</p>
 
 <picture>
   <source media="(prefers-color-scheme: dark) and (max-width: 600px)" srcset="docs/assets/refinement-mobile-dark.svg">
