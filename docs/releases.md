@@ -7,6 +7,10 @@ description: Versioned NCM-MLX research software releases, supported workflows, 
 
 Follow new software and paper versions through the [research updates feed](feed.xml) or [GitHub releases feed](https://github.com/janmus1c/ncm-mlx/releases.atom).
 
+## Version 0.1.1 — packaging and citation metadata
+
+Software 0.1.1 is the first release published on [PyPI](https://pypi.org/project/ncm-mlx/) (`pip install ncm-mlx` on Apple Silicon; `pip install "ncm-mlx[cuda]"` on Linux NVIDIA). It adds PyPI metadata and trusted publishing, the author ORCID in citation metadata and a refreshed README. Model code, training behavior and recorded results are unchanged from 0.1.0. The project's own trained Sudoku and TinyWorld weights are published separately on Hugging Face ([sudoku](https://huggingface.co/janmusic/ncm-mlx-sudoku), [tinyworld](https://huggingface.co/janmusic/ncm-mlx-tinyworld)); they are not included in the package.
+
 ## Working paper v0.11 — two-seed assessment and next research phase
 
 [Archived working paper v0.11](https://doi.org/10.5281/zenodo.23686842) adds E20’s completed seed-1 run: **97.25 / 79.60 / 33.25%**, n = 2,000 per difficulty. E19-funded’s seed-0 result remains **98.10 / 83.40 / 40.30%**, at the same 16.384M presentations and 6.44M generator size. Both seeds finish their full schedules without a recorded reset or truncation.
