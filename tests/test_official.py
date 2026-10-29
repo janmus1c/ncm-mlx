@@ -248,21 +248,29 @@ def test_greedy_generation_matches_upstream_exactly_on_cpu(name, cpu):
 
 
 @pytest.mark.mlx
-def test_generation_uses_one_generator_forward_per_level(cpu):
+@pytest.mark.parametrize("prefix_cache", [False, True])
+def test_generation_uses_one_generator_forward_per_level(cpu, prefix_cache):
+    """One level forward per level. Reference path: ``level_logits`` (prefix recomputed inside each).
+    Cached path: the same count through ``level_logits_cached``, plus one ``build_prefix_cache`` call that
+    only runs the prefix tokens and is never a level forward; ``level_logits`` is not called at all."""
     import mlx.core as mx
 
     from ncm_mlx.official import sample
 
     m, _ = _loaded("sudoku-easy")
-    calls = []
-    original = m.gen.level_logits
-    m.gen.level_logits = lambda *a, **k: calls.append(a[0]) or original(*a, **k)
+    calls, builds = [], []
+    name = "level_logits_cached" if prefix_cache else "level_logits"
+    original, original_build = getattr(m.gen, name), m.gen.build_prefix_cache
+    setattr(m.gen, name, lambda *a, **k: calls.append(a[0]) or original(*a, **k))
+    m.gen.build_prefix_cache = lambda *a, **k: builds.append(1) or original_build(*a, **k)
     try:
         sample.generate(m, mx.array(np.array(PARITY["sudoku-easy"]["boards"]["puzzles"][:1], dtype=np.int32)),
-                        temperature=0.0)
+                        temperature=0.0, prefix_cache=prefix_cache)
     finally:
-        del m.gen.level_logits
+        del m.gen.build_prefix_cache
+        delattr(m.gen, name)
     assert calls == list(range(len(m.codec.levels)))
+    assert builds == ([1] if prefix_cache else [])
 
 
 def test_fixture_records_reference_versions():

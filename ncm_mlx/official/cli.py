@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -54,6 +55,24 @@ def _flat(text: str, limit: int) -> str:
     return text if not limit or len(text) <= limit else text[: limit - 1] + "…"
 
 
+def _sampler_kwargs(args) -> dict:
+    return {"prefix_cache": not args.no_prefix_cache, "compiled": args.compile}
+
+
+def _gpu_utilization() -> str | None:
+    """Metal ``Device Utilization %`` from ioreg, recorded next to benchmark results; None when unavailable."""
+    import re
+    import subprocess
+
+    try:
+        out = subprocess.run(["ioreg", "-r", "-d", "1", "-c", "IOAccelerator"], capture_output=True, text=True,
+                             check=False, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    m = re.search(r'"Device Utilization %"=(\d+)', out)
+    return m.group(1) if m else None
+
+
 def cmd_generate(args) -> int:
     import mlx.core as mx
 
@@ -68,7 +87,7 @@ def cmd_generate(args) -> int:
     t0 = time.perf_counter()
     g = sample.generate(m, sample.unconditional_prefix(m, args.n), temperature=args.temperature,
                         top_k=args.top_k, top_p=args.top_p, seed=args.seed, level0=level0,
-                        keep_levels=args.levels)
+                        keep_levels=args.levels, **_sampler_kwargs(args))
     tokens = np.array(g.tokens)
     elapsed = time.perf_counter() - t0
     print(f"{task.name}: {len(m.codec.levels)} levels {m.codec.levels}, "
@@ -120,7 +139,7 @@ def cmd_sudoku(args) -> int:
     t0 = time.perf_counter()
     for i in range(0, len(puzzles), args.batch):
         p = mx.array(np.array(puzzles[i : i + args.batch], dtype=np.int32))
-        g = sample.generate(m, p, temperature=args.temperature, seed=args.seed + i)
+        g = sample.generate(m, p, temperature=args.temperature, seed=args.seed + i, **_sampler_kwargs(args))
         hyps += [m.decode(r) for r in np.array(g.tokens)]
     elapsed = time.perf_counter() - t0
     refs = [m.decode(r) for r in solutions]
@@ -157,15 +176,26 @@ def cmd_bench(args) -> int:
         def prefix(b):
             return sample.unconditional_prefix(m, b)
 
-    def run(b, seed):
-        return sample.generate(m, prefix(b), temperature=args.temperature, seed=seed).tokens
-
     forwards = len(m.codec.levels) - m.gen.first
-    rows = bench_sampler(run, task.codec.seq_len, forwards, tuple(args.batch_sizes), warmup=args.warmup,
-                         iters=args.iters)
+    modes = {"eager": {"prefix_cache": False, "compiled": False},
+             "cached": {"prefix_cache": True, "compiled": False},
+             "cached+compiled": {"prefix_cache": True, "compiled": True}}
+    def runner(kwargs):
+        def run(b, seed):
+            return sample.generate(m, prefix(b), temperature=args.temperature, seed=seed, **kwargs).tokens
+        return run
+
     result = {"task": task.name, "runtime": info, "temperature": args.temperature, "warmup": args.warmup,
-              "iterations": args.iters, "synchronization": "numpy_host_copy", "sampler_compiled": False,
-              "rows": rows}
+              "iterations": args.iters, "synchronization": "numpy_host_copy",
+              "gpu_utilization_pct_before": _gpu_utilization(), "modes": {}}
+    for mode in args.modes:
+        kwargs = modes[mode]
+        rows = bench_sampler(runner(kwargs), task.codec.seq_len, forwards, tuple(args.batch_sizes), warmup=args.warmup,
+                             iters=args.iters)
+        result["modes"][mode] = {**kwargs, "rows": rows}
+        print(f"{mode}: " + ", ".join(f"b={r['batch']} p50 {r['p50_ms']} ms (first call {r['first_call_ms']} ms)"
+                                       for r in rows), file=sys.stderr)
+    result["gpu_utilization_pct_after"] = _gpu_utilization()
     print(json.dumps(result, indent=2))
     if args.out:
         Path(args.out).write_text(json.dumps(result, indent=2) + "\n")
@@ -196,6 +226,10 @@ def register(sub) -> None:
         sp.add_argument("--weights", help="converted checkpoint directory")
         sp.add_argument("--cpu", action="store_true", help="run on mx.cpu instead of the GPU")
         sp.add_argument("--seed", type=int, default=0)
+        if name != "bench":
+            sp.add_argument("--no-prefix-cache", action="store_true",
+                            help="recompute the prefix in every level (reference path)")
+            sp.add_argument("--compile", action="store_true", help="mx.compile the per-level step")
         sp.add_argument("--temperature", type=float, default=None,
                         help="default: the released config (1.0 TinyStories, 0 Sudoku)")
         if name == "generate":
@@ -212,7 +246,9 @@ def register(sub) -> None:
             sp.add_argument("--batch", type=int, default=100)
             sp.add_argument("--out")
         if name == "bench":
-            sp.add_argument("--batch-sizes", type=int, nargs="+", default=[1, 16])
+            sp.add_argument("--batch-sizes", type=int, nargs="+", default=[1, 4, 16, 64])
+            sp.add_argument("--modes", nargs="+", choices=["eager", "cached", "cached+compiled"],
+                            default=["eager", "cached", "cached+compiled"])
             sp.add_argument("--iters", type=int, default=20)
             sp.add_argument("--warmup", type=int, default=3)
             sp.add_argument("--out")

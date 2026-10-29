@@ -93,3 +93,5 @@ This run used 20 timed iterations. GPU utilization was 80% immediately before be
 Generator metadata times its training loop after code encoding. Periodic validation and checkpoint saving occur inside that loop; data generation, encoding and the final evaluation pipeline are separate costs. E17's 2,000 recovery steps took 1,247.53 seconds; the full recovery pipeline took 1,956 seconds. Neither is the full original E17 training cost. Always name the timing boundary, including repeated work after recovery.
 
 Higher-value future comparisons are multiple training seeds, paired per-board outcomes, a budget-matched E15 AR baseline, matched compiled samplers and uncontended repeated timing sessions. No expensive new training is required to interpret the existing release accurately.
+
+The released-checkpoint sampler is the exception: `official generate|sudoku --compile` wraps its per-level step in `mx.compile`, and it has an opt-out generation-local prefix K/V cache. Its eager, cached and compiled timings are in [released checkpoints](official-checkpoints.md#prefix-kv-cache-and-compiled-step). They do not apply to the repository's own samplers.

@@ -44,6 +44,8 @@ Inference only; no training. These are the released upstream checkpoints (revisi
 
 At b=16 the Sudoku level forward is compute-bound: about 15 ms for the 89-position level, because the 91-token prefix is recomputed at every level.
 
+**Prefix cache and compilation (2026-10-29, branch `fast-official-sampler`).** `official bench` now times eager (`--no-prefix-cache`), generation-local prefix K/V cache and cache plus `mx.compile`. Same machine, 3 warmups, 20 iterations, host-copy synchronized. Sudoku-easy p50 ms, eager / cached / cached+compiled: b=16 208 / 65 / 52 (rerun 200 / 64 / 57), b=64 1,238 / 648 / 458 (rerun 1,179 / 393 / 435). TinyStories (one-token prefix): b=16 335 / 389 / 317, no useful cache gain. **Contention:** Metal `Device Utilization %` median 65%, 96% of 2 s samples at or above 50%, peak 100%; no training run active. Treat absolute numbers as busy-machine timings and the within-run ratios as the result. Full tables, exactness evidence and the first-call (trace) costs are in [released checkpoints](official-checkpoints.md#prefix-kv-cache-and-compiled-step).
+
 ## E20 — completed seed replication
 
 `configs/sudoku-e20-seed1.json` repeats E19-funded’s scientific recipe with configured training seed 1, unchanged data split and frozen E6 codec, 200k base plus 8M cached unique puzzles, corruption 0.50→0.10 and batch 128. Both complete 128,000 updates (16,384,000 presentations). This is a fresh initialization, not a continuation. Its 960-minute cap is shorter than E19-funded’s 1,440-minute cap but did not trigger; there is no recorded optimizer reset or truncation.

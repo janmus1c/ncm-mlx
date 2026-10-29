@@ -22,6 +22,7 @@ matter for numerical parity:
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 
 import mlx.core as mx
 import numpy as np
@@ -60,15 +61,24 @@ class Attention(nn.Module):
         self.q_norm = nn.RMSNorm(self.head_dim, eps=LN_EPS)
         self.k_norm = nn.RMSNorm(self.head_dim, eps=LN_EPS)
 
-    def __call__(self, x: mx.array, mask: mx.array | None = None, rope=None) -> mx.array:
-        B, T, C = x.shape
+    def qkv_heads(self, x: mx.array, rope=None) -> tuple[mx.array, mx.array, mx.array]:
+        """Per-head ``(B, H, T, hd)`` query, normalised and rotated key, and value."""
+        B, T, _ = x.shape
         q, k, v = (t.reshape(B, T, self.n_head, self.head_dim).transpose(0, 2, 1, 3)
                    for t in mx.split(self.qkv(x), 3, axis=-1))
         q, k = self.q_norm(q), self.k_norm(k)
         if rope is not None:
             q, k = _rotate(q, *rope), _rotate(k, *rope)
+        return q, k, v
+
+    def attend(self, q: mx.array, k: mx.array, v: mx.array, mask: mx.array | None) -> mx.array:
+        B, _, T, _ = q.shape
         y = mx.fast.scaled_dot_product_attention(q, k, v, scale=self.head_dim**-0.5, mask=mask)
-        return self.proj(y.transpose(0, 2, 1, 3).reshape(B, T, C))
+        return self.proj(y.transpose(0, 2, 1, 3).reshape(B, T, -1))
+
+    def __call__(self, x: mx.array, mask: mx.array | None = None, rope=None) -> mx.array:
+        q, k, v = self.qkv_heads(x, rope)
+        return self.attend(q, k, v, mask)
 
 
 class Block(nn.Module):
@@ -83,6 +93,19 @@ class Block(nn.Module):
     def __call__(self, x: mx.array, mask: mx.array | None = None, rope=None) -> mx.array:
         x = x + self.attn(self.ln1(x), mask, rope)
         return x + self.out(nn.gelu(self.fc(self.ln2(x))))
+
+
+@dataclass
+class PrefixCache:
+    """Per-layer prefix keys/values for one generation, plus the prefix keep-mask.
+
+    The prefix attends only to itself and its RoPE positions restart at 0, so its
+    hidden states do not depend on the level being generated. The object is built
+    for one batch of prefix tokens and is never stored on the model.
+    """
+
+    kv: list[tuple[mx.array, mx.array]]
+    keep: mx.array | None
 
 
 class StridedDown(nn.Module):
@@ -259,6 +282,8 @@ class Generator(nn.Module):
         P, hd = self.spec.prefix_len, self.spec.dim // self.spec.n_head
         self._rope = [rope_tables(np.concatenate([np.arange(P), np.arange(n)]), hd, self.spec.rope_base, dtype)
                       for n in self.target_levels]
+        self._rope_prefix = rope_tables(np.arange(P), hd, self.spec.rope_base, dtype)
+        self._rope_level = [rope_tables(np.arange(n), hd, self.spec.rope_base, dtype) for n in self.target_levels]
 
     def astype(self, dtype) -> Generator:
         """Cast parameters and rebuild RoPE tables at the target precision."""
@@ -305,3 +330,40 @@ class Generator(nn.Module):
         for blk in self.blocks:
             h = blk(h, mask, self._rope[j])
         return self.head_logits(j, self.ln_f(h)[:, P:])
+
+
+    def build_prefix_cache(self, prefix_tokens: mx.array) -> PrefixCache:
+        """Run the prefix through every block once and keep each layer's rotated K and V.
+
+        Equal to the prefix rows of the full per-level forward. The last block's
+        prefix attention output and feed-forward feed nothing the levels read, so
+        they are not computed.
+        """
+        P = self.spec.prefix_len
+        h = self.prefix_embedding(prefix_tokens)
+        keep = None
+        if self.spec.prefix_pad_id is not None:
+            keep = (prefix_tokens[:, :P] != self.spec.prefix_pad_id)[:, None, None, :]
+        kv = []
+        last = len(self.blocks) - 1
+        for i, blk in enumerate(self.blocks):
+            q, k, v = blk.attn.qkv_heads(blk.ln1(h), self._rope_prefix)
+            kv.append((k, v))
+            if i == last:
+                break
+            h = h + blk.attn.attend(q, k, v, keep)
+            h = h + blk.out(nn.gelu(blk.fc(blk.ln2(h))))
+        return PrefixCache(kv, keep)
+
+    def level_logits_cached(self, j: int, level_input: mx.array, cache: PrefixCache) -> mx.array:
+        """Logits for target level ``j`` reading prefix K/V from ``cache``; level rows only."""
+        x = self.in_proj(level_input) + self.level_emb.weight[j]
+        n = x.shape[1]
+        mask = None
+        if cache.keep is not None:
+            mask = mx.concatenate([cache.keep, mx.ones((x.shape[0], 1, 1, n), dtype=mx.bool_)], axis=-1)
+        for blk, (pk, pv) in zip(self.blocks, cache.kv):
+            q, k, v = blk.attn.qkv_heads(blk.ln1(x), self._rope_level[j])
+            x = x + blk.attn.attend(q, mx.concatenate([pk, k], axis=2), mx.concatenate([pv, v], axis=2), mask)
+            x = x + blk.out(nn.gelu(blk.fc(blk.ln2(x))))
+        return self.head_logits(j, self.ln_f(x))
