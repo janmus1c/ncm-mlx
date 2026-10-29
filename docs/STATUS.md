@@ -16,6 +16,7 @@ updated: 2026-10-27
 - Synchronized benchmark at batch sizes 1–256 with p50/p95 and peak MLX memory; configurable sampling temperature and recorded timing settings. See [benchmark methodology](benchmarks.md).
 - Conditional generation from a token prefix (Sudoku puzzle cells); same-size AR baseline with prefix prefill.
 - Sudoku task: synthetic training data, evaluation on the published NCM test boards, an OpenAI-compatible LLM baseline.
+- Released upstream checkpoints (TinyStories, Sudoku easy/medium/hard) run natively in MLX through `python -m ncm_mlx official`. Conversion is torch-free, per-level logits match upstream PyTorch in exact float64, and greedy outputs are identical. The released Sudoku models solve 99.40 / 96.30 / 86.20% on Metal (n = 2,000 each). See [released checkpoints](official-checkpoints.md).
 - `scripts/guarded_run.sh`: memory watchdog for long runs.
 - Codec and generator full-state checkpoints, graceful pause and `--resume`; CPU tests match uninterrupted training exactly, including compiled generator steps. Mac experiments can run under launchd independently of a terminal. See `RECOVERY.md`.
 - E17 was killed with its terminal session at 15:05. Its step-30,000 weights survive; a separate weights-only continuation completed step 32,000 and solves 71.25 / 31.75 / 3.70% of easy/medium/hard boards. Its optimizer and random state reset; see `EXPERIMENTS.md`. The independent remote E18 process survived and completed 128,000 steps without a recovery reset; it solves 84.25 / 49.10 / 10.55%, below E15. Its legacy checkpoint contains inference weights rather than full resumable training state.
@@ -42,7 +43,7 @@ This phase is a partial implementation and small-model success: both seeds solve
 ## Not done
 
 - The upstream Sudoku result is not reproduced. Width-512 runs E10/E12 did not close the gap; a paper-scale training budget remains pending.
-- No compatibility with the released NCM checkpoints.
+- Released checkpoints other than TinyStories and Sudoku are not converted; the official port is inference-only and has no CFG or prefix KV cache.
 - Generator training supports `mx.compile` when `train.compile` is true. Codec/AR training and both samplers remain uncompiled; NCM quantisation for compressed inference and prefix KV caching are not implemented.
 - No power or energy measurements (no instrumentation without sudo).
 
@@ -50,4 +51,4 @@ This phase is a partial implementation and small-model success: both seeds solve
 
 The historical E15 artifact records 96.25 / 76.65 / 31.90% solved; one-decimal historical summaries above retain their original rounding. All external Sudoku sets contain 2,000 boards. E15 has no matched-budget AR result, and its comparison with the original paper differs in generator size, data exposure and task setup. The common Sudoku codec contains 13,915,200 saved values including EMA state, in addition to the 6,440,128 generator values; “same size” in earlier comparisons refers to generator width/depth, not total system size.
 
-Start with [architecture](architecture.md), [training](training.md), [benchmarks](benchmarks.md) and the [upstream map](research/upstream-map.md). Current results do not establish open-domain text quality, production suitability, cross-backend bitwise identity or upstream checkpoint compatibility. Repository visibility and release availability are recorded in GitHub metadata rather than this scientific status page.
+Start with [architecture](architecture.md), [training](training.md), [benchmarks](benchmarks.md) and the [upstream map](research/upstream-map.md). Current results do not establish open-domain text quality, production suitability, cross-backend bitwise identity or compatibility with released checkpoints beyond TinyStories and Sudoku. Repository visibility and release availability are recorded in GitHub metadata rather than this scientific status page.

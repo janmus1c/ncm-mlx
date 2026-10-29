@@ -1,0 +1,382 @@
+{
+ "description": "MLX port vs upstream PyTorch on released NCM checkpoints, CPU. Produced by scripts/official_parity.py (tinystories: 4 texts and 8 greedy samples; sudoku-easy: first 64 published easy boards).",
+ "reports": {
+  "tinystories": {
+   "task": "tinystories",
+   "torch": "2.15.0",
+   "mlx": "0.32.3",
+   "device": "cpu",
+   "dtype": "float32",
+   "upstream_code_revision": "c70274273f489abc73832b2b98584a8483b6b203",
+   "checkpoint_revision": "d342ce8aaea58830eef3b8ad473664673e41f692",
+   "bpe": {
+    "cases": 13,
+    "pretokenize_equal": true,
+    "ids_equal": true,
+    "roundtrip_equal": true
+   },
+   "codec": {
+    "items": 4,
+    "embed_max_abs_diff": 2.86102294921875e-06,
+    "code_agreement_per_level": [
+     1.0,
+     1.0,
+     0.984375,
+     0.9791666666666666,
+     0.984375,
+     1.0,
+     0.9951923076923077,
+     1.0,
+     0.9802631578947368,
+     0.9836956521739131,
+     0.9745370370370371,
+     0.9921875
+    ],
+    "first_divergence_per_item": [
+     {
+      "item": 1,
+      "level": 2,
+      "distance_gap": 0.00449371337890625,
+      "distance": 9.701581954956055
+     },
+     {
+      "item": 0,
+      "level": 9,
+      "distance_gap": 0.00023937225341796875,
+      "distance": 10.777641296386719
+     }
+    ],
+    "decoder_logits_max_abs_diff": 0.0049610137939453125,
+    "decoder_argmax_equal": true
+   },
+   "forced_level_logits": [
+    {
+     "max_abs_diff": 0.0020751953125,
+     "max_abs_logit": 317.66357421875,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 0.002101898193359375,
+     "max_abs_logit": 50.4284782409668,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 0.006412506103515625,
+     "max_abs_logit": 64.01502227783203,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 0.0019130706787109375,
+     "max_abs_logit": 46.852081298828125,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 0.008697509765625,
+     "max_abs_logit": 438.54986572265625,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 0.0044403076171875,
+     "max_abs_logit": 154.77951049804688,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 0.013127326965332031,
+     "max_abs_logit": 123.34260559082031,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 0.0999755859375,
+     "max_abs_logit": 572.7310180664062,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 0.05487060546875,
+     "max_abs_logit": 852.6796875,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 0.03125762939453125,
+     "max_abs_logit": 849.2405395507812,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 0.019283294677734375,
+     "max_abs_logit": 121.74224090576172,
+     "argmax_equal": 1.0
+    }
+   ],
+   "forced_level_logits_max_abs_diff": 0.0999755859375,
+   "fp64_forced_level_logits_max_abs_diff": 3.2218849810305983e-10,
+   "fp32_rounding_reference": {
+    "torch_fp32_vs_torch_fp64": 0.0712834310102437,
+    "mlx_fp32_vs_torch_fp64": 0.12588266947528837
+   },
+   "greedy": {
+    "samples": 8,
+    "codes_equal_per_level": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "text_equal": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ]
+   },
+   "greedy_examples": [
+    "\nOnce upon a time, there was a little girl named Lily. She had a pretty doll that she loved very much. Lily took her doll with her her she went everywhere she went. One day, she went to the park with her mom.\nAt the park, Lily met a boy named Tim. Tim saw the doll and said, \"Wow! That's a doll! Can I play with it too?\" Lily nodded and, and they both played with the doll.\nLily and Tim played with the doll all day. They played on the swings, slides, and the seesaw. At the end of the day, they went",
+    "\nOnce upon a time, in a small peaceful town, there lived a cat named Tom. Tom loved to play in the sunshine all day with his friends in park. They would run, jump, and laugh and laugh all day long.\nOne sunny day, while Tom was playing, he saw a little girl named Lily. \"Hi!\" Tom said. \"Hi Lily! Do you want to play with me?\" Lily looked up at Tom and said, \"Yes, Tom! Let's play together!\"\nSo, Tom and Lily played in the sunshine all day long. They laughed and laughed and became best friends. From that day"
+   ]
+  },
+  "sudoku-easy": {
+   "task": "sudoku-easy",
+   "torch": "2.15.0",
+   "mlx": "0.32.3",
+   "device": "cpu",
+   "dtype": "float32",
+   "upstream_code_revision": "c70274273f489abc73832b2b98584a8483b6b203",
+   "checkpoint_revision": "d342ce8aaea58830eef3b8ad473664673e41f692",
+   "codec": {
+    "items": 64,
+    "embed_max_abs_diff": 1.430511474609375e-06,
+    "code_agreement_per_level": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0
+    ],
+    "first_divergence_per_item": [],
+    "decoder_logits_max_abs_diff": 0.00038909912109375,
+    "decoder_argmax_equal": true
+   },
+   "forced_level_logits": [
+    {
+     "max_abs_diff": 8.344650268554688e-06,
+     "max_abs_logit": 14.577069282531738,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 1.9073486328125e-05,
+     "max_abs_logit": 20.827396392822266,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 1.52587890625e-05,
+     "max_abs_logit": 28.722898483276367,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 1.621246337890625e-05,
+     "max_abs_logit": 23.463520050048828,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 4.57763671875e-05,
+     "max_abs_logit": 25.93408966064453,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 2.1457672119140625e-05,
+     "max_abs_logit": 26.09209442138672,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 2.86102294921875e-05,
+     "max_abs_logit": 24.680335998535156,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 2.765655517578125e-05,
+     "max_abs_logit": 20.670278549194336,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 5.6743621826171875e-05,
+     "max_abs_logit": 19.494932174682617,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 4.863739013671875e-05,
+     "max_abs_logit": 17.291929244995117,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 7.2479248046875e-05,
+     "max_abs_logit": 15.48108196258545,
+     "argmax_equal": 1.0
+    },
+    {
+     "max_abs_diff": 5.1021575927734375e-05,
+     "max_abs_logit": 19.879878997802734,
+     "argmax_equal": 1.0
+    }
+   ],
+   "forced_level_logits_max_abs_diff": 7.2479248046875e-05,
+   "fp64_forced_level_logits_max_abs_diff": 1.1772527397369004e-13,
+   "fp32_rounding_reference": {
+    "torch_fp32_vs_torch_fp64": 5.152385287354733e-05,
+    "mlx_fp32_vs_torch_fp64": 6.980161061775902e-05
+   },
+   "greedy": {
+    "samples": 64,
+    "codes_equal_per_level": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "text_equal": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "solved_upstream": 63,
+    "solved_mlx": 63
+   },
+   "greedy_examples": [
+    "921647385|764835291|583912764|452369178|179458623|836721549|217584936|698173452|345296817",
+    "341962875|567483291|892715346|618294537|259378164|734651928|475839612|986127453|123546789"
+   ]
+  }
+ },
+ "sudoku_full_sets": {
+  "mlx_metal_easy": {
+   "task": "sudoku-easy",
+   "boards": 2000,
+   "sample": "first 2000 of the published test set",
+   "temperature": 0.0,
+   "solved": 1988,
+   "solved_pct": 99.4,
+   "cell_pct": 99.97,
+   "valid_grid_pct": 99.4,
+   "seconds": 24.04
+  },
+  "mlx_metal_medium": {
+   "task": "sudoku-medium",
+   "boards": 2000,
+   "sample": "first 2000 of the published test set",
+   "temperature": 0.0,
+   "solved": 1926,
+   "solved_pct": 96.3,
+   "cell_pct": 99.79,
+   "valid_grid_pct": 96.3,
+   "seconds": 21.09
+  },
+  "mlx_metal_hard": {
+   "task": "sudoku-hard",
+   "boards": 2000,
+   "sample": "first 2000 of the published test set",
+   "temperature": 0.0,
+   "solved": 1724,
+   "solved_pct": 86.2,
+   "cell_pct": 98.36,
+   "valid_grid_pct": 86.2,
+   "seconds": 22.41
+  },
+  "upstream_pytorch_cpu_easy": {
+   "task": "sudoku-easy",
+   "implementation": "upstream PyTorch",
+   "device": "cpu",
+   "torch": "2.15.0",
+   "boards": 2000,
+   "solved": 1988,
+   "solved_pct": 99.4,
+   "valid_grid_pct": 99.4,
+   "seconds": 188.75
+  },
+  "per_board_identity_easy": "MLX greedy output equals upstream PyTorch CPU output on 2000/2000 easy boards, on both mx.gpu and mx.cpu"
+ }
+}

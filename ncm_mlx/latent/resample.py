@@ -14,9 +14,9 @@ import math
 import numpy as np
 
 
-def area_matrix(src_len: int, dst_len: int) -> np.ndarray:
+def area_matrix(src_len: int, dst_len: int, dtype=np.float32) -> np.ndarray:
     """Adaptive average pooling, identical to PyTorch's area interpolation."""
-    m = np.zeros((dst_len, src_len), dtype=np.float32)
+    m = np.zeros((dst_len, src_len), dtype=dtype)
     for i in range(dst_len):
         start = (i * src_len) // dst_len
         end = math.ceil((i + 1) * src_len / dst_len)
@@ -24,9 +24,9 @@ def area_matrix(src_len: int, dst_len: int) -> np.ndarray:
     return m
 
 
-def linear_matrix(src_len: int, dst_len: int) -> np.ndarray:
+def linear_matrix(src_len: int, dst_len: int, dtype=np.float32) -> np.ndarray:
     """1-D linear interpolation with ``align_corners=False`` semantics."""
-    m = np.zeros((dst_len, src_len), dtype=np.float32)
+    m = np.zeros((dst_len, src_len), dtype=dtype)
     if src_len == 1:
         m[:, 0] = 1.0
         return m

@@ -357,7 +357,12 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--batch-sizes", type=int, nargs="+", default=[1, 4, 8, 16, 64, 256])
     sp.add_argument("--iters", type=int, default=30)
     sp.add_argument("--out")
+    from ncm_mlx.official.cli import register, resolve_defaults
+
+    register(sub)
     args = p.parse_args(argv)
+    if args.cmd == "official":
+        resolve_defaults(args)
     device_gb = mx.device_info().get("memory_size", 0) / 2**30
     default_gb = min(16.0, 0.85 * device_gb) if device_gb else 16.0
     limit_gb = float(os.environ.get("NCM_MLX_MEMORY_LIMIT_GB", default_gb))

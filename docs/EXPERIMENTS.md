@@ -11,6 +11,39 @@ Every measured run, newest first. Unless a run specifies another device, hardwar
 
 **GPU contention.** Mac experiments generally ran alongside other local GPU services; per-run notes record exceptions and other hardware. `ioreg` reported 15% GPU utilisation from other processes just before the v0 benchmark started. Treat those latency numbers as "typical busy desktop" rather than an idle machine.
 
+## Official checkpoints — released HazyResearch weights in MLX (2026-10-29)
+
+Inference only; no training. These are the released upstream checkpoints (revision `d342ce8`, code `c702742`), converted by `python -m ncm_mlx official convert`; they are not models trained by this repository. Details and commands are in [released checkpoints](official-checkpoints.md); the parity reports and solve-rate records are in [`research/official-checkpoint-parity.json`](research/official-checkpoint-parity.json).
+
+**Parity (CPU, `scripts/official_parity.py`, PyTorch 2.15.0).**
+
+- TinyStories (4 texts, 8 greedy samples):
+  - BPE ids are identical.
+  - Per-level logits differ by at most 0.10 in fp32 (scale up to 853) and 3.2e-10 in exact fp64. Upstream fp32 itself differs by 0.071 from fp64.
+  - Greedy codes and text are identical for 8/8 samples.
+  - Codec codes agree 97.4–100% per level; each item's first divergence is a near-tie.
+- Sudoku-easy (64 boards):
+  - Per-level logits differ by at most 7.2e-5 in fp32 and 1.2e-13 in fp64.
+  - Codes are 100% identical, and greedy outputs are identical for 64/64 boards.
+
+**Sudoku solve rates**, greedy, published test sets, n = 2,000 each, MLX on Metal: **easy 99.40% (1,988), medium 96.30% (1,926), hard 86.20% (1,724)**. A first-200 easy sample gives 99.0% (198/200) on both Metal and CPU. On the full easy set, upstream PyTorch on this machine's CPU also solves 1,988/2,000 (188.75 s), and MLX's outputs equal upstream's on all 2,000 boards on both Metal and CPU. Original NCM (Kumbong et al.) reports 99.5 / 96.5 / 86.1%. Medium and hard were not run with upstream PyTorch here. Metal evaluation wall time is 21–24 s per 2,000 boards at batch 250, with ~19% GPU use by other applications before the medium/hard runs.
+
+**Latency** (`official bench` / `scripts/official_torch_reference.py bench`). Timings are synchronized through a host copy, uncompiled, with no prefix cache. MLX uses 3 warmups and 20 iterations; PyTorch uses 2 warmups and 10 iterations on 6 threads. TinyStories samples at T=1 with the level-0 unigram; Sudoku is greedy.
+
+| p50 / p95 ms | MLX Metal | Upstream PyTorch CPU |
+|---|---:|---:|
+| TinyStories b=1 | 39.8 / 40.8 | 280.0 / 289.9 |
+| TinyStories b=16 | 519.3 / 742.3 | 3,883 / 4,076 |
+| Sudoku-easy b=1 | 20.5 / 22.7 | 164.6 / 201.8 |
+| Sudoku-easy b=16 | 228.6 / 277.0 | 1,663 / 1,746 |
+
+- First-call MLX latency is 160 / 278 ms for TinyStories and 102 / 261 ms for Sudoku (batch 1 / 16).
+- MLX peak memory is 635 / 2,269 MB for TinyStories and 269 / 2,012 MB for Sudoku.
+- Upstream fails on MPS: PyTorch 2.15 does not implement non-divisible `adaptive_avg_pool1d` there, so there is no MPS row.
+- **Contention:** `ioreg` sampled 0–33% GPU utilisation from desktop applications (window server, browser) before and between runs, with single readings of 69–98% at run boundaries. These are busy-desktop numbers, not idle-machine numbers.
+
+At b=16 the Sudoku level forward is compute-bound: about 15 ms for the 89-position level, because the 91-token prefix is recomputed at every level.
+
 ## E20 — completed seed replication
 
 `configs/sudoku-e20-seed1.json` repeats E19-funded’s scientific recipe with configured training seed 1, unchanged data split and frozen E6 codec, 200k base plus 8M cached unique puzzles, corruption 0.50→0.10 and batch 128. Both complete 128,000 updates (16,384,000 presentations). This is a fresh initialization, not a continuation. Its 960-minute cap is shorter than E19-funded’s 1,440-minute cap but did not trigger; there is no recorded optimizer reset or truncation.

@@ -18,7 +18,7 @@ The dataset's [versioned card](https://huggingface.co/datasets/hazyresearch/ncm-
 
 ## Model weights
 
-No NCM-MLX weights, upstream checkpoints, tokenizer assets or training datasets are distributed in this source release. `artifacts/`, `runs/` and weight extensions are ignored. Public JSON summaries in `paper/data/` report measurements and provenance, rather than weights. Compatibility with released upstream checkpoints is not implemented. Any future weight release needs its own model card covering training data, license, configuration, evaluation, intended use and limitations.
+No NCM-MLX weights, upstream checkpoints, tokenizer assets or training datasets are distributed in this source release. `artifacts/`, `runs/` and weight extensions are ignored. Public JSON summaries in `paper/data/` report measurements and provenance, rather than weights. `python -m ncm_mlx official fetch` downloads released HazyResearch checkpoints (MIT, copyright 2025 Hermann Kumbong) at a pinned revision with SHA-256 checks into ignored `artifacts/official/`; converted MLX weights stay there and are not redistributed. The committed parity fixture contains only small reference values computed from them. Any future weight release needs its own model card covering training data, license, configuration, evaluation, intended use and limitations.
 
 ## Runtime and build dependencies
 

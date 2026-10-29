@@ -60,14 +60,14 @@ Released checkpoint shapes (from `config/eval/*.yaml`): TinyStories uses BPE-819
 | Pre-tokenizer | **Replaced** | Fixed-length characters for TinyWorld, 81 digit cells for Sudoku. Upstream text uses BPE; upstream Sudoku includes separators in its 89-token target. |
 | Block-diagonal generator, per-level RoPE, level embedding, QK-norm | **Adopted** | Equivalence of per-level inference and full teacher-forced training is tested. |
 | Level 0 | **Adopted (`query_level0`)** | |
-| Untied per-level heads | **Adopted** | Codebook-tied distance heads not implemented yet. |
+| Untied per-level heads | **Adopted** | Codebook-tied distance heads exist only in the official-checkpoint inference port. |
 | Token-prefix conditioning | **Implemented** | Sudoku embeds 81 puzzle cells as the prefix; TinyWorld uses a learned unconditional prefix. |
 | Conditioning corruption | **Implemented from E8** | Per-level linear rates, uniform replacement; optional model-sampled replacement tested in E9. Labels remain true codes. |
-| CFG, top-p, NCM prefix KV cache | **Not implemented** | Sampling supports temperature, top-k and per-level temperatures. The separate AR baseline has KV caching and prefix prefill. |
+| CFG, top-p, NCM prefix KV cache | **Not implemented** | Sampling supports temperature, top-k and per-level temperatures; top-p exists only in the official-checkpoint port. The separate AR baseline has KV caching and prefix prefill. |
 
 ## Checkpoint compatibility
 
-No importer is implemented. Released checkpoints are PyTorch `.pt` files. Text checkpoints use BPE and may use codebook-tied heads, unlike the character-level TinyWorld path. Sudoku now implements lookup encoding, GroupNorm and learned level-0 resampling, but target/prefix lengths, token vocabulary, decoder positional embedding and some update semantics still differ. Similar component names do not establish tensor compatibility. Importing weights requires a separate configuration that reproduces the released model exactly, followed by logit and evaluation checks; that work has not started.
+The training models in this repository remain incompatible with released `.pt` checkpoints: tokenization, target/prefix lengths, decoder positions and update semantics differ. A separate inference-only port in `ncm_mlx/official/` reproduces the released TinyStories and Sudoku models exactly and is checked against upstream PyTorch: per-level logits agree to 3e-10 (TinyStories) and 1e-13 (Sudoku) in float64, and greedy generation is identical in float32. See [official checkpoints](../official-checkpoints.md). Other released tasks (LM1B, OWT, WMT14, XSum, Sudoku medium/hard) are not converted; WMT14/XSum would also need classifier-free guidance and a pretrained source tokenizer.
 
 ## Limitations and open hypotheses
 

@@ -7,7 +7,7 @@ description: Independent MLX research software for coarse-to-fine parallel text 
 
 NCM-MLX independently implements **Next-Concept Modeling (NCM)**, the coarse-to-fine generative architecture introduced by [Kumbong et al.](https://arxiv.org/abs/2610.14162). A multiscale residual vector quantizer turns text into a hierarchy of discrete latent codes. The generator predicts each level in parallel, conditioning on the coarser levels. It generates a fixed-length text sequence in one forward pass per level, followed by a codec decode.
 
-This is experimental research software for **TinyWorld synthetic text and Sudoku**, with training from scratch, autoregressive comparisons and synchronized evaluation. MLX execution has been verified on Apple Silicon with Metal and on Linux NVIDIA GPUs with CUDA. It is not an instruction-following or general-purpose chat model. Released upstream checkpoints are not compatible.
+This is experimental research software for **TinyWorld synthetic text and Sudoku**, with training from scratch, autoregressive comparisons and synchronized evaluation. MLX execution has been verified on Apple Silicon with Metal and on Linux NVIDIA GPUs with CUDA. It is not an instruction-following or general-purpose chat model. The released TinyStories and Sudoku checkpoints run through a separate inference port ([official checkpoints](official-checkpoints.md)); other released checkpoints are not supported.
 
 [Install and check your platform](platforms.md){ .primary-link }
 
