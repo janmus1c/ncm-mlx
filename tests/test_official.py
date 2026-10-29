@@ -23,6 +23,7 @@ from ncm_mlx.official.bpe import pre_tokenize
 FIXTURES = Path(__file__).parent / "fixtures"
 PARITY = json.loads((FIXTURES / "official_parity.json").read_text())
 ARTIFACTS = Path("artifacts/official")
+PARITY_TASKS = [k for k in PARITY if not k.startswith("_")]
 
 
 def test_reader_rebuilds_views_dtypes_and_nesting():
@@ -184,7 +185,7 @@ def _forced(m, ref, prefix):
 
 
 @pytest.mark.mlx
-@pytest.mark.parametrize("name", list(spec.TASKS))
+@pytest.mark.parametrize("name", PARITY_TASKS)
 def test_forced_level_logits_match_upstream_on_cpu(name, cpu):
     m, ref = _loaded(name)
     prefix = ([[m.task.eos_id]] * 2 if name == "tinystories" else ref["boards"]["puzzles"][:2])
@@ -200,7 +201,7 @@ def test_forced_level_logits_match_upstream_on_cpu(name, cpu):
 
 
 @pytest.mark.mlx
-@pytest.mark.parametrize("name", list(spec.TASKS))
+@pytest.mark.parametrize("name", PARITY_TASKS)
 def test_codec_matches_upstream_on_cpu(name, cpu):
     import mlx.core as mx
 
@@ -231,7 +232,7 @@ def test_codec_matches_upstream_on_cpu(name, cpu):
 
 
 @pytest.mark.mlx
-@pytest.mark.parametrize("name", list(spec.TASKS))
+@pytest.mark.parametrize("name", PARITY_TASKS)
 def test_greedy_generation_matches_upstream_exactly_on_cpu(name, cpu):
     import mlx.core as mx
 
