@@ -5,11 +5,21 @@
   <subtitle>Software and working-paper releases for an independent MLX implementation of Next-Concept Modeling.</subtitle>
   <link rel="self" type="application/atom+xml" href="https://janmus1c.github.io/ncm-mlx/feed.xml" />
   <link rel="alternate" href="https://janmus1c.github.io/ncm-mlx/" />
-  <updated>2026-10-27T09:33:29.086196Z</updated>
+  <updated>2026-10-29T21:12:38Z</updated>
   <author>
     <name>NCM-MLX project</name>
     <uri>https://github.com/janmus1c/ncm-mlx</uri>
   </author>
+  <entry>
+    <id>https://github.com/janmus1c/ncm-mlx/releases/tag/v0.1.1</id>
+    <title>Software 0.1.1: first PyPI release</title>
+    <link rel="alternate" href="https://janmus1c.github.io/ncm-mlx/releases/" />
+    <link rel="related" href="https://pypi.org/project/ncm-mlx/0.1.1/" />
+    <link rel="related" href="https://github.com/janmus1c/ncm-mlx/releases/tag/v0.1.1" />
+    <published>2026-10-29T21:12:38Z</published>
+    <updated>2026-10-29T21:12:38Z</updated>
+    <summary type="text">Packaging and metadata release: pip install ncm-mlx on Apple Silicon or ncm-mlx[cuda] on Linux NVIDIA, author ORCID in citation metadata and a refreshed README. Model code and recorded results are unchanged from 0.1.0. The project's own trained Sudoku and TinyWorld weights are published separately on Hugging Face.</summary>
+  </entry>
   <entry>
     <id>https://doi.org/10.5281/zenodo.23686842</id>
     <title>Working paper v0.11: two-seed Sudoku assessment and planned text research</title>
