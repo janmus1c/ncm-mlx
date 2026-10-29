@@ -30,7 +30,7 @@ mise trust && mise install && mise run setup   # Apple Silicon; Linux CUDA: docs
 mise run train && mise run demo                # ~5.5 min on M5 Pro, then level-by-level samples
 ```
 
-**Cite:** [archived software v0.1.0](https://doi.org/10.5281/zenodo.23620792) and the [working paper](https://doi.org/10.5281/zenodo.23640777) (not peer reviewed). For the method itself, cite [Kumbong et al.](#acknowledgements-and-citation).
+**Cite:** [archived software v0.1.0](https://doi.org/10.5281/zenodo.23620792) and the [working paper v0.11](https://doi.org/10.5281/zenodo.23686842) (not peer reviewed). For the method itself, cite [Kumbong et al.](#acknowledgements-and-citation).
 
 > [!WARNING]
 > **Experimental research code.** Small models trained on a synthetic language and Sudoku, using Apple Silicon and NVIDIA GPUs. It is not a chat model, follows no instructions, and is not compatible with the released NCM checkpoints. It is not affiliated with Stanford or HazyResearch. Results are labelled with hardware, training budget and measurement conditions.
