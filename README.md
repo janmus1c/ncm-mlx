@@ -23,15 +23,19 @@
 </p>
 
 <picture>
-  <source media="(prefers-color-scheme: dark) and (max-width: 600px)" srcset="docs/assets/refinement-mobile-dark.svg">
-  <source media="(max-width: 600px)" srcset="docs/assets/refinement-mobile-light.svg">
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/refinement-dark.svg">
-  <img src="docs/assets/refinement-light.svg" alt="A recorded TinyWorld sample refined over levels 0, 1, 2, 3 and 5: it starts as a rough guess, settles most words, then a fine level breaks one word and the final output is invalid for spelling." width="1080">
+  <source media="(prefers-color-scheme: dark) and (max-width: 600px)" srcset="docs/assets/tinystories-refinement-mobile-dark.svg">
+  <source media="(max-width: 600px)" srcset="docs/assets/tinystories-refinement-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/tinystories-refinement-dark.svg">
+  <img src="docs/assets/tinystories-refinement-light.svg" alt="Recorded sample from the official TinyStories model running in MLX: the first sentence resolves from punctuation at level 1 of 12 to 'One day, a seal was walking on the white sand.' at level 12." width="1080">
 </picture>
 
-**Parallel, coarse-to-fine text generation in MLX.** Instead of one token per model call, each level is one call that predicts every position at once, conditioned on the coarser levels before it. An independent implementation of [Next-Concept Modeling](https://arxiv.org/abs/2610.14162) by Kumbong et al.: it trains NCM from scratch on consumer GPUs and runs HazyResearch's released TinyStories and Sudoku checkpoints natively on the Apple GPU.
+**Run HazyResearch's released [Next-Concept Modeling](https://arxiv.org/abs/2610.14162) checkpoints natively on the Apple Silicon GPU, and train NCM models from scratch.**
 
-**Released NCM models on a Mac.** The MLX port of the [official checkpoints](docs/official-checkpoints.md) matches upstream PyTorch: per-level logits agree to 3.2e-10 (TinyStories) and 1.2e-13 (Sudoku) in exact fp64, and greedy generation is identical. On all 2,000 boards per difficulty it solves **99.40 / 96.30 / 86.20%** easy/medium/hard (paper: 99.5 / 96.5 / 86.1%). On an M5 Pro, one 128-token TinyStories sample takes 39.8 ms (p50) on Metal, against 280 ms for upstream PyTorch on the same Mac's CPU; upstream cannot use the Mac GPU. Desktop load was present during timing.
+- **Same outputs as upstream PyTorch.** Greedy generation is identical; per-level logits agree to floating-point rounding ([parity evidence](docs/official-checkpoints.md)).
+- **Sudoku solve rates match the paper:** 99.40 / 96.30 / 86.20% easy/medium/hard on all 2,000 published boards per difficulty, against 99.5 / 96.5 / 86.1% reported.
+- **About 7× faster than upstream on the same Mac:** 39.8 ms against 280 ms for one 128-token TinyStories sample on an M5 Pro (p50, desktop load present). Upstream PyTorch cannot run these models on the Mac GPU.
+
+NCM writes a whole level of the output in one model call, coarse to fine, instead of one token per call. The method is by Kumbong et al.; this is an independent implementation.
 
 ```bash
 pip install ncm-mlx
@@ -39,9 +43,9 @@ python -m ncm_mlx official fetch --task tinystories && python -m ncm_mlx officia
 python -m ncm_mlx official generate --task tinystories --n 2 --levels   # stories refined level by level on the GPU
 ```
 
-Watch recorded refinements in the browser, no install needed: [refinement demo](https://huggingface.co/spaces/janmusic/ncm-refinement-demo). Converted weights: [ncm-tinystories-mlx](https://huggingface.co/janmusic/ncm-tinystories-mlx), [ncm-sudoku-mlx](https://huggingface.co/janmusic/ncm-sudoku-mlx).
+No install needed to look: the [refinement demo](https://huggingface.co/spaces/janmusic/ncm-refinement-demo) replays recorded outputs in the browser. Converted weights: [ncm-tinystories-mlx](https://huggingface.co/janmusic/ncm-tinystories-mlx), [ncm-sudoku-mlx](https://huggingface.co/janmusic/ncm-sudoku-mlx).
 
-**Evidence (2026-10-27).** Funded Sudoku recipe, two training seeds (E20): **97.25 / 79.60 / 33.25%** easy/medium/hard, against seed 0's **98.10 / 83.40 / 40.30%**, at equal exposure. This is a partial small-generator success with a substantial hard-board gap; the [two-seed assessment](docs/research/e20-seed-report.md) explains the results and audit limits. Training text models from scratch is the next research direction; it is not a supported capability yet.
+**Models trained here from scratch (2026-10-27).** A 6.44M-parameter Sudoku generator, two training seeds (E20): **97.25 / 79.60 / 33.25%** easy/medium/hard, against seed 0's **98.10 / 83.40 / 40.30%**, at equal exposure. This is a partial small-generator success with a substantial hard-board gap; the [two-seed assessment](docs/research/e20-seed-report.md) explains the results and audit limits. Training text models from scratch is the next research direction; it is not a supported capability yet.
 
 To train your own models:
 
