@@ -14,6 +14,7 @@
     <id>https://github.com/janmus1c/ncm-mlx/releases/tag/v0.1.1</id>
     <title>Software 0.1.1: first PyPI release</title>
     <link rel="alternate" href="https://janmus1c.github.io/ncm-mlx/releases/" />
+    <link rel="related" href="https://doi.org/10.5281/zenodo.23780571" />
     <link rel="related" href="https://pypi.org/project/ncm-mlx/0.1.1/" />
     <link rel="related" href="https://github.com/janmus1c/ncm-mlx/releases/tag/v0.1.1" />
     <published>2026-10-29T21:12:38Z</published>

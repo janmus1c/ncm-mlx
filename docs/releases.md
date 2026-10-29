@@ -9,7 +9,7 @@ Follow new software and paper versions through the [research updates feed](feed.
 
 ## Version 0.1.1 — packaging and citation metadata
 
-Software 0.1.1 is the first release published on [PyPI](https://pypi.org/project/ncm-mlx/) (`pip install ncm-mlx` on Apple Silicon; `pip install "ncm-mlx[cuda]"` on Linux NVIDIA). It adds PyPI metadata and trusted publishing, the author ORCID in citation metadata and a refreshed README. Model code, training behavior and recorded results are unchanged from 0.1.0. The project's own trained Sudoku and TinyWorld weights are published separately on Hugging Face ([sudoku](https://huggingface.co/janmusic/ncm-mlx-sudoku), [tinyworld](https://huggingface.co/janmusic/ncm-mlx-tinyworld)); they are not included in the package.
+Software 0.1.1 is the first release published on [PyPI](https://pypi.org/project/ncm-mlx/) (`pip install ncm-mlx` on Apple Silicon; `pip install "ncm-mlx[cuda]"` on Linux NVIDIA). It adds PyPI metadata and trusted publishing, the author ORCID in citation metadata and a refreshed README. Model code, training behavior and recorded results are unchanged from 0.1.0. The project's own trained Sudoku and TinyWorld weights are published separately on Hugging Face ([sudoku](https://huggingface.co/janmusic/ncm-mlx-sudoku), [tinyworld](https://huggingface.co/janmusic/ncm-mlx-tinyworld)); they are not included in the package. Software 0.1.1 is archived on Zenodo with DOI [10.5281/zenodo.23780571](https://doi.org/10.5281/zenodo.23780571); the concept DOI [10.5281/zenodo.23620791](https://doi.org/10.5281/zenodo.23620791) always resolves to the latest software version.
 
 ## Working paper v0.11 — two-seed assessment and next research phase
 
