@@ -3,6 +3,7 @@ title: "Coarse-to-Fine Text Generation on a Laptop: A Native MLX Study of Next-C
 author:
   - name: Jan Music
     affiliation: Independent
+    orcid: 0009-0001-5376-7913
 date: "v0.11 · 2026-10-27"
 keywords: [coarse-to-fine generation, residual vector quantisation, parallel decoding, Apple Silicon, MLX]
 section-numbering: "1.1"

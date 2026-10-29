@@ -6,7 +6,7 @@ description: Read the NCM-MLX working paper, its experimental evidence, version 
 # Working paper
 
 **Coarse-to-Fine Text Generation on a Laptop: A Native MLX Study of Next-Concept Modeling**<br>
-Jan Music · Working paper v0.11 · 2026-10-27 · [DOI: 10.5281/zenodo.23686842](https://doi.org/10.5281/zenodo.23686842)
+Jan Music ([ORCID](https://orcid.org/0009-0001-5376-7913)) · Working paper v0.11 · 2026-10-27 · [DOI: 10.5281/zenodo.23686842](https://doi.org/10.5281/zenodo.23686842)
 
 ## Abstract
 
