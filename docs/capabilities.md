@@ -22,14 +22,15 @@ NCM-MLX independently implements Next-Concept Modeling in MLX for small, reprodu
 | Apple Silicon | Metal execution, measured on M5 Pro; exactness tests use MLX's CPU device. |
 | NVIDIA CUDA | Linux MLX 0.32.3 CUDA execution, measured on RTX 3080 and A40. See [platform setup](platforms.md); other configurations require verification. |
 | Training compilation | Generator training optionally uses `mx.compile` through `train.compile`. NCM and AR samplers are not compiled. |
+| Released checkpoints | Inference port of upstream TinyStories and Sudoku: pinned download, torch-free conversion, BPE tokenizer, per-level generation and Sudoku scoring. CPU parity with upstream PyTorch is tested against a committed fixture; exact float64 agreement is checked by `scripts/official_parity.py`. See [official checkpoints](official-checkpoints.md). |
 | Pause/resume | Atomic full-state codec/generator checkpoints, previous-snapshot fallback and graceful interruption. Short CPU tests verify resumed versus uninterrupted training. Cross-backend bitwise identity is not established. See [recovery](RECOVERY.md). |
 
 ## Unsupported or unverified
 
 - General instruction following, open-domain chat and production inference serving.
 - Real-text language-model quality, translation and summarization. These are upstream tasks, not validated workflows here.
-- Importing released upstream PyTorch checkpoints or using their BPE tokenizers.
-- Classifier-free guidance, top-p sampling, codebook-tied prediction heads and NCM prefix KV caching.
+- Released upstream checkpoints other than TinyStories and Sudoku; fine-tuning or training any released checkpoint.
+- Classifier-free guidance and NCM prefix KV caching. Top-p sampling and codebook-tied heads exist only in the official-checkpoint port.
 - Quantized inference, distributed training and AMD accelerator execution.
 - General claims of superior quality, energy use or wall-clock speed across hardware or model scales.
 

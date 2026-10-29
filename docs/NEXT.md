@@ -25,7 +25,7 @@ Before new runs, retain per-board predictions and ordered source/data/checkpoint
 |---|---|---|---|
 | P0 | Evaluation integrity | Batch coverage guard implemented; broader audit planned | Required for every new comparison |
 | P1 | Close current Sudoku evidence | E18, both E19 runs and E20 completed; two-seed assessment recorded | Retain provenance limits; new paired evaluation is a separate measurement |
-| P1 | Establish an upstream-checkpoint reference | Planned; checkpoints incompatible today | Independent conversion, format mapping and parity checks |
+| P1 | Establish an upstream-checkpoint reference | TinyStories and Sudoku easy/medium/hard converted with CPU parity; see [released checkpoints](official-checkpoints.md) | Text checkpoints needing CFG or other tokenizers remain |
 | P1 | Establish a real-text baseline | Planned; no real-text quality validation today | Dataset rights, tokenizer/padding contract and matched budgets |
 | P2 | Measure fixed level budgets and Sudoku early exit | Planned; full hierarchy remains the only sampling policy | Evaluation integrity and full-depth per-board baseline |
 | P2 | Implement prefix KV caching | Planned; only the AR baseline has a cache today | Exactness tests and explicit attention-pattern support |
@@ -61,7 +61,9 @@ Before new experiments:
 
 Map the released Sudoku vocabulary, prefix/target formatting, normalization, resampling, parameter names and shapes. Build an independent conversion path without copying implementation code. Check intermediate codec reconstructions and per-level logits on fixed fixtures before comparing full task scores.
 
-**Completion gate:** the same released weights and boards produce a documented, tolerance-qualified reference result. Distinguish conversion parity from reproducing the original training recipe. Until this passes, upstream checkpoint compatibility remains unsupported.
+**Completion gate:** the same released weights and boards produce a documented, tolerance-qualified reference result. Distinguish conversion parity from reproducing the original training recipe.
+
+**Status (2026-10-29): gate met for TinyStories and Sudoku.** `ncm_mlx/official/` converts the released checkpoints without PyTorch. Per-level logits match upstream PyTorch to 3e-10 / 1e-13 in exact float64, and greedy outputs are identical on all 2,000 easy boards. Released Sudoku solves 99.40 / 96.30 / 86.20% on Metal; see [released checkpoints](official-checkpoints.md). This is conversion parity, not a reproduction of the training recipe. Next: LM1B/OWT (same text path, larger weights), then WMT14/XSum, which need classifier-free guidance and a pretrained source tokenizer. The released checkpoints also give a fixed reference for prefix KV caching and level-budget experiments.
 
 ## P1 — real-text validation
 

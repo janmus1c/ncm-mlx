@@ -55,7 +55,7 @@ Teacher forcing supplies true coarse codes during training; inference supplies t
 
 ## Implementation boundaries
 
-The implementation uses MLX and NumPy. It does not import the upstream PyTorch modules or load upstream checkpoints. Differences include tokenization, sequence lengths, decoder positions, codebook-update timing and training recipes; Sudoku and TinyWorld also use different codec designs. See the [upstream map](research/upstream-map.md) for the detailed comparison.
+The implementation uses MLX and NumPy. It does not import the upstream PyTorch modules. Released upstream checkpoints load only through the separate inference port in `ncm_mlx/official/` ([official checkpoints](official-checkpoints.md)), not through the training models described here. Differences include tokenization, sequence lengths, decoder positions, codebook-update timing and training recipes; Sudoku and TinyWorld also use different codec designs. See the [upstream map](research/upstream-map.md) for the detailed comparison.
 
 Generator training can use `mx.compile` when `train.compile` is true. Codec training, autoregressive training, and both generation samplers are currently uncompiled. Compilation status and number of forwards describe different costs; neither alone establishes wall-clock speed. See [benchmark methodology](benchmarks.md).
 

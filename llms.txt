@@ -1,6 +1,6 @@
 # NCM-MLX — Next-Concept Modeling in MLX
 
-> Independent experimental MLX implementation of parallel coarse-to-fine generation through multiscale residual vector quantization. Supports TinyWorld synthetic text and conditional Sudoku training/evaluation on Apple Silicon Metal and verified NVIDIA CUDA environments. No instruction following, production chat serving or upstream checkpoint compatibility.
+> Independent experimental MLX implementation of parallel coarse-to-fine generation through multiscale residual vector quantization. Supports TinyWorld synthetic text and conditional Sudoku training/evaluation on Apple Silicon Metal and verified NVIDIA CUDA environments. Inference-only port of the released TinyStories and Sudoku NCM checkpoints with CPU parity checks against upstream PyTorch. No instruction following or production chat serving.
 
 This is an optional navigation file following the llms.txt proposal, not a universal discovery standard or a guarantee of indexing. Capability and experiment documents are authoritative; this file carries no independent benchmark claims.
 

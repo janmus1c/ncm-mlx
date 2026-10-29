@@ -2,7 +2,7 @@
 
 Independent MLX research implementation of Next-Concept Modeling: multiscale residual vector quantization followed by parallel coarse-to-fine generation. The original method is [Kumbong et al., arXiv:2610.14162](https://arxiv.org/abs/2610.14162); this repository does not invent it or copy upstream code.
 
-Training and inference run on Apple Silicon with Metal and on Linux with MLX's NVIDIA CUDA backend. Recorded CUDA experiments use an RTX 3080 and A40; this does not establish support for every NVIDIA GPU. Portable data/configuration tests run without MLX. The CLI requires an accelerator; CPU execution is used for exactness tests. This is experimental TinyWorld and Sudoku software, without instruction following, production chat serving, real-text validation or upstream checkpoint compatibility. See [capabilities](docs/capabilities.md) for scope and [platforms](docs/platforms.md) for setup.
+Training and inference run on Apple Silicon with Metal and on Linux with MLX's NVIDIA CUDA backend. Recorded CUDA experiments use an RTX 3080 and A40; this does not establish support for every NVIDIA GPU. Portable data/configuration tests run without MLX. The CLI requires an accelerator; CPU execution is used for exactness tests. This is experimental TinyWorld and Sudoku software, without instruction following, production chat serving, or real-text validation. The released TinyStories and Sudoku checkpoints run through a separate inference-only port ([official checkpoints](docs/official-checkpoints.md)); other released checkpoints are unsupported. See [capabilities](docs/capabilities.md) for scope and [platforms](docs/platforms.md) for setup.
 
 Read this file, then `docs/STATUS.md` (what is true now) and `docs/NEXT.md` (what to do next).
 
@@ -20,6 +20,7 @@ Read this file, then `docs/STATUS.md` (what is true now) and `docs/NEXT.md` (wha
 | Quality metrics | `mise run eval` |
 | Latency benchmark | `mise run bench` |
 | AR baseline | `python -m ncm_mlx baseline --bench` |
+| Released checkpoints | `python -m ncm_mlx official fetch|convert|generate|sudoku|bench --task TASK` (see `docs/official-checkpoints.md`) |
 | Resume full training state | `python -m ncm_mlx train --config CONFIG --resume` (read `docs/RECOVERY.md`) |
 
 The `mise` tasks use the TinyWorld quickstart. Pass `--config configs/NAME.json` to CLI commands for other recipes. `demo` starts training when its checkpoint is absent; check artifacts before running it. Several Sudoku configs reuse a codec checkpoint, so they are not self-contained fresh-checkout commands. See the training guide and experiment log for prerequisites. Dependencies are pinned in `uv.lock`; accelerator MLX is 0.32.3.
@@ -35,6 +36,7 @@ The `mise` tasks use the TinyWorld quickstart. Pass `--config configs/NAME.json`
 | `ncm_mlx/training/` | Two-stage training, checkpoint I/O |
 | `ncm_mlx/eval/` | Codec / sample metrics, synchronized benchmark |
 | `ncm_mlx/baselines/` | Character-level autoregressive baseline |
+| `ncm_mlx/official/` | Inference port of released upstream checkpoints: torch-free reader, converter, BPE, model, sampler, CLI |
 | `configs/` | Run configs (JSON, validated on load) |
 | `docs/` | `STATUS`, `DECISIONS`, `EXPERIMENTS`, `NEXT`, `adr/`, `research/upstream-map.md` |
 | `artifacts/`, `runs/` | Weights and logs — gitignored |
@@ -47,6 +49,7 @@ The `mise` tasks use the TinyWorld quickstart. Pass `--config configs/NAME.json`
 - Benchmarks time through a host copy of the result. Never report enqueue-only time.
 - On Metal, fp32 matmul is reduced precision (~1e-3 relative). Exactness tests run on `mx.cpu`; GPU tests use a tolerance.
 - Codec accuracy and generator quality are separate numbers. Do not report one as the other.
+- `ncm_mlx/official/` must keep CPU parity with upstream PyTorch (`tests/test_official.py`, `scripts/official_parity.py`); converter rules fail on any unmapped or missing tensor.
 - No upstream NCM code is copied. If that ever changes, keep upstream's MIT notice next to the copied code.
 
 ## Working rules

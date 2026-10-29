@@ -30,7 +30,7 @@ This release provides an independent MLX implementation of Next-Concept Modeling
 - **Platforms:** verified Apple Silicon Metal and Linux NVIDIA CUDA execution; portable tests run without MLX. See [platform setup](platforms.md).
 - **Recovery:** atomic full-state codec/generator snapshots, graceful pause and resume, preceding-snapshot fallback and tests of exact short CPU continuation.
 - **Results:** TinyWorld quality/latency comparisons; completed Sudoku experiments through E17. At that release, E15 was best at 96.2 / 76.6 / 31.9% solved. E17's 71.25 / 31.75 / 3.70% is qualified as weights-only recovery. E18 was ongoing when v0.1.0 was released; its later results are in the [experiment log](EXPERIMENTS.md).
-- **Limits:** experimental software; no general text benchmark, chat behavior, upstream checkpoint compatibility or cross-device exact-resume guarantee. Inference samplers are uncompiled. Some comparisons use different training budgets or contended hardware.
+- **Limits:** experimental software; no general text benchmark, chat behavior, or cross-device exact-resume guarantee. Inference samplers are uncompiled. Some comparisons use different training budgets or contended hardware.
 - **Distribution:** source and working-paper editions; no model checkpoints or downloaded datasets. Install from the tagged source using the [platform guide](platforms.md), then follow [reproduction instructions](reproducibility.md).
 
 The release tag fixes the software revision. [GitHub releases](https://github.com/janmus1c/ncm-mlx/releases) contain the immutable tag target and release notes. Later research results require a new version; an existing released tag must not move.

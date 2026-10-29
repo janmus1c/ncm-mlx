@@ -36,6 +36,7 @@ nav:
   - Research:
       - Related work: related-work.md
       - Upstream map: research/upstream-map.md
+      - Released checkpoints: official-checkpoints.md
       - Experiments: EXPERIMENTS.md
       - Two-seed assessment: research/e20-seed-report.md
       - Caching and drafting review: research/prefix-caching-and-speculative-drafting.md
