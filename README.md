@@ -13,19 +13,33 @@
   <a href="paper/dist/ncm-mlx.pdf">Working paper</a>
 </p>
 
+<picture>
+  <source media="(prefers-color-scheme: dark) and (max-width: 600px)" srcset="docs/assets/refinement-mobile-dark.svg">
+  <source media="(max-width: 600px)" srcset="docs/assets/refinement-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/refinement-dark.svg">
+  <img src="docs/assets/refinement-light.svg" alt="A recorded TinyWorld sample refined over levels 0, 1, 2, 3 and 5: it starts as a rough guess, settles most words, then a fine level breaks one word and the final output is invalid for spelling." width="1080">
+</picture>
+
+**Parallel, coarse-to-fine text generation in MLX.** Instead of one token per model call, each level is one call that predicts every position at once, conditioned on the coarser levels before it. An independent implementation of [Next-Concept Modeling](https://arxiv.org/abs/2610.14162) by Kumbong et al., trained from scratch on consumer GPUs.
+
+**Evidence (2026-10-27).** Funded Sudoku recipe, two training seeds (E20): **97.25 / 79.60 / 33.25%** easy/medium/hard, against seed 0's **98.10 / 83.40 / 40.30%**, at equal exposure. This is a partial small-generator success with a substantial hard-board gap; the [two-seed assessment](docs/research/e20-seed-report.md) explains the results and audit limits. Controlled text generation is the next research direction; it is not a supported capability yet.
+
+```bash
+git clone https://github.com/janmus1c/ncm-mlx.git && cd ncm-mlx
+mise trust && mise install && mise run setup   # Apple Silicon; Linux CUDA: docs/platforms.md
+mise run train && mise run demo                # ~5.5 min on M5 Pro, then level-by-level samples
+```
+
+**Cite:** [archived software v0.1.0](https://doi.org/10.5281/zenodo.23620792) and the [working paper v0.11](https://doi.org/10.5281/zenodo.23686842) (not peer reviewed). For the method itself, cite [Kumbong et al.](#acknowledgements-and-citation).
+
+> [!WARNING]
+> **Experimental research code.** Small models trained on a synthetic language and Sudoku, using Apple Silicon and NVIDIA GPUs. It is not a chat model, follows no instructions, and is not compatible with the released NCM checkpoints. It is not affiliated with Stanford or HazyResearch. Results are labelled with hardware, training budget and measurement conditions.
+
 An independent [MLX](https://github.com/ml-explore/mlx) implementation of [Next-Concept Modeling (NCM)](https://arxiv.org/abs/2610.14162): **parallel, coarse-to-fine text generation** with multiscale residual vector quantization. The non-autoregressive generator predicts a whole level of discrete latent codes per forward pass, rather than one text token at a time. This repository supports training from scratch, sampling, evaluation and synchronized comparisons with a character-level autoregressive baseline.
 
 MLX makes these experiments runnable on consumer Apple Silicon GPUs; Linux NVIDIA CUDA execution is also verified. The current tasks are TinyWorld synthetic text and puzzle-conditioned Sudoku. General-purpose language modeling and instruction following are not demonstrated. The architecture belongs to Kumbong et al. (HazyResearch, 2026); this project independently investigates its implementation and small-model behavior.
 
 [Documentation](https://janmus1c.github.io/ncm-mlx/) · [Architecture](docs/architecture.md) · [Training](docs/training.md) · [Benchmarks](docs/benchmarks.md) · [Platforms](docs/platforms.md) · [Related work](docs/related-work.md)
-
-> [!WARNING]
-> **Experimental research code.** Small models trained on a synthetic language and Sudoku, using Apple Silicon and NVIDIA GPUs. It is not a chat model, follows no instructions, and is not compatible with the released NCM checkpoints. It is not affiliated with Stanford or HazyResearch. Results are labelled with hardware, training budget and measurement conditions.
-
-
----
-
-**Research update · 2026-10-27.** E20 completed the funded Sudoku recipe with a second training seed: **97.25 / 79.60 / 33.25%** easy/medium/hard, against seed 0’s **98.10 / 83.40 / 40.30%**, at equal exposure. This is a partial small-generator success with a substantial hard-board gap. The [two-seed assessment](docs/research/e20-seed-report.md) explains the results and audit limits. Controlled text generation is the next research direction; it is not a supported capability yet.
 
 ## Contents
 
@@ -272,6 +286,6 @@ The method is from **Hermann Kumbong, Ishan S. Khare, Iddah Mlauzi, Andrew Woen,
 }
 ```
 
-Cite this implementation using the [archived software v0.1.0](https://doi.org/10.5281/zenodo.23620792). The companion [working paper v0.10](https://doi.org/10.5281/zenodo.23640777) reports the experiments and limitations; it has not been peer reviewed.
+Cite this implementation using the [archived software v0.1.0](https://doi.org/10.5281/zenodo.23620792). The companion [working paper v0.11](https://doi.org/10.5281/zenodo.23686842) reports the experiments and limitations; it has not been peer reviewed.
 
-This repository: MIT licence, see [`LICENSE`](LICENSE), [`THIRD_PARTY.md`](THIRD_PARTY.md) and [`CITATION.cff`](CITATION.cff). No model weights or downloaded evaluation data are redistributed in the source release. To contribute or reproduce an experiment, start with [`CONTRIBUTING.md`](CONTRIBUTING.md). The [capability overview](docs/capabilities.md), [`AGENTS.md`](AGENTS.md) and [`llms.txt`](llms.txt) provide concise entry points for automated tools.
+This repository: MIT licence, see [`LICENSE`](LICENSE), [`THIRD_PARTY.md`](THIRD_PARTY.md) and [`CITATION.cff`](CITATION.cff). No model weights or downloaded evaluation data are redistributed in the source release. The trained Sudoku and TinyWorld weights are published separately on Hugging Face: [ncm-mlx-sudoku](https://huggingface.co/janmusic/ncm-mlx-sudoku) and [ncm-mlx-tinyworld](https://huggingface.co/janmusic/ncm-mlx-tinyworld). To contribute or reproduce an experiment, start with [`CONTRIBUTING.md`](CONTRIBUTING.md). The [capability overview](docs/capabilities.md), [`AGENTS.md`](AGENTS.md) and [`llms.txt`](llms.txt) provide concise entry points for automated tools.

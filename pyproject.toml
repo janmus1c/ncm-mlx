@@ -1,16 +1,26 @@
 [project]
 name = "ncm-mlx"
-version = "0.1.0"
+version = "0.1.1"
 description = "Independent Next-Concept Modeling research implementation in MLX for Metal and CUDA"
-readme = "README.md"
+dynamic = ["readme"]
 license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY.md"]
 requires-python = ">=3.11"
 authors = [{name = "Jan Music"}]
-keywords = ["mlx", "next-concept-modeling", "non-autoregressive", "vector-quantization"]
+keywords = [
+    "mlx", "apple-silicon", "metal", "cuda", "next-concept-modeling", "non-autoregressive",
+    "text-generation", "vector-quantization", "sudoku", "research",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
+    "Environment :: GPU",
     "Intended Audience :: Science/Research",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
@@ -18,7 +28,17 @@ dependencies = [
     "numpy>=1.26",
 ]
 
+[project.optional-dependencies]
+# Linux NVIDIA: pip install "ncm-mlx[cuda]". Apple Silicon installs MLX by default.
+cuda = [
+    "mlx[cuda12]==0.32.3; sys_platform == 'linux'",
+    "nvidia-cuda-runtime-cu12==12.9.*; sys_platform == 'linux'",
+    "nvidia-cuda-cccl-cu12==12.9.*; sys_platform == 'linux'",
+]
+
 [project.urls]
+Homepage = "https://janmus1c.github.io/ncm-mlx/"
+Paper = "https://doi.org/10.5281/zenodo.23686842"
 Repository = "https://github.com/janmus1c/ncm-mlx"
 Documentation = "https://janmus1c.github.io/ncm-mlx/"
 Issues = "https://github.com/janmus1c/ncm-mlx/issues"
@@ -38,8 +58,25 @@ paper = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-fancy-pypi-readme>=24.1.0"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '(src|srcset|href)="((?!https?://|#|mailto:)[^"]+)"'
+replacement = '\1="https://raw.githubusercontent.com/janmus1c/ncm-mlx/main/\2"'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '\]\(((?!https?://|#|mailto:)[^)\s]+)\)'
+replacement = '](https://github.com/janmus1c/ncm-mlx/blob/main/\1)'
+
+[tool.hatch.build.targets.sdist]
+include = ["/ncm_mlx", "/README.md", "/LICENSE", "/THIRD_PARTY.md", "/pyproject.toml"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["ncm_mlx"]

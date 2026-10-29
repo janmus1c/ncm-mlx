@@ -760,12 +760,19 @@ wheels = [
 
 [[package]]
 name = "ncm-mlx"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "mlx", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+
+[package.optional-dependencies]
+cuda = [
+    { name = "mlx", extra = ["cuda12"], marker = "sys_platform == 'linux'" },
+    { name = "nvidia-cuda-cccl-cu12", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-cuda-runtime-cu12", marker = "sys_platform == 'linux'" },
 ]
 
 [package.dev-dependencies]
@@ -789,8 +796,12 @@ paper = [
 [package.metadata]
 requires-dist = [
     { name = "mlx", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'", specifier = "==0.32.3" },
+    { name = "mlx", extras = ["cuda12"], marker = "sys_platform == 'linux' and extra == 'cuda'", specifier = "==0.32.3" },
     { name = "numpy", specifier = ">=1.26" },
+    { name = "nvidia-cuda-cccl-cu12", marker = "sys_platform == 'linux' and extra == 'cuda'", specifier = "==12.9.*" },
+    { name = "nvidia-cuda-runtime-cu12", marker = "sys_platform == 'linux' and extra == 'cuda'", specifier = "==12.9.*" },
 ]
+provides-extras = ["cuda"]
 
 [package.metadata.requires-dev]
 cuda = [
