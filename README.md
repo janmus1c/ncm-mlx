@@ -45,6 +45,8 @@ python -m ncm_mlx official generate --task tinystories --n 2 --levels   # storie
 
 No install needed to look: the [refinement demo](https://huggingface.co/spaces/janmusic/ncm-refinement-demo) replays recorded outputs in the browser. Converted weights: [ncm-tinystories-mlx](https://huggingface.co/janmusic/ncm-tinystories-mlx), [ncm-sudoku-mlx](https://huggingface.co/janmusic/ncm-sudoku-mlx).
 
+[How the MLX port was verified](https://janmus1c.github.io/ncm-mlx/research/checkpoint-parity/): conversion rules, tokenizer checks, numerical parity and measured performance.
+
 **Models trained here from scratch (2026-10-27).** A 6.44M-parameter Sudoku generator, two training seeds (E20): **97.25 / 79.60 / 33.25%** easy/medium/hard, against seed 0's **98.10 / 83.40 / 40.30%**, at equal exposure. This is a partial small-generator success with a substantial hard-board gap; the [two-seed assessment](docs/research/e20-seed-report.md) explains the results and audit limits. Training text models from scratch is the next research direction; it is not a supported capability yet.
 
 To train your own models:
@@ -311,6 +313,6 @@ The method is from **Hermann Kumbong, Ishan S. Khare, Iddah Mlauzi, Andrew Woen,
 }
 ```
 
-Cite this implementation using the [archived software v0.1.1](https://doi.org/10.5281/zenodo.23780571). The companion [working paper v0.11](https://doi.org/10.5281/zenodo.23686842) reports the experiments and limitations; it has not been peer reviewed.
+Cite this implementation using the [archived software v0.2.0](https://doi.org/10.5281/zenodo.23781234). The companion [working paper v0.11](https://doi.org/10.5281/zenodo.23686842) reports the experiments and limitations; it has not been peer reviewed.
 
 This repository: MIT licence, see [`LICENSE`](LICENSE), [`THIRD_PARTY.md`](THIRD_PARTY.md) and [`CITATION.cff`](CITATION.cff). No model weights or downloaded evaluation data are redistributed in the source release. The trained Sudoku and TinyWorld weights are published separately on Hugging Face: [ncm-mlx-sudoku](https://huggingface.co/janmusic/ncm-mlx-sudoku) and [ncm-mlx-tinyworld](https://huggingface.co/janmusic/ncm-mlx-tinyworld). To contribute or reproduce an experiment, start with [`CONTRIBUTING.md`](CONTRIBUTING.md). The [capability overview](docs/capabilities.md), [`AGENTS.md`](AGENTS.md) and [`llms.txt`](llms.txt) provide concise entry points for automated tools.

@@ -1,7 +1,7 @@
 ---
 title: Research roadmap
 status: current
-updated: 2026-10-27
+updated: 2026-10-30
 ---
 
 # Research roadmap
@@ -13,6 +13,8 @@ This is the canonical roadmap for NCM-MLX. [STATUS](STATUS.md) describes impleme
 The current phase is a partial success, with retained easy/medium performance across two seeds and an unresolved hard-board gap. The [two-seed assessment](research/e20-seed-report.md) records the evidence and its audit limits. The next main milestone is a reproducible controlled-text experiment, while Sudoku remains a bounded diagnostic track. Matching Original NCM’s hard score is not a prerequisite for text research. Keep the 6.44M generator as a baseline; larger models and longer runs need a specific hypothesis and compute allocation. No text feature, future score or delivery date is promised.
 
 Before new runs, retain per-board predictions and ordered source/data/checkpoint-bound evaluation manifests, and use a backend-appropriate GPU-load probe. These missing E20 records cannot be reconstructed retrospectively.
+
+**Controlled-text update, 2026-10-30:** the [E21–E23 assessment](research/e21-e23-assessment.md) records completed seed-0 TinyStories pilots and their remaining AR quality gap. The already running E24 and queued seed repeats test the corruption ranking conditional on one codec. Complete those checks and integrate the public evaluation recipe before choosing a larger training run. The roadmap's natural-document and conditional-task gates remain unmet.
 
 <picture>
   <source media="(max-width: 600px)" srcset="assets/research-path-mobile-dark.svg">
@@ -28,8 +30,8 @@ Before new runs, retain per-board predictions and ordered source/data/checkpoint
 | P1 | Establish an upstream-checkpoint reference | TinyStories and Sudoku easy/medium/hard converted with CPU parity; see [released checkpoints](official-checkpoints.md) | Text checkpoints needing CFG or other tokenizers remain |
 | P1 | Establish a real-text baseline | Planned; no real-text quality validation today | Dataset rights, tokenizer/padding contract and matched budgets |
 | P2 | Measure fixed level budgets and Sudoku early exit | Planned; full hierarchy remains the only sampling policy | Evaluation integrity and full-depth per-board baseline |
-| P2 | Implement prefix KV caching | Planned; only the AR baseline has a cache today | Exactness tests and explicit attention-pattern support |
-| P2 | Compile inference and measure dispatch costs | Planned; samplers remain uncompiled | Stable inference policies and uncontended benchmark allocation |
+| P2 | Implement prefix KV caching | Implemented in the released-checkpoint sampler; pending for the independent training sampler | Preserve separate attention contracts and correctness gates |
+| P2 | Compile inference and measure dispatch costs | Opt-in compiled level steps in the released-checkpoint sampler; pending for the independent training sampler | Stable inference policies and recorded contention |
 | P3 | Strengthen generality and release evidence | Planned | Successful earlier milestones and reproducible artifacts |
 
 The text, checkpoint-reference and inference tracks can progress independently once their prerequisites are met. New training or timed experiments must not compete with an active experiment. Implementation and portable tests can proceed before compute is available.
@@ -118,7 +120,7 @@ Specify how random keys follow sample identities when batches shrink. Test mixed
 
 ## P2 — prefix caching and compiled inference
 
-The [literature review](research/prefix-caching-and-speculative-drafting.md) analyzes the current attention contract, cache scope and future drafting options. The [proposed protocol](research/inference-experiment-protocol.md) defines correctness gates, measurement requirements and the decision before new drafter training. Neither establishes an implemented optimization or a local speedup.
+The [literature review](research/prefix-caching-and-speculative-drafting.md) and [proposed protocol](research/inference-experiment-protocol.md) describe the independent training sampler's attention contract, correctness gates and future drafting options. The separate [released-checkpoint sampler](official-checkpoints.md#prefix-kv-cache-and-compiled-step) now implements prefix caching and opt-in compiled level steps, with correctness and contention-qualified timing evidence. That implementation does not establish the optimization for the independent training sampler.
 
 ### Prefix KV caching
 

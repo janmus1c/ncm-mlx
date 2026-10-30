@@ -30,10 +30,30 @@
 }
 </script>
 {% endif %}
+{% if page and page.meta.type == 'article' %}
+<meta name="author" content="{{ page.meta.author | default('Jan Music') }}">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": {{ page.meta.title | tojson }},
+  "description": {{ page.meta.description | tojson }},
+  {% if page.meta.published_at %}"datePublished": {{ page.meta.published_at | tojson }},{% endif %}
+  "mainEntityOfPage": {{ page.canonical_url | tojson }},
+  "author": {"@type": "Person", "@id": "https://orcid.org/0009-0001-5376-7913", "name": "Jan Music"},
+  "isBasedOn": "https://arxiv.org/abs/2610.14162",
+  "isAccessibleForFree": true
+}
+</script>
+<meta property="og:type" content="article">
+{% if page.meta.published_at %}<meta property="article:published_time" content="{{ page.meta.published_at }}">{% endif %}
+{% else %}
 <meta property="og:type" content="website">
+{% endif %}
 <meta property="og:title" content="{{ page.meta.title if page and page.meta.title else config.site_name }}">
 <meta property="og:description" content="{{ page.meta.description if page and page.meta.description else config.site_description }}">
-<meta property="og:image" content="{{ config.site_url }}assets/social-preview.png">
+<meta property="og:image" content="{{ config.site_url }}{{ page.meta.image if page and page.meta.image else 'assets/social-preview.png' }}">
+{% if page and page.meta.image_alt %}<meta property="og:image:alt" content="{{ page.meta.image_alt }}">{% endif %}
 {% if page %}<meta property="og:url" content="{{ page.canonical_url }}">{% endif %}
 {% if page and page.file.src_path == 'paper.md' %}
 <meta name="citation_title" content="Coarse-to-Fine Text Generation on a Laptop: A Native MLX Study of Next-Concept Modeling">

@@ -1,7 +1,7 @@
 ---
 title: Status
 status: current
-updated: 2026-10-27
+updated: 2026-10-30
 ---
 
 # Status
@@ -17,6 +17,7 @@ updated: 2026-10-27
 - Conditional generation from a token prefix (Sudoku puzzle cells); same-size AR baseline with prefix prefill.
 - Sudoku task: synthetic training data, evaluation on the published NCM test boards, an OpenAI-compatible LLM baseline.
 - Released upstream checkpoints (TinyStories, Sudoku easy/medium/hard) run natively in MLX through `python -m ncm_mlx official`. Conversion is torch-free, per-level logits match upstream PyTorch in exact float64, and greedy outputs are identical. The released Sudoku models solve 99.40 / 96.30 / 86.20% on Metal (n = 2,000 each). See [released checkpoints](official-checkpoints.md).
+- The released-checkpoint sampler caches the prefix by default and supports opt-in compiled level steps. Reference, cached and compiled paths retain separate correctness and timing evidence; the independently trained TinyWorld/Sudoku sampler is a separate implementation. See [prefix caching](official-checkpoints.md#prefix-kv-cache-and-compiled-step).
 - `scripts/guarded_run.sh`: memory watchdog for long runs.
 - Codec and generator full-state checkpoints, graceful pause and `--resume`; CPU tests match uninterrupted training exactly, including compiled generator steps. Mac experiments can run under launchd independently of a terminal. See `RECOVERY.md`.
 - E17 was killed with its terminal session at 15:05. Its step-30,000 weights survive; a separate weights-only continuation completed step 32,000 and solves 71.25 / 31.75 / 3.70% of easy/medium/hard boards. Its optimizer and random state reset; see `EXPERIMENTS.md`. The independent remote E18 process survived and completed 128,000 steps without a recovery reset; it solves 84.25 / 49.10 / 10.55%, below E15. Its legacy checkpoint contains inference weights rather than full resumable training state.
@@ -38,13 +39,15 @@ E19-funded is now the best completed local Sudoku run: **98.10 / 83.40 / 40.30%*
 
 ## Research assessment
 
-This phase is a partial implementation and small-model success: both seeds solve over 97% of easy and 79% of medium boards. Hard solving remains 33.25–40.30%, far below Original NCM’s 86.10%; neither reference reproduction nor reliable hard-Sudoku solving is achieved. Controlled text generation is the next main research direction, with Sudoku retained for diagnostics. Dataset/tokenizer contracts, held-out text quality, an autoregressive baseline and local cost measurements are prerequisites; text capability is not established today. The [assessment](research/e20-seed-report.md) separates observed failures, candidate explanations and tests needed to distinguish them.
+The E19/E20 phase is a partial implementation and small-model success: both seeds solve over 97% of easy and 79% of medium boards. Hard solving remains 33.25–40.30%, far below Original NCM’s 86.10%; neither reference reproduction nor reliable hard-Sudoku solving is achieved. The [assessment](research/e20-seed-report.md) separates observed failures, candidate explanations and tests needed to distinguish them. It motivates controlled text as the next research direction, with Sudoku retained for diagnostics; the subsequent pilot is described below.
+
+**Controlled-text research, 2026-10-30:** E21–E23 complete a seed-0 TinyStories corruption ablation in a separate, unmerged training workflow. The [preliminary assessment](research/e21-e23-assessment.md) separates strong reconstruction from weak free-running generation and records the AR quality gap. Generator-seed repeats are in progress. TinyStories is synthetic prose; public clean-checkout reproduction and naturally occurring text validation remain pending. These experimental results do not add a supported training command to the released package.
 
 ## Not done
 
 - The upstream Sudoku result is not reproduced. Width-512 runs E10/E12 did not close the gap; a paper-scale training budget remains pending.
-- Released checkpoints other than TinyStories and Sudoku are not converted; the official port is inference-only and has no CFG or prefix KV cache.
-- Generator training supports `mx.compile` when `train.compile` is true. Codec/AR training and both samplers remain uncompiled; NCM quantisation for compressed inference and prefix KV caching are not implemented.
+- Released checkpoints other than TinyStories and Sudoku are not converted; the official port is inference-only and has no classifier-free guidance.
+- Generator training supports `mx.compile` when `train.compile` is true. In the independent TinyWorld/Sudoku training path, codec/AR training and the samplers remain uncompiled, and the NCM sampler has no prefix cache. This differs from the released-checkpoint sampler described above. Quantisation for compressed inference is not implemented.
 - No power or energy measurements (no instrumentation without sudo).
 
 ## Interpretation and reproduction

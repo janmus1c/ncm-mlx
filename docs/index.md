@@ -22,6 +22,7 @@ This is experimental research software for **TinyWorld synthetic text and Sudoku
 |---|---|
 | How does parallel coarse-to-fine generation work? | [Architecture](architecture.md) |
 | How do I train, sample and evaluate? | [Training](training.md) |
+| How was the released-checkpoint port verified? | [Checkpoint port article](research/checkpoint-parity.md) |
 | Which results are comparable? | [Benchmark methodology](benchmarks.md) |
 | What can I reproduce, and with which data? | [Reproducibility](reproducibility.md) |
 | What happens if a training job stops? | [Pause and recovery](RECOVERY.md) |

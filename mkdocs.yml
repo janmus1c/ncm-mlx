@@ -37,8 +37,10 @@ nav:
       - Related work: related-work.md
       - Upstream map: research/upstream-map.md
       - Released checkpoints: official-checkpoints.md
+      - Checkpoint port article: research/checkpoint-parity.md
       - Experiments: EXPERIMENTS.md
       - Two-seed assessment: research/e20-seed-report.md
+      - Controlled-text assessment: research/e21-e23-assessment.md
       - Caching and drafting review: research/prefix-caching-and-speculative-drafting.md
       - Inference experiment protocol: research/inference-experiment-protocol.md
       - Status: STATUS.md

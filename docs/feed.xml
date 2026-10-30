@@ -2,14 +2,23 @@
 <feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">
   <id>https://janmus1c.github.io/ncm-mlx/feed.xml</id>
   <title>NCM-MLX research updates</title>
-  <subtitle>Software and working-paper releases for an independent MLX implementation of Next-Concept Modeling.</subtitle>
+  <subtitle>Software, research articles and working-paper releases for an independent MLX implementation of Next-Concept Modeling.</subtitle>
   <link rel="self" type="application/atom+xml" href="https://janmus1c.github.io/ncm-mlx/feed.xml" />
   <link rel="alternate" href="https://janmus1c.github.io/ncm-mlx/" />
-  <updated>2026-10-29T21:39:21Z</updated>
+  <updated>2026-10-30T15:23:49Z</updated>
   <author>
     <name>NCM-MLX project</name>
     <uri>https://github.com/janmus1c/ncm-mlx</uri>
   </author>
+  <entry>
+    <id>https://janmus1c.github.io/ncm-mlx/research/checkpoint-parity/</id>
+    <title>Running released Next-Concept Modeling checkpoints on Apple Silicon</title>
+    <link rel="alternate" href="https://janmus1c.github.io/ncm-mlx/research/checkpoint-parity/" />
+    <published>2026-10-30T15:23:49Z</published>
+    <updated>2026-10-30T15:23:49Z</updated>
+    <author><name>Jan Music</name><uri>https://orcid.org/0009-0001-5376-7913</uri></author>
+    <summary type="text">Run the released HazyResearch TinyStories and Sudoku checkpoints through an independent MLX port. The article explains conversion rules, tokenizer and numerical parity checks, runnable commands and the limits of the recorded performance comparisons.</summary>
+  </entry>
   <entry>
     <id>https://doi.org/10.5281/zenodo.23781234</id>
     <title>Software 0.2.0: released NCM checkpoints in MLX</title>

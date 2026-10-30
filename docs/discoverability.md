@@ -9,11 +9,11 @@ NCM-MLX uses its code repository as the primary home for source, issues, release
 
 ## GitHub discovery
 
-The repository description is:
+The repository description, verified on 2026-10-30, is:
 
-> Independent MLX implementation of Next-Concept Modeling (NCM): parallel coarse-to-fine text generation, training, and benchmarks.
+> Run Next-Concept Modeling (NCM) on the Apple Silicon GPU with MLX: HazyResearch's released checkpoints with verified parity to PyTorch, plus from-scratch training and benchmarks.
 
-Topics describe method, framework, hardware and research scope: `mlx`, `apple-silicon`, `next-concept-modeling`, `ncm`, `non-autoregressive`, `coarse-to-fine`, `text-generation`, `vector-quantization`, `language-modeling`, `machine-learning-research`, `cuda` and `python`. All except the specific `next-concept-modeling` topic had exact matches in GitHub topic search at the 2026-10-24 audit; the specific method name is retained because it accurately identifies the project. GitHub permits up to 20 topics; this project does not try to fill the quota. See [GitHub topic guidance](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/classifying-your-repository-with-topics).
+Topics describe method, framework, hardware and research scope. The 2026-10-30 API audit returned `mlx`, `apple-silicon`, `metal`, `cuda`, `next-concept-modeling`, `ncm`, `non-autoregressive`, `coarse-to-fine`, `parallel-decoding`, `text-generation`, `vector-quantization`, `residual-vector-quantization`, `language-modeling`, `diffusion-language-model`, `machine-learning-research`, `sudoku`, `tinystories` and `python`. The diffusion topic identifies a comparison area; NCM predicts hierarchical codes rather than following a diffusion denoising schedule. GitHub permits up to 20 topics; this project does not try to fill the quota. See [GitHub topic guidance](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/classifying-your-repository-with-topics).
 
 GitHub's default repository search covers names, descriptions and topics. README contents are searchable using `in:readme`; deeper documentation and symbols need code search or direct links. Examples are `"next-concept" mlx`, `topic:mlx topic:non-autoregressive`, and `"coarse-to-fine" in:readme`. [GitHub search syntax](https://docs.github.com/en/search-github/searching-on-github/searching-for-repositories) documents these distinctions. Code search and Copilot repository indexing are separate systems; public source access alone does not establish inclusion in either index.
 

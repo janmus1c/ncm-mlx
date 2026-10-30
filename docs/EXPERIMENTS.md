@@ -11,6 +11,24 @@ Every measured run, newest first. Unless a run specifies another device, hardwar
 
 **GPU contention.** Mac experiments generally ran alongside other local GPU services; per-run notes record exceptions and other hardware. `ioreg` reported 15% GPU utilisation from other processes just before the v0 benchmark started. Treat those latency numbers as "typical busy desktop" rather than an idle machine.
 
+## E21–E23: completed seed-0 TinyStories corruption ablation (2026-10-30)
+
+The [preliminary assessment](research/e21-e23-assessment.md) audits retained local experiments from the unmerged text-training workflow. No model run was repeated for this audit. The [sanitized evidence extract](research/e21-e23-evidence.json) preserves configurations, source and checkpoint hashes, ordered evaluation identities, individual sample excerpts and reaggregated scorer values. Public clean-checkout reproduction remains pending.
+
+E21 trains a 15.51M-value codec on pinned TinyStories V2 GPT-4 windows, then an 11.83M-value generator with conditioning corruption 0.75→0.25. E22 reduces corruption to 0.30→0.05; E23 removes it. The three fresh seed-0 generators share the frozen E21 codec, BPE, level-0 unigram and common AR control. Each completes 15,000 × 64 = 960,000 window presentations; the common AR completes 7,500 × 128. This matches exposure, not total compute or system size. The corpus is synthetic prose, with 128-token windows and an EOS-only unconditional prefix.
+
+| Run/stage | Training-loop seconds | Clean code CE | Free-running GPT-2-large PPL |
+|---|---:|---:|---:|
+| Shared codec, 14,000 × 256 | 5,517.25 | n/a | — |
+| E21 generator | 13,898.17 | 2.24875 | 47.897 |
+| E22 generator | 14,435.59 | 1.66515 | 54.923 |
+| E23 generator | 20,734.07 | 1.38995 | 97.776 |
+| Common AR | 2,062.03 | n/a | 14.676 |
+
+No stage is time-limited. M5 Pro, 64 GB, macOS 26.5, Python 3.12.14, MLX 0.32.3 Metal; other desktop GPU services remained active. Evaluation before/after utilization was 0/99%, 21/99% and 0/94% for E21/E22/E23; after-run load includes the experiment itself. These discrete readings do not establish absent contention. Runtime differences are not attributed to corruption.
+
+Evaluation uses 4,096 ordered held-out windows and 256 outputs × five sampling seeds at temperature 1, top-k 0, top-p 1. Shared codec non-pad reconstruction is 99.816%, separately from generation. The released TinyStories reference scores 16.259 and held-out data 8.529 under the same external scorer. Clean teacher-forced code CE improves as free-running scorer quality worsens; these are different measurements. All per-output NLL/counts remain retained and were independently reaggregated. Synchronized benchmark timings, GPU-output differences in some optimized modes, failures, sample text and novelty limits are in the assessment. The running E24 and queued E22/E23 seed-1 repeats test generator reliability conditional on this codec; no new training was initiated by the audit.
+
 ## Official checkpoints — released HazyResearch weights in MLX (2026-10-29)
 
 Inference only; no training. These are the released upstream checkpoints (revision `d342ce8`, code `c702742`), converted by `python -m ncm_mlx official convert`; they are not models trained by this repository. Details and commands are in [released checkpoints](official-checkpoints.md); the parity reports and solve-rate records are in [`research/official-checkpoint-parity.json`](research/official-checkpoint-parity.json).
