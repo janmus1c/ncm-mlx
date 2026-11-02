@@ -10,6 +10,7 @@ from urllib.parse import unquote, urlsplit
 import yaml
 
 from ncm_mlx.config import Config
+from ncm_mlx.official.train_config import TextConfig
 
 
 def main() -> None:
@@ -24,7 +25,7 @@ def main() -> None:
     assert project["urls"]["Repository"] == "https://github.com/janmus1c/ncm-mlx"
     configs = list((root / "configs").glob("*.json"))
     for config in configs:
-        Config.load(config)
+        (TextConfig if config.name.startswith("tinystories-") else Config).load(config)
     pages = [*root.glob("*.md"), *(root / "docs").rglob("*.md")]
     pages = [page for page in pages if not page.name.endswith(".local.md")]
     failures = []

@@ -6,7 +6,7 @@ description: Read the NCM-MLX working paper, its experimental evidence, version 
 # Working paper
 
 **Coarse-to-Fine Text Generation on a Laptop: A Native MLX Study of Next-Concept Modeling**<br>
-Jan Music ([ORCID](https://orcid.org/0009-0001-5376-7913)) · Working paper v0.11 · 2026-10-27 · [DOI: 10.5281/zenodo.23686842](https://doi.org/10.5281/zenodo.23686842)
+Jan Music ([ORCID](https://orcid.org/0009-0001-5376-7913)) · Working paper v0.12 · 2026-11-02 · [DOI: 10.5281/zenodo.23897923](https://doi.org/10.5281/zenodo.23897923)
 
 ## Abstract
 
@@ -25,7 +25,7 @@ Next-Concept Modeling (NCM) generates a sequence through successive levels of di
 | [LaTeX](../paper/dist/ncm-mlx.tex) | Starting point for a submission, rather than a publisher-ready template |
 | [JATS XML](../paper/dist/ncm-mlx.jats.xml) | Structured scholarly archiving |
 
-Version 0.11 adds completed E20 and a [two-seed assessment](research/e20-seed-report.md): preserved easy/medium performance, a 7.05-point hard-set spread, aggregate-only audit limits and a controlled-text research direction. It characterizes the Sudoku phase as a partial success, without reference parity or a demonstrated text capability. The [paper release](https://github.com/janmus1c/ncm-mlx/releases/tag/paper-v0.11) preserves all six editions. The [earlier v0.10 DOI archive](https://doi.org/10.5281/zenodo.23640777) remains unchanged and does not identify this revision. This is an unreviewed working paper. The [v0.11 DOI archive](https://doi.org/10.5281/zenodo.23686842) preserves the checked PDF.
+Version 0.12 adds inference parity for the released checkpoints and a [TinyStories corruption ablation](research/e21-e23-assessment.md) with two generator seeds: less conditioning corruption lowers clean teacher-forced loss and worsens free-running text, and the best run scores 45.568 GPT-2-large generative perplexity against 14.311 for the AR baseline. Version 0.11 added completed E20 and a [two-seed assessment](research/e20-seed-report.md): preserved easy/medium performance, a 7.05-point hard-set spread, aggregate-only audit limits and a controlled-text research direction. It characterizes the Sudoku phase as a partial success, without reference parity or a demonstrated text capability. The [paper release](https://github.com/janmus1c/ncm-mlx/releases/tag/paper-v0.11) preserves all six editions. The [earlier v0.10 DOI archive](https://doi.org/10.5281/zenodo.23640777) remains unchanged and does not identify this revision. This is an unreviewed working paper. The [v0.11 DOI archive](https://doi.org/10.5281/zenodo.23686842) preserves the checked PDF.
 
 The [Markdown manuscript](../paper/manuscript.md), [references](../paper/references.bib) and [figure data](../paper/data/results.json) are committed with the editions. The [build guide](../paper/README.md) explains how to rebuild them without private run logs. The manuscript's version history records substantive changes; it is separate from the software release version.
 
@@ -38,8 +38,8 @@ For the method, cite [Kumbong et al., *Next-Concept Modeling*](https://arxiv.org
   author = {Jan Music},
   title = {Coarse-to-Fine Text Generation on a Laptop: A Native MLX Study of Next-Concept Modeling},
   year = {2026},
-  note = {Unreviewed working paper, version 0.11},
-  doi = {10.5281/zenodo.23686842},
-  url = {https://doi.org/10.5281/zenodo.23686842}
+  note = {Unreviewed working paper, version 0.12},
+  doi = {10.5281/zenodo.23897923},
+  url = {https://doi.org/10.5281/zenodo.23897923}
 }
 ```

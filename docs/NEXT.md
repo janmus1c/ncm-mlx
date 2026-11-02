@@ -6,7 +6,7 @@ updated: 2026-10-30
 
 # Research roadmap
 
-This is the canonical roadmap for NCM-MLX. [STATUS](STATUS.md) describes implemented behavior; [EXPERIMENTS](EXPERIMENTS.md) records measured outcomes. A planned milestone is not a supported feature or a performance claim. There are no committed delivery dates: training and benchmark milestones depend on an explicit compute allocation. Planning charts for compute, fixed levels and evidence gates are in [roadmap scenarios](research/planning-projections.md); they do not predict future quality.
+This is the canonical roadmap for NCM-MLX. [STATUS](STATUS.md) describes implemented behavior; [EXPERIMENTS](EXPERIMENTS.md) records measured outcomes. A planned milestone is not a supported feature or a performance claim. There are no committed delivery dates: training and benchmark milestones depend on an explicit compute allocation.
 
 ## Decision after E20
 
@@ -14,11 +14,11 @@ The current phase is a partial success, with retained easy/medium performance ac
 
 Before new runs, retain per-board predictions and ordered source/data/checkpoint-bound evaluation manifests, and use a backend-appropriate GPU-load probe. These missing E20 records cannot be reconstructed retrospectively.
 
-**Controlled-text update, 2026-10-30:** the [E21–E23 assessment](research/e21-e23-assessment.md) records completed seed-0 TinyStories pilots and their remaining AR quality gap. The already running E24 and queued seed repeats test the corruption ranking conditional on one codec. Complete those checks and integrate the public evaluation recipe before choosing a larger training run. The roadmap's natural-document and conditional-task gates remain unmet.
+**Controlled-text update, 2026-11-02:** the [E21–E23 assessment](research/e21-e23-assessment.md) records completed seed-0 TinyStories pilots and their remaining AR quality gap. The completed generator-seed repeats (E24, E22-seed1, E23-seed1) repeat the corruption ranking conditional on one codec. Verify the public evaluation recipe from a clean checkout, and test a second codec seed, before choosing a larger training run. The roadmap's natural-document and conditional-task gates remain unmet.
 
 <picture>
-  <source media="(max-width: 600px)" srcset="assets/research-path-mobile-dark.svg">
-  <img src="assets/research-path-dark.svg" alt="Measured TinyWorld and Sudoku evidence followed by planned controlled-text validation gates." width="1080">
+  <source media="(max-width: 600px)" srcset="assets/project-roadmap-mobile-dark.svg">
+  <img src="assets/project-roadmap-dark.svg" alt="Roadmap: four completed milestones and six planned steps, from closing the gap to the autoregressive baseline at small scale to a go/no-go 100M model. Planned steps are plans, not results." width="1080">
 </picture>
 
 ## Priorities and dependencies
@@ -120,7 +120,7 @@ Specify how random keys follow sample identities when batches shrink. Test mixed
 
 ## P2 — prefix caching and compiled inference
 
-The [literature review](research/prefix-caching-and-speculative-drafting.md) and [proposed protocol](research/inference-experiment-protocol.md) describe the independent training sampler's attention contract, correctness gates and future drafting options. The separate [released-checkpoint sampler](official-checkpoints.md#prefix-kv-cache-and-compiled-step) now implements prefix caching and opt-in compiled level steps, with correctness and contention-qualified timing evidence. That implementation does not establish the optimization for the independent training sampler.
+The [literature review](research/prefix-caching-and-speculative-drafting.md) describes the independent training sampler's attention contract, correctness gates and future drafting options. The separate [released-checkpoint sampler](official-checkpoints.md#prefix-kv-cache-and-compiled-step) now implements prefix caching and opt-in compiled level steps, with correctness and contention-qualified timing evidence. That implementation does not establish the optimization for the independent training sampler.
 
 ### Prefix KV caching
 

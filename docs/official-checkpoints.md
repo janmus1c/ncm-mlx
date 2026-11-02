@@ -54,7 +54,7 @@ The two task families differ in a few places:
 |---|---|---|
 | BPE pre-tokenization, ids, round trip (13 cases) | identical | n/a |
 | Codec embedding, max abs diff | 2.9e-6 | 1.4e-6 |
-| Codec codes from real inputs | 97.4–100% per level (near-tie cascades, below) | 100% (64 boards) |
+| Codec codes from real inputs | 97.45–100% per level (near-tie cascades, below) | 100% (64 boards) |
 | Per-level logits, fp32, max abs diff | 0.10 at logit scale up to 853 (1.2e-4 relative) | **7.2e-5** at scale 29 |
 | Same, both sides in exact fp64 | **3.2e-10** | **1.2e-13** |
 | Greedy generation, codes and decoded text | identical, 8/8 samples | identical, 64/64 boards |
@@ -139,7 +139,7 @@ Reading, with the contention caveat. For Sudoku (91-token prefix) the cache give
 
 ## Limitations
 
-- Inference only: no fine-tuning, no EMA codebook updates and no training loss.
+- The port itself is inference-only. Training new models in the TinyStories architecture family is a separate, experimental recipe; see [text training](text-training.md). It does not fine-tune or reproduce the released weights.
 - Not converted: LM1B, OpenWebText, WMT14 and XSum. WMT14 and XSum also need classifier-free guidance and a pretrained source tokenizer, which are not implemented. Upstream's experimental options outside the released configs, such as a context encoder, `predict_level0` and block-causal attention, are rejected by the pinned specs rather than supported.
 - The pinned spec restates each `config.yaml`. The converter refuses a config whose SHA-256 differs, and a test compares the spec field by field with the downloaded YAML.
 - The BPE pre-tokenizer reimplements upstream's `regex` pattern with `unicodedata`. It is verified on the parity cases, including Unicode, but rare whitespace classes such as `\x1c`–`\x1f` may differ.

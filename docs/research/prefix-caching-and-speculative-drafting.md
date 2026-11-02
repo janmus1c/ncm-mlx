@@ -9,7 +9,7 @@ evidence: [primary-literature, source-inspection, analytic-checks]
 
 This review examines two ways to reduce inference cost: reusing computation for unchanged conditioning, and verifying inexpensive proposals with an autoregressive target. It connects primary literature to the current MLX implementation and proposes falsifiable experiments. It reports **no new model training, accelerator benchmark or text capability**. The near-term recommendation is generation-local prefix caching; an NCM text drafter is a separate, later research track.
 
-**Reading guide:** start with the decision table, then the cache argument or drafting analysis. The [experiment protocol](inference-experiment-protocol.md) defines implementation gates and the next training decision. The [source ledger](inference-sources.json) records versions, reading scope and claim provenance. The [analytic artifact](inference-analysis.json) contains reproducible operation counts and finite probability checks.
+**Reading guide:** start with the decision table, then the cache argument or drafting analysis. The [source ledger](inference-sources.json) records versions, reading scope and claim provenance. The [analytic artifact](inference-analysis.json) contains reproducible operation counts and finite probability checks.
 
 ## Scope and evidence
 
@@ -231,7 +231,7 @@ The recommended order is:
 4. Build a greedy verifier with no-draft, oracle, deliberately wrong and prompt-lookup proposals before spending on learned drafting.
 5. Train a bounded history-conditioned drafter only if measured cost permits a useful accepted-prefix length. Explore target features or stochastic sampling after that baseline passes.
 
-The [protocol](inference-experiment-protocol.md) makes those gates concrete. A negative cache speed result or unsuccessful drafter is publishable evidence when the contract, timing and failures are retained. No implementation or model quality claim changes until those measurements exist.
+A negative cache speed result or unsuccessful drafter is publishable evidence when the contract, timing and failures are retained. No implementation or model quality claim changes until those measurements exist.
 
 ## Reproduce the analytic checks
 

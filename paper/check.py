@@ -26,7 +26,7 @@ MARGIN_IN = 1.0
 
 def check_text(md: str) -> list[str]:
     errors = []
-    rows = re.findall(r"^\| (\d+)\.(\d+) \| (\d{4}-\d{2}-\d{2}) \|", md, flags=re.MULTILINE)
+    rows = re.findall(r"^\| (\d+)\.(\d+) \| (\d{4}-\d{2}-\d{2}|\[release date\]) \|", md, flags=re.MULTILINE)
     versions = [(int(a), int(b)) for a, b, _ in rows]
     if versions != sorted(versions) or len(set(versions)) != len(versions):
         errors.append(f"version history not strictly ascending: {versions}")

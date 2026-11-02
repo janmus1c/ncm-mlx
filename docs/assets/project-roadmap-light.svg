@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 735" role="img" aria-labelledby="title description">
+<title id="title">From a laptop study to a text model: completed work and planned steps.</title><desc id="description">Four completed milestones: TinyWorld, Sudoku, the released-checkpoint port and the TinyStories ablation. Six planned steps in order: close the gap to the autoregressive baseline at small scale, prompt-conditioned training, mixed-precision throughput, a natural-text corpus, a 100M go/no-go run, then 300M and about 1B only if NCM is close to the baseline. Planned steps are plans, not results.</desc>
+<rect width="1080" height="735" rx="16" fill="#ffffff"/>
+<g font-family="Inter, Helvetica Neue, Arial, sans-serif" fill="#20252b">
+<text x="32" y="49" font-size="32" font-weight="650" fill="#20252b" text-anchor="start">Roadmap: measured so far, planned next</text>
+<text x="32" y="88" font-size="19" font-weight="400" fill="#59636e" text-anchor="start">Goal: about 1B parameters, text not worse than a matched autoregressive baseline.</text>
+<text x="32" y="128" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">COMPLETED</text>
+<rect x="32" y="148" width="246" height="146" rx="4" fill="#f3f5f7"/>
+<text x="52" y="184" font-size="24" font-weight="600" fill="#20252b" text-anchor="start">TinyWorld</text>
+<text x="52" y="220" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Synthetic grammar</text>
+<text x="52" y="247" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Codec, generator, AR</text>
+<text x="52" y="274" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Latency and quality</text>
+<rect x="288" y="148" width="246" height="146" rx="4" fill="#f3f5f7"/>
+<text x="308" y="184" font-size="24" font-weight="600" fill="#20252b" text-anchor="start">Sudoku</text>
+<text x="308" y="220" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">E6 to E20, two seeds</text>
+<text x="308" y="247" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Easy 98.1%, medium 83.4%</text>
+<text x="308" y="274" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Hard boards still behind</text>
+<rect x="544" y="148" width="246" height="146" rx="4" fill="#f3f5f7"/>
+<text x="564" y="184" font-size="24" font-weight="600" fill="#20252b" text-anchor="start">Checkpoint port</text>
+<text x="564" y="220" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Runs Kumbong et al.</text>
+<text x="564" y="247" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">TinyStories and Sudoku</text>
+<text x="564" y="274" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Agrees with PyTorch, tested</text>
+<rect x="800" y="148" width="246" height="146" rx="4" fill="#f3f5f7"/>
+<text x="820" y="184" font-size="24" font-weight="600" fill="#20252b" text-anchor="start">TinyStories</text>
+<text x="820" y="220" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">E21 to E24, two seeds</text>
+<text x="820" y="247" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Lower loss, worse text</text>
+<text x="820" y="274" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Best NCM perplexity 3x AR</text>
+<path d="M32 324H1048" stroke="#d6dce2"/>
+<text x="32" y="364" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">PLANNED, IN ORDER</text>
+<rect x="32" y="384" width="328" height="112" rx="4" fill="none" stroke="#d6dce2" stroke-dasharray="5 5"/>
+<text x="52" y="418" font-size="19" font-weight="600" fill="#20252b" text-anchor="start">01  Close the gap at small scale</text>
+<text x="52" y="446" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Best NCM perplexity is about 3x AR;</text>
+<text x="52" y="470" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">corruption and loss-weighting ablations</text>
+<rect x="376" y="384" width="328" height="112" rx="4" fill="none" stroke="#d6dce2" stroke-dasharray="5 5"/>
+<text x="396" y="418" font-size="19" font-weight="600" fill="#20252b" text-anchor="start">02  Prompt-conditioned training</text>
+<text x="396" y="446" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Official XSum and WMT14 codecs</text>
+<text x="396" y="470" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Red-fuchs/ncm-modular, issue #3</text>
+<rect x="720" y="384" width="328" height="112" rx="4" fill="none" stroke="#d6dce2" stroke-dasharray="5 5"/>
+<text x="740" y="418" font-size="19" font-weight="600" fill="#20252b" text-anchor="start">03  Mixed-precision throughput</text>
+<text x="740" y="446" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Measure speed before scaling up</text>
+<rect x="32" y="510" width="328" height="112" rx="4" fill="none" stroke="#d6dce2" stroke-dasharray="5 5"/>
+<text x="52" y="544" font-size="19" font-weight="600" fill="#20252b" text-anchor="start">04  Natural-text corpus</text>
+<text x="52" y="572" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Several billion tokens</text>
+<rect x="376" y="510" width="328" height="112" rx="4" fill="none" stroke="#d6dce2" stroke-dasharray="5 5"/>
+<text x="396" y="544" font-size="19" font-weight="600" fill="#20252b" text-anchor="start">05  100M model, about 2B tokens</text>
+<text x="396" y="572" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">The go / no-go against AR</text>
+<rect x="720" y="510" width="328" height="112" rx="4" fill="none" stroke="#d6dce2" stroke-dasharray="5 5"/>
+<text x="740" y="544" font-size="19" font-weight="600" fill="#20252b" text-anchor="start">06  300M, then about 1B</text>
+<text x="740" y="572" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Only if NCM is close to AR</text>
+<text x="740" y="596" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">at matched compute</text>
+<path d="M32 650H1048" stroke="#d6dce2"/>
+<text x="32" y="688" font-size="19" font-weight="600" fill="#20252b" text-anchor="start">Planned steps are plans, not results.</text>
+<text x="1048" y="688" font-size="17" font-weight="400" fill="#59636e" text-anchor="end">No delivery dates.</text>
+</g></svg>

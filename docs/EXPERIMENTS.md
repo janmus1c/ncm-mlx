@@ -11,9 +11,9 @@ Every measured run, newest first. Unless a run specifies another device, hardwar
 
 **GPU contention.** Mac experiments generally ran alongside other local GPU services; per-run notes record exceptions and other hardware. `ioreg` reported 15% GPU utilisation from other processes just before the v0 benchmark started. Treat those latency numbers as "typical busy desktop" rather than an idle machine.
 
-## E21–E23: completed seed-0 TinyStories corruption ablation (2026-10-30)
+## E21–E24: TinyStories corruption ablation and generator-seed repeats (2026-10-30)
 
-The [preliminary assessment](research/e21-e23-assessment.md) audits retained local experiments from the unmerged text-training workflow. No model run was repeated for this audit. The [sanitized evidence extract](research/e21-e23-evidence.json) preserves configurations, source and checkpoint hashes, ordered evaluation identities, individual sample excerpts and reaggregated scorer values. Public clean-checkout reproduction remains pending.
+The [assessment](research/e21-e23-assessment.md) audits retained local experiments run with the text-training workflow (see [text training](text-training.md)). No model run was repeated for this audit. The [sanitized evidence extract](research/e21-e23-evidence.json) preserves configurations, source and checkpoint hashes, ordered evaluation identities, individual sample excerpts and reaggregated scorer values. Public clean-checkout reproduction remains pending.
 
 E21 trains a 15.51M-value codec on pinned TinyStories V2 GPT-4 windows, then an 11.83M-value generator with conditioning corruption 0.75→0.25. E22 reduces corruption to 0.30→0.05; E23 removes it. The three fresh seed-0 generators share the frozen E21 codec, BPE, level-0 unigram and common AR control. Each completes 15,000 × 64 = 960,000 window presentations; the common AR completes 7,500 × 128. This matches exposure, not total compute or system size. The corpus is synthetic prose, with 128-token windows and an EOS-only unconditional prefix.
 
@@ -25,9 +25,52 @@ E21 trains a 15.51M-value codec on pinned TinyStories V2 GPT-4 windows, then an 
 | E23 generator | 20,734.07 | 1.38995 | 97.776 |
 | Common AR | 2,062.03 | n/a | 14.676 |
 
-No stage is time-limited. M5 Pro, 64 GB, macOS 26.5, Python 3.12.14, MLX 0.32.3 Metal; other desktop GPU services remained active. Evaluation before/after utilization was 0/99%, 21/99% and 0/94% for E21/E22/E23; after-run load includes the experiment itself. These discrete readings do not establish absent contention. Runtime differences are not attributed to corruption.
+No stage is time-limited. M5 Pro, 64 GB, macOS 26.5, Python 3.12.14, MLX 0.32.3 Metal; other desktop GPU services remained active. Runtime differences are not attributed to corruption.
 
-Evaluation uses 4,096 ordered held-out windows and 256 outputs × five sampling seeds at temperature 1, top-k 0, top-p 1. Shared codec non-pad reconstruction is 99.816%, separately from generation. The released TinyStories reference scores 16.259 and held-out data 8.529 under the same external scorer. Clean teacher-forced code CE improves as free-running scorer quality worsens; these are different measurements. All per-output NLL/counts remain retained and were independently reaggregated. Synchronized benchmark timings, GPU-output differences in some optimized modes, failures, sample text and novelty limits are in the assessment. The running E24 and queued E22/E23 seed-1 repeats test generator reliability conditional on this codec; no new training was initiated by the audit.
+Evaluation uses 4,096 ordered held-out windows and 256 outputs × five sampling seeds at temperature 1, top-k 0, top-p 1. Shared codec non-pad reconstruction is 99.816%, separately from generation. The released TinyStories reference scores 16.259 and held-out data 8.529 under the same external scorer. Clean teacher-forced code CE improves as free-running scorer quality worsens; these are different measurements. All per-output NLL/counts remain retained and were independently reaggregated. Synchronized benchmark timings, GPU-output differences in some optimized modes, failures, sample text and novelty limits are in the assessment.
+
+**CPU sensitivity audit, 2026-10-30:** reaggregation of 7,680 saved scored outputs reproduces the reported three-decimal means. Pooled-token PPL for E21/E22/E23 is 47.891 / 54.906 / 97.757, versus 14.671 for the common AR. Equal-output weighting, median sample PPL and both populated scorer-token length groups retain that ordering. This is a post-hoc analysis of the same samples and scorer, with no new training, inference, timing or GPU contention measurement. Methods, counts and input hashes are in the assessment and evidence extract; it does not replace the generator-seed repeats below.
+
+**Generator-seed repeats (E24, E22-seed1, E23-seed1).** Each repeats a seed-0 recipe with training seed 1 for the generator and the AR control, keeping the frozen seed-0 codec, BPE and level-0 unigram. E24 repeats E21's recipe (corruption 0.75→0.25); E22-seed1 and E23-seed1 repeat E22 (0.30→0.05) and E23 (0). E22-seed1 and E23-seed1 reuse E24's seed-1 AR as their common control, as E22 and E23 reuse the seed-0 AR. Configs are `configs/tinystories-e24-seed1.json`, `configs/tinystories-e22-seed1.json` and `configs/tinystories-e23-seed1.json`; the seed-0 follow-ups are `configs/tinystories-e22.json` and `configs/tinystories-e23.json`. All six generators complete 15,000 of 15,000 updates at batch 64 with no time limit triggered. Final exported weights are evaluated; none is a best-validation checkpoint. The repeats measure generator variability conditional on one codec, not full two-stage training variability, and equal window exposure is not equal total NCM/AR compute.
+
+| Run | Corruption | Training seed | Generator training-loop seconds | Clean code CE | Free-running GPT-2-large PPL, mean (SD over 5 sampling seeds) | Eval GPU load before / after |
+|---|---|---:|---:|---:|---:|---|
+| E21 | 0.75→0.25 | 0 | 13,898.17 | 2.24875 | 47.897 (0.797) | 0 / 99% |
+| E24 | 0.75→0.25 | 1 | 18,842.73 | 2.24909 | 45.568 (0.909) | 99 / 99% |
+| E22 | 0.30→0.05 | 0 | 14,435.59 | 1.66515 | 54.923 (1.548) | 21 / 99% |
+| E22-seed1 | 0.30→0.05 | 1 | 22,419.19 | 1.66106 | 55.114 (1.568) | 99 / 99% |
+| E23 | 0→0 | 0 | 20,734.07 | 1.38995 | 97.776 (2.107) | 0 / 94% |
+| E23-seed1 | 0→0 | 1 | 18,706.68 | 1.38638 | 93.833 (1.424) | 0 / 0% |
+| AR control, seed 0 | n/a | 0 | 2,062.03 | AR token CE 1.31454 | 14.676 (0.450) | n/a |
+| AR control, seed 1 | n/a | 1 | — | AR token CE 1.31806 | 14.311 (0.237) | n/a |
+
+The ordering E21 < E22 < E23 in free-running scorer PPL, and the opposite ordering in clean code CE, holds in both generator seeds; every NCM generator remains well behind the AR control of its seed. Between seeds the means differ by 2.329 (E21/E24), 0.191 (E22) and 3.943 (E23). Two generator seeds on one codec are not a variance estimate. Codec non-pad reconstruction is the shared 99.816% in every run. The released TinyStories reference and held-out data score 16.259 and 8.529 under the same scorer, as above. Per-sampling-seed values, audit identities and report hashes are in the assessment and the `seed1_repeats` block of its evidence extract. The scores come from the aligned reports (the protocol above), whose recorded result audits pass. Evaluation GPU load readings are discrete before/after samples, not contention measurements: the after-run value includes the experiment itself, and the desktop remained in normal use.
+
+**Synchronized benchmarks.** Per-batch completion latency, p50 / p95 in ms, for the runs' own checkpoints, with three warmups and twenty iterations timed through a decoded-token host copy. Each run re-times its AR control, and E21 also times the released checkpoint. Eager NCM versus KV-cached AR is the reference comparison; prefix caching and compilation are separately labelled NCM modes and carry no quality claim of their own. First-call cost, raw latencies, peak MLX memory and GPU-load readings are retained in the benchmark JSON files. Results were measured on a busy desktop and are not uncontended hardware limits. Medians for the same architecture differ by up to about four times between runs (NCM eager at batch 1 ranges from 12.7 to 52.4 ms), so differences between runs should not be attributed to training changes.
+
+| Runner / mode | Batch | E21 | E22 | E23 | E24 | E22-seed1 | E23-seed1 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| NCM eager | 1 | 12.8 / 13.0 | 13.3 / 14.1 | 12.9 / 13.1 | 52.4 / 57.1 | 44.0 / 45.9 | 12.7 / 12.8 |
+| NCM eager | 16 | 45.4 / 45.9 | 51.6 / 59.4 | 50.9 / 96.6 | 188.4 / 204.2 | 145.2 / 149.7 | 45.1 / 45.9 |
+| NCM eager | 64 | 223.9 / 227.1 | 275.5 / 331.9 | 332.0 / 445.9 | 527.3 / 674.1 | 478.8 / 538.0 | 219.0 / 224.6 |
+| NCM prefix-cached | 1 | 13.2 / 13.4 | 14.8 / 15.1 | 14.0 / 14.3 | 55.6 / 65.4 | 43.3 / 45.5 | 12.8 / 13.0 |
+| NCM prefix-cached | 16 | 47.4 / 52.8 | 72.5 / 126.8 | 58.6 / 324.1 | 186.3 / 217.1 | 150.3 / 156.3 | 47.4 / 50.0 |
+| NCM prefix-cached | 64 | 231.8 / 237.4 | 334.6 / 366.8 | 300.1 / 367.1 | 571.6 / 649.7 | 486.5 / 504.8 | 224.1 / 227.5 |
+| NCM cached + compiled | 1 | 11.7 / 11.9 | 12.4 / 13.0 | 12.5 / 13.4 | 48.1 / 51.5 | 41.6 / 42.6 | 11.6 / 11.8 |
+| NCM cached + compiled | 16 | 42.9 / 44.0 | 45.7 / 50.0 | 44.2 / 47.2 | 165.9 / 190.0 | 137.8 / 141.9 | 42.8 / 43.6 |
+| NCM cached + compiled | 64 | 201.3 / 205.6 | 321.4 / 446.8 | 263.6 / 962.4 | 505.6 / 563.7 | 446.0 / 453.6 | 192.8 / 201.5 |
+| AR, KV cache | 1 | 81.8 / 83.4 | 89.0 / 107.9 | 111.4 / 186.7 | 273.0 / 316.1 | 232.3 / 265.0 | 81.9 / 85.1 |
+| AR, KV cache | 16 | 142.7 / 144.6 | 149.0 / 151.7 | 161.0 / 312.0 | 551.2 / 600.4 | 489.7 / 496.9 | 141.9 / 142.8 |
+| AR, KV cache | 64 | 357.4 / 365.6 | 433.7 / 652.8 | 521.1 / 2140.1 | 906.6 / 1302.1 | 805.7 / 815.5 | 351.5 / 360.6 |
+| Released NCM eager | 1 | 38.3 / 39.7 | — | — | — | — | — |
+| Released NCM eager | 16 | 205.8 / 212.2 | — | — | — | — | — |
+| Released NCM eager | 64 | 951.3 / 987.8 | — | — | — | — | — |
+| Released NCM cached | 1 | 42.2 / 44.3 | — | — | — | — | — |
+| Released NCM cached | 16 | 232.6 / 238.1 | — | — | — | — | — |
+| Released NCM cached | 64 | 1069.7 / 1116.4 | — | — | — | — | — |
+| Released NCM cached + compiled | 1 | 37.7 / 38.6 | — | — | — | — | — |
+| Released NCM cached + compiled | 16 | 198.6 / 233.6 | — | — | — | — | — |
+| Released NCM cached + compiled | 64 | 940.0 / 953.5 | — | — | — | — | — |
 
 ## Official checkpoints — released HazyResearch weights in MLX (2026-10-29)
 

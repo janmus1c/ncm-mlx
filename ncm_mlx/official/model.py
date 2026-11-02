@@ -192,9 +192,16 @@ class Codec(nn.Module):
         return self
 
     def embed(self, tokens: mx.array) -> mx.array:
+        return self.normalize(self.lookup(tokens))
+
+    def lookup(self, tokens: mx.array) -> mx.array:
+        """Token plus position embedding, before the pre-quantisation GroupNorm."""
         z = self.tok(tokens)
         if self.spec.encoder_positional:
             z = z + self.pos.weight[: tokens.shape[1]]
+        return z
+
+    def normalize(self, z: mx.array) -> mx.array:
         B, L, D = z.shape
         G = self.spec.group_norm_groups
         g = z.reshape(B, L, G, D // G)
@@ -211,7 +218,10 @@ class Codec(nn.Module):
 
     def level_contribution(self, codes: mx.array, level: int) -> mx.array:
         """Full-length contribution of one level's codes (after upsampling and ``Phi``)."""
-        q = self.codebooks[level][codes]
+        return self.contribution(self.codebooks[level][codes], level)
+
+    def contribution(self, q: mx.array, level: int) -> mx.array:
+        """Full-length contribution of ``(B, l_k, D)`` code vectors at ``level``."""
         if level == 0:
             for m in self.up0:
                 q = m(q)

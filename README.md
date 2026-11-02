@@ -22,6 +22,8 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-24292f?style=flat-square" alt="MIT license"></a>
 </p>
 
+**Status, November 2026.** The released NCM checkpoints now run in MLX with outputs matching upstream PyTorch in the tested cases. TinyStories training with two generator seeds gives a negative but useful result: less conditioning corruption lowers teacher-forced loss and worsens generated text. The best run still has about three times the GPT-2 large perplexity of an autoregressive baseline. See the [roadmap](#roadmap) and the [working paper](paper/dist/ncm-mlx.pdf).
+
 <picture>
   <source media="(prefers-color-scheme: dark) and (max-width: 600px)" srcset="docs/assets/tinystories-refinement-mobile-dark.svg">
   <source media="(max-width: 600px)" srcset="docs/assets/tinystories-refinement-mobile-light.svg">
@@ -31,9 +33,9 @@
 
 **Run HazyResearch's released [Next-Concept Modeling](https://arxiv.org/abs/2610.14162) checkpoints natively on the Apple Silicon GPU, and train NCM models from scratch.**
 
-- **Same outputs as upstream PyTorch.** Greedy generation is identical; per-level logits agree to floating-point rounding ([parity evidence](docs/official-checkpoints.md)).
-- **Sudoku solve rates match the paper:** 99.40 / 96.30 / 86.20% easy/medium/hard on all 2,000 published boards per difficulty, against 99.5 / 96.5 / 86.1% reported.
-- **About 7× faster than upstream on the same Mac:** 39.8 ms against 280 ms for one 128-token TinyStories sample on an M5 Pro (p50, desktop load present). Upstream PyTorch cannot run these models on the Mac GPU.
+- **Same outputs as upstream PyTorch in the tested cases.** Greedy generation is identical on 8 TinyStories samples and all 2,000 easy Sudoku boards; per-level logits agree to floating-point rounding ([parity evidence](docs/official-checkpoints.md)).
+- **Sudoku solve rates within 0.2 points of the paper:** 99.40 / 96.30 / 86.20% easy/medium/hard on all 2,000 published boards per difficulty, against 99.5 / 96.5 / 86.1% reported.
+- **About 7× lower latency than upstream on the same Mac:** 39.8 ms on the GPU against 280 ms for upstream PyTorch on the CPU, for one 128-token TinyStories sample on an M5 Pro (p50, desktop load present). PyTorch's MPS backend rejects an interpolation these models need, so upstream was timed on the CPU.
 
 NCM writes a whole level of the output in one model call, coarse to fine, instead of one token per call. The method is by Kumbong et al.; this is an independent implementation.
 
@@ -47,7 +49,9 @@ No install needed to look: the [refinement demo](https://huggingface.co/spaces/j
 
 [How the MLX port was verified](https://janmus1c.github.io/ncm-mlx/research/checkpoint-parity/): conversion rules, tokenizer checks, numerical parity and measured performance.
 
-**Models trained here from scratch (2026-10-27).** A 6.44M-parameter Sudoku generator, two training seeds (E20): **97.25 / 79.60 / 33.25%** easy/medium/hard, against seed 0's **98.10 / 83.40 / 40.30%**, at equal exposure. This is a partial small-generator success with a substantial hard-board gap; the [two-seed assessment](docs/research/e20-seed-report.md) explains the results and audit limits. Training text models from scratch is the next research direction; it is not a supported capability yet.
+**Models trained here from scratch (2026-10-27).** A 6.44M-parameter Sudoku generator, two training seeds (E20): **97.25 / 79.60 / 33.25%** easy/medium/hard, against seed 0's **98.10 / 83.40 / 40.30%**, at equal exposure. This is a partial small-generator success with a substantial hard-board gap; the [two-seed assessment](docs/research/e20-seed-report.md) explains the results and audit limits.
+
+**Text models trained here from scratch (2026-11-02).** Small TinyStories models reconstruct held-out text accurately (99.8% of tokens) but generate stories that GPT-2 large scores far worse than an autoregressive baseline: generative perplexity 45.6–97.8 against 14.3–14.7, across three corruption schedules and two generator seeds on one codec. Less conditioning corruption lowers teacher-forced loss and worsens generated text. Text training is experimental and not part of the released package; see the [controlled-text assessment](docs/research/e21-e23-assessment.md).
 
 To train your own models:
 
@@ -57,14 +61,14 @@ mise trust && mise install && mise run setup   # Apple Silicon; Linux CUDA: docs
 mise run train && mise run demo                # ~5.5 min on M5 Pro, then level-by-level samples
 ```
 
-**Cite:** [archived software v0.2.0](https://doi.org/10.5281/zenodo.23781234) and the [working paper v0.11](https://doi.org/10.5281/zenodo.23686842) (not peer reviewed). For the method itself, cite [Kumbong et al.](#acknowledgements-and-citation).
+**Cite:** [archived software v0.2.0](https://doi.org/10.5281/zenodo.23781234) and the [working paper v0.12](https://doi.org/10.5281/zenodo.23897923) (not peer reviewed). For the method itself, cite [Kumbong et al.](#acknowledgements-and-citation).
 
 > [!WARNING]
-> **Experimental research code.** Small models trained on a synthetic language and Sudoku, using Apple Silicon and NVIDIA GPUs. It is not a chat model, follows no instructions, and its from-scratch models use their own format; the released NCM checkpoints run through the separate [official port](docs/official-checkpoints.md). It is not affiliated with Stanford or HazyResearch. Results are labelled with hardware, training budget and measurement conditions.
+> **Experimental research code.** Small models trained on a synthetic language, Sudoku and synthetic children's stories, using Apple Silicon and NVIDIA GPUs. It is not a chat model, follows no instructions, and its from-scratch models use their own format; the released NCM checkpoints run through the separate [official port](docs/official-checkpoints.md). It is not affiliated with Stanford or HazyResearch. Results are labelled with hardware, training budget and measurement conditions.
 
 An independent [MLX](https://github.com/ml-explore/mlx) implementation of [Next-Concept Modeling (NCM)](https://arxiv.org/abs/2610.14162): **parallel, coarse-to-fine text generation** with multiscale residual vector quantization. The non-autoregressive generator predicts a whole level of discrete latent codes per forward pass, rather than one text token at a time. This repository supports training from scratch, sampling, evaluation and synchronized comparisons with a character-level autoregressive baseline.
 
-MLX makes these experiments runnable on consumer Apple Silicon GPUs; Linux NVIDIA CUDA execution is also verified. The current tasks are TinyWorld synthetic text and puzzle-conditioned Sudoku. General-purpose language modeling and instruction following are not demonstrated. The architecture belongs to Kumbong et al. (HazyResearch, 2026); this project independently investigates its implementation and small-model behavior.
+MLX makes these experiments runnable on consumer Apple Silicon GPUs; Linux NVIDIA CUDA execution is also verified. The current tasks are TinyWorld synthetic text, puzzle-conditioned Sudoku and, experimentally, unconditional TinyStories text. General-purpose language modeling and instruction following are not demonstrated. The architecture belongs to Kumbong et al. (HazyResearch, 2026); this project independently investigates its implementation and small-model behavior.
 
 [Documentation](https://janmus1c.github.io/ncm-mlx/) · [Architecture](docs/architecture.md) · [Training](docs/training.md) · [Benchmarks](docs/benchmarks.md) · [Platforms](docs/platforms.md) · [Related work](docs/related-work.md)
 
@@ -228,42 +232,43 @@ Both seeds use the same scientific recipe and 16.384M generator presentations. E
 | Character tokenizer instead of BPE | **Replaced** |
 | Token-prefix conditioning (Sudoku puzzle cells) | Same idea as upstream's `raw_token_prefix` |
 | Learned level-0 resampling | Same idea (`learned_l0`), single layer, lower codec learning rate |
-| Codebook-tied generator heads, CFG, prefix KV cache | **Not implemented** |
+| Codebook-tied generator heads, CFG, prefix KV cache | **Not implemented in the independent training implementation.** The [official-checkpoint port](docs/official-checkpoints.md) has tied heads and a prefix cache; CFG is in neither |
 
 Full source-by-source map: [`docs/research/upstream-map.md`](docs/research/upstream-map.md). No upstream code is copied.
 
 ## Limitations
 
-- Synthetic language and Sudoku only; quality on real text is unknown.
+- Synthetic data only (TinyWorld, Sudoku, TinyStories); quality on naturally occurring text is unknown.
 - Conditioning is a fixed-length token prefix only (Sudoku). No prompts of free text, so not useful for summarisation, translation or instructions yet.
 - Sudoku: 33.25–40.30% of hard boards solved across E20 and E19-funded, against 86.1% for Original NCM (Kumbong et al.), with different model size and training budget.
 - Weights trained here use their own format. The released TinyStories and Sudoku checkpoints run through the inference-only [official port](docs/official-checkpoints.md); LM1B, OpenWebText, WMT14 and XSum are not converted yet.
-- Generator training can use `mx.compile`; neither inference sampler is compiled. The latency gap may change when both samplers are compiled.
+- Generator training can use `mx.compile`; the independent implementation's inference sampler is not compiled, so its latency gap to AR may change once it is. The official-checkpoint port has an opt-in compiled step.
 - On Metal, fp32 matmuls run at reduced precision (~1e-3 relative error, measured); exactness tests therefore run on the CPU device.
 - No energy or power measurements.
 
 ## Roadmap
 
 <picture>
-  <source media="(prefers-color-scheme: dark) and (max-width: 600px)" srcset="docs/assets/research-path-mobile-dark.svg">
-  <source media="(max-width: 600px)" srcset="docs/assets/research-path-mobile-light.svg">
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/research-path-dark.svg">
-  <img src="docs/assets/research-path-light.svg" alt="Measured TinyWorld and Sudoku work leads to planned controlled-text research, gated on data rights, held-out quality and a matched AR baseline. Real-text quality is not established." width="1080">
+  <source media="(prefers-color-scheme: dark) and (max-width: 600px)" srcset="docs/assets/project-roadmap-mobile-dark.svg">
+  <source media="(max-width: 600px)" srcset="docs/assets/project-roadmap-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/project-roadmap-dark.svg">
+  <img src="docs/assets/project-roadmap-light.svg" alt="Roadmap. Completed: TinyWorld, Sudoku, the released-checkpoint port and the TinyStories ablation. Planned in order: close the gap to the autoregressive baseline at small scale, prompt-conditioned training with XSum and WMT14 codecs, mixed-precision throughput, a natural-text corpus, a 100M go/no-go model, then 300M and about 1B only if NCM is close to the baseline. Planned steps are plans, not results." width="1080">
 </picture>
 
-The core implementation, toy comparison and full-state recovery are complete. Planned research tracks are:
+The long-term aim is a model of about 1B parameters that writes good text and is not worse than an autoregressive baseline trained with the same compute. Nothing here shows that NCM can get there yet. Completed so far: TinyWorld, Sudoku (E6 to E20), the released-checkpoint port, and TinyStories training (E21 to E24). The steps below are plans in dependency order, without delivery dates.
 
-1. Extend the completed Sudoku evidence with bounded training runs, multiple seeds and matched-budget AR comparisons.
-2. Extend the official-checkpoint port (done for TinyStories and Sudoku) to LM1B and the conditional WMT14/XSum models, and evaluate from-scratch models against them with the same evaluator.
-3. Build a real-text workflow: training, visible coarse-to-fine samples, held-out benchmarks and a matched AR baseline, followed by conditional task examples and a local demo.
-4. Independently test level budgets, verified Sudoku early exit and prefix caching, preserving full-depth baselines and exactness checks.
-5. Compile both samplers and repeat synchronized timing comparisons.
+1. **Close the NCM/AR gap at small scale.** On TinyStories the best MLX NCM run has about three times the GPT-2 large generative perplexity of the MLX AR baseline (45.6–97.8 across runs, against 14.3–14.7). Next: further corruption and loss-weighting ablations.
+2. **Prompt-conditioned (prefix) training and the official XSum and WMT14 codecs.** Red-fuchs described an MLX port of both codecs and a prefix-conditioned training loop in [issue #3](https://github.com/janmus1c/ncm-mlx/issues/3) ([Red-fuchs/ncm-modular](https://github.com/Red-fuchs/ncm-modular)).
+3. **Mixed-precision throughput**, measured before a larger run is sized.
+4. **A natural-text corpus of several billion tokens.**
+5. **A 100M-parameter model on about 2B tokens**, as the go/no-go comparison against AR.
+6. **About 300M, then about 1B parameters**, only if NCM is close to AR at matched compute.
 
 The completed **E19-funded** run is the new local best: **98.10 / 83.40 / 40.30%** solved on easy/medium/hard boards (2,000 each). It uses 16.384M generator presentations, twice E15's budget; it does not establish an equal-budget advantage. The short E19 pilot scores 90.20 / 59.75 / 16.55% at 3.059M presentations. [Full report and machine-readable results](docs/research/e19-funded-report.md) retain timings, checkpoint identity, uncertainty, failures and comparison limits. E20 completed the same recipe with seed 1 at 97.25 / 79.60 / 33.25%; both seeds and their evidence limits are retained in the [assessment](docs/research/e20-seed-report.md). The original million-step recipe remains unstarted.
 
-Compute scenarios and planned level budgets: [roadmap projections](docs/research/planning-projections.md). Priorities, dependencies and completion criteria: [`docs/NEXT.md`](docs/NEXT.md). Current state: [`docs/STATUS.md`](docs/STATUS.md). Follow releases through the [research updates feed](https://janmus1c.github.io/ncm-mlx/feed.xml).
+Priorities, dependencies and completion criteria: [`docs/NEXT.md`](docs/NEXT.md). Current state: [`docs/STATUS.md`](docs/STATUS.md). Follow releases through the [research updates feed](https://janmus1c.github.io/ncm-mlx/feed.xml).
 
-The [prefix-caching and speculative-drafting review](docs/research/prefix-caching-and-speculative-drafting.md) connects primary literature to this implementation, with [proposed experiments](docs/research/inference-experiment-protocol.md). It separates analytic opportunities from measured performance and future text capabilities.
+The [prefix-caching and speculative-drafting review](docs/research/prefix-caching-and-speculative-drafting.md) connects primary literature to this implementation. It separates analytic opportunities from measured performance and future text capabilities.
 
 Long runs support full-state pause/resume and atomic checkpoints. Start Mac experiments with `scripts/launch_experiment.sh` so terminal closure does not kill them. See [`docs/RECOVERY.md`](docs/RECOVERY.md) for pause signals, restart commands, pod recovery and the limits of legacy weights-only checkpoints.
 
@@ -313,6 +318,6 @@ The method is from **Hermann Kumbong, Ishan S. Khare, Iddah Mlauzi, Andrew Woen,
 }
 ```
 
-Cite this implementation using the [archived software v0.2.0](https://doi.org/10.5281/zenodo.23781234). The companion [working paper v0.11](https://doi.org/10.5281/zenodo.23686842) reports the experiments and limitations; it has not been peer reviewed.
+Cite this implementation using the [archived software v0.2.0](https://doi.org/10.5281/zenodo.23781234). The companion [working paper v0.12](https://doi.org/10.5281/zenodo.23897923) reports the experiments and limitations; it has not been peer reviewed.
 
 This repository: MIT licence, see [`LICENSE`](LICENSE), [`THIRD_PARTY.md`](THIRD_PARTY.md) and [`CITATION.cff`](CITATION.cff). No model weights or downloaded evaluation data are redistributed in the source release. The trained Sudoku and TinyWorld weights are published separately on Hugging Face: [ncm-mlx-sudoku](https://huggingface.co/janmusic/ncm-mlx-sudoku) and [ncm-mlx-tinyworld](https://huggingface.co/janmusic/ncm-mlx-tinyworld). To contribute or reproduce an experiment, start with [`CONTRIBUTING.md`](CONTRIBUTING.md). The [capability overview](docs/capabilities.md), [`AGENTS.md`](AGENTS.md) and [`llms.txt`](llms.txt) provide concise entry points for automated tools.

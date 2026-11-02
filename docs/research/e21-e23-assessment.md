@@ -1,34 +1,35 @@
 ---
 title: E21–E23 controlled-text assessment
 type: research-assessment
-status: preliminary
-aliases: [TinyStories corruption ablation, E21 E22 E23]
-updated: 2026-10-30
+status: complete
+aliases: [TinyStories corruption ablation, E21 E22 E23, E24 seed-1 repeats]
+updated: 2026-11-02
 evidence: e21-e23-evidence.json
 ---
 
 # E21–E23 controlled-text assessment
 
-E21 establishes independently trained, unconditional TinyStories generation in MLX. E22 and E23 test how much corrupted conditioning the generator needs during training. All three seed-0 runs, their aligned evaluations and their benchmarks are complete. The main result is a useful failure: reducing corruption improves prediction when earlier levels are supplied correctly, while making independently generated text worse. E21 is the strongest of these three under the fixed external text scorer; the common autoregressive control remains substantially better under that scorer.
+E21 establishes independently trained, unconditional TinyStories generation in MLX. E22 and E23 test how much corrupted conditioning the generator needs during training. All three seed-0 runs, their aligned evaluations and their benchmarks are complete, as are the three generator-seed-1 repeats (E24, E22-seed1 and E23-seed1). The main result is a useful failure: reducing corruption improves prediction when earlier levels are supplied correctly, while making independently generated text worse. E21 is the strongest of these three under the fixed external text scorer; the common autoregressive control remains substantially better under that scorer.
 
-This assessment is preliminary because generator-seed replication is in progress. The observation snapshot is **2026-10-30 14:33 UTC**. The running E24 experiment repeats E21 with generator seed 1 and the same frozen seed-0 codec; E22/E23 seed-1 follow-ups are queued. This tests generator reliability conditional on one codec, rather than full two-stage training variability. The existing sequential queue and its outputs were left intact. No training, inference or benchmark workload was started for this assessment.
+The seed-1 repeats train fresh generators and a fresh AR control with training seed 1, on the same frozen seed-0 codec. E24 repeats E21's recipe; E22-seed1 and E23-seed1 repeat E22 and E23. They test generator reliability conditional on one codec, not full two-stage training variability. The ranking E21 < E22 < E23 in free-running scorer PPL holds in both generator seeds (seed 0: 47.897 / 54.923 / 97.776; seed 1: 45.568 / 55.114 / 93.833), and the AR control stays ahead of every NCM generator (14.676 for seed 0, 14.311 for seed 1). Seed-0 values were audited from retained sample and scorer records; seed-1 values are read from the completed aligned reports, whose recorded result audits pass (see below). No training, inference or benchmark workload was started for this assessment.
 
-## Explanation for the owner
+## Summary
 
 - **E21 asks:** Can a much smaller, independently trained NCM learn short story openings, using the released TinyStories architecture family? It learns recognizable story language, but its own generations contain broken grammar, repeated words, changing characters and unfinished thoughts. Its codec is much better at reconstructing supplied text than its generator is at inventing text.
 - **E22 changes:** Reduce the random damage applied to earlier concept levels during training, keeping the codec, model size, training exposure and optimizer schedule fixed. Predicting the next level from correct earlier levels gets easier; actual generated text scores worse.
 - **E23 changes:** Remove that training damage entirely. Correct-context prediction gets better again, while actual generated text deteriorates sharply. A model can do well when given correct context and fail when it must live with its own mistakes.
 - **Strongest experiment:** E21 has the best free-running external-scorer result among the three completed runs. E23 has the lowest clean code-prediction loss, which does not make it the best text generator.
 - **Progress toward language:** Yes, this moves independent training beyond a hand-written grammar and Sudoku into prose. The corpus is still synthetic GPT-4 stories. It does not establish useful general language generation, natural-document generalization, prompt following or chat.
-- **Publication:** An incremental research revision can report the training implementation, reproducibility improvements and negative ablation. A major natural-language capability announcement is premature. Finish the already-running reliability checks before freezing a comparative paper table.
+- **Seed-1 repeats:** E24, E22-seed1 and E23-seed1 repeat the ordering. Lower clean code CE (E24 2.24909, E22-seed1 1.66106, E23-seed1 1.38638) again accompanies worse free-running PPL (45.568, 55.114, 93.833). The gap to the AR control remains large.
+- **Scope:** The result supports a reproducibility and failure-analysis account of the training implementation and the corruption ablation. It does not support a claim of competitive natural-language generation.
 
 ## Evidence and local state
 
-The results live in an active text-training worktree, rather than the main checkout. Its training source commit is `d323f4f7803d4e3607dd21dd9d28ae41c1cce2ae`. E22/E23 configs and the latest experiment-log additions are uncommitted in that worktree. No `.cloud` directory was found there or in the main checkout. Retained E21–E23 evidence describes local Apple Silicon runs, with a local sequential controller; it does not describe remote GPU experiments.
+The runs were produced by the text-training workflow that is now part of this repository (see [text training](../text-training.md)); the experiments used a frozen source snapshot whose file hashes are in the evidence extract, from development commit `d323f4f7803d4e3607dd21dd9d28ae41c1cce2ae`. That commit is not part of the public history. Of its 44 digested training files, 41 are byte-identical in this repository; the other three (`ncm_mlx/official/cli.py`, `model.py` and `sample.py`) also contain the later prefix-cache, compilation and benchmark changes to the released-checkpoint port. The 44 frozen training files, exactly as run, are attached to the paper release as `ncm-mlx-text-training-source-d323f4f.tar.gz`, with a SHA-256 checksum file ([download](https://github.com/janmus1c/ncm-mlx/releases/download/paper-v0.12/ncm-mlx-text-training-source-d323f4f.tar.gz)); each file's digest matches the evidence extract. The evaluation and benchmark driver is not included. The retained evidence describes local Apple Silicon runs under a local sequential controller; it does not describe remote GPU experiments.
 
-The main checkout's [status](../STATUS.md) still states that independent text validation is pending. That remains the public capability boundary until the training work and its evidence are integrated. The new workflow uses additions to `ncm_mlx/official/`; its name denotes architectural compatibility with the released checkpoint port, not official authorship of the independently trained weights. It differs from the existing TinyWorld/Sudoku training path.
+The [status page](../STATUS.md) states that public clean-checkout reproduction and naturally occurring text validation remain pending, and that remains the capability boundary. The workflow uses additions to `ncm_mlx/official/`; its name denotes architectural compatibility with the released checkpoint port, not official authorship of the independently trained weights. It differs from the existing TinyWorld/Sudoku training path.
 
-The [sanitized evidence extract](e21-e23-evidence.json) retains normalized configs, source hashes, data and scorer revisions, checkpoint identities, aggregate diagnostics, per-seed scores, benchmark raw times and the first eight NCM samples from sampling seed 42. Logical `runs/` paths identify original retained files; those ignored files are not supplied by a clean public checkout. Training snapshots, full sample JSONL, per-sample scorer records and the controller remain preserved locally.
+The [sanitized evidence extract](e21-e23-evidence.json) retains normalized configs, source hashes, data and scorer revisions, checkpoint identities, aggregate diagnostics, per-seed scores, benchmark raw times and the first eight NCM samples from sampling seed 42 for the seed-0 runs, plus the aggregate seed-1 results under `seed1_repeats`. Logical `runs/` paths identify original retained files; those ignored files are not supplied by a clean public checkout. Training snapshots, full sample JSONL, per-sample scorer records and the controller remain preserved locally.
 
 Independent CPU-only checks in this assessment verified:
 
@@ -36,6 +37,8 @@ Independent CPU-only checks in this assessment verified:
 - Every E21–E23 config, exported checkpoint, tokenizer and stored sample-file hash; all three data-manifest identities and the ordered 4,096 test-window hash.
 - Unique, complete sample identities; 1,280 samples per model; 128 in-range BPE token IDs per raw output; every decoded-text hash against its scorer record.
 - Every reported per-seed and mean generative perplexity, recomputed from retained individual NLL sums and scored-token counts.
+
+- For the six aligned reports (E21, E22, E23, E24, E22-seed1, E23-seed1), the recorded result audit passes and its claimed report hash equals the computed one. It covers 5,120 scored samples for E21 and 2,560 for each of the other five. The independent per-sample reaggregation described above covers the seed-0 runs; the seed-1 means and standard deviations are taken from the reports and their passing audits.
 
 These checks establish consistency of retained evidence, not an independent training replication or a fresh model-inference run. Large raw-corpus and scorer-weight hashes are retained declared identities and were not rehashed here. The original reports' result auditors also record passing checks. Historic CPU preflight records cover training, recovery, attention equivalence and sampler tests; this assessment did not rerun those tests.
 
@@ -54,7 +57,7 @@ These checks establish consistency of retained evidence, not an independent trai
 | Tokenization | Released 8,192-token BPE, EOS 0, PAD 1; verbatim story with leading newline, first 128 tokens of story + EOS, then right padding |
 | Data split | 2,717,495 training stories; valid file split by SHA-1 parity of stripped story into 13,960 validation and 13,670 test stories; document overlap with training is checked during preprocessing |
 | Environment | Apple M5 Pro, 64 GB unified memory, macOS 26.5, Python 3.12.14, MLX 0.32.3, `mlx-lm` 0.32.2, NumPy 2.5.4; Metal float32 with reduced-precision matmul |
-| Configured training seeds | Codec, E21 generator, common AR, E22 generator and E23 generator: seed 0 |
+| Configured training seeds | Codec, E21 generator, common AR, E22 generator and E23 generator: seed 0. E24, E22-seed1 and E23-seed1 generators and their AR control: seed 1, on the same frozen seed-0 codec; E22-seed1 and E23-seed1 reuse the seed-1 AR from E24 |
 | Codec training | E21 only: 14,000 updates × 256 = 3,584,000 presentations; reused unchanged by E22/E23 |
 | Generator training | Each: 15,000 updates × 64 = 960,000 presentations; 122,880,000 output-token positions |
 | AR training | Once: 7,500 updates × 128 = 960,000 presentations; reused as the common E22/E23 control |
@@ -70,10 +73,13 @@ All stages use AdamW, peak learning rate `5e-4`, cosine decay to `5e-5`, betas `
 | E22 generator | 14,435.59 | 4.01 | No |
 | E23 generator | 20,734.07 | 5.76 | No |
 | Shared seed-0 AR | 2,062.03 | 0.57 | No |
+| E24 generator (seed 1) | 18,842.73 | 5.23 | No |
+| E22-seed1 generator | 22,419.19 | 6.23 | No |
+| E23-seed1 generator | 18,706.68 | 5.20 | No |
 
 Training-loop totals exclude setup, evaluation and publication work. The first E21 codec + generator costs 19,415.42 seconds; later ablations reuse the codec. Training logs record a generator peak of about 13.39 GiB. The follow-up driver caps MLX memory at 26 GiB and cache at 2 GiB. These are local elapsed times, not dollar, energy or FLOP measurements. E23's longer wall time cannot be attributed to corruption alone: desktop load and runtime conditions vary.
 
-The comparison matches generator/AR window exposure and block stack, **not total compute or total model size**. The 11 predicted levels sum to 640 code positions; together with the EOS prefix, NCM's teacher-forced input contains 641 positions per window versus 128 AR positions. This corrects the worktree guide's statement of 640 total positions. Sequence length alone is not a FLOP estimate, and codec training is additional. The frozen codec also adds model storage and inference work. Released TinyStories is a separate, much larger reference: 36,434,816 codec values and 88,605,707 generator values. The pilot is not a matched reproduction of that model or its training budget.
+The comparison matches generator/AR window exposure and block stack, **not total compute or total model size**. The 11 predicted levels sum to 640 code positions; together with the EOS prefix, NCM's teacher-forced input contains 641 positions per window versus 128 AR positions. The teacher-forced input is therefore 641 positions, not 640. Sequence length alone is not a FLOP estimate, and codec training is additional. The frozen codec also adds model storage and inference work. Released TinyStories is a separate, much larger reference: 36,434,816 codec values and 88,605,707 generator values. The pilot is not a matched reproduction of that model or its training budget.
 
 ## Evaluation contract
 
@@ -81,7 +87,20 @@ Reconstruction and teacher-forced losses use the same ordered first 4,096 held-o
 
 Generative perplexity is an external probability score of generated text under [GPT-2 large at pinned revision `32b71b1`](https://huggingface.co/openai-community/gpt2-large/tree/32b71b12589c2f8d625668d2335a01cac3249519). It is not NCM's own token perplexity. Cleanup stops at the first EOS and removes PAD tokens before decoding. GPT-2 tokenization adds no BOS; every token after the first is scored. Right-padded scorer batches mask padded targets. NLL sums divide by scored-token counts within each sampling seed, then seed perplexities are averaged. Empty or one-token strings are unscorable and counted separately; none occurred. The scorer cap is 1,024 GPT-2 tokens. Retained records have at most 155 scored tokens, so that cap did not truncate this evaluation.
 
-This score is useful for a fixed comparison, but does not directly establish coherence, grammatical correctness, truthfulness or usefulness. No LLM-judge score is used. Qualitative observations below come from an assistant review, not a human quality study. The AR's own held-out token CE is distinct from external generative perplexity; NCM code CE is distinct from both. Temperature/top-k/top-p sensitivity has not been evaluated in these aligned reports.
+This score is useful for a fixed comparison, but does not directly establish coherence, grammatical correctness, truthfulness or usefulness. No LLM-judge score is used. Qualitative observations below come from an informal, unblinded reading, not a human quality study. The AR's own held-out token CE is distinct from external generative perplexity; NCM code CE is distinct from both. Temperature/top-k/top-p sensitivity has not been evaluated in these aligned reports.
+
+### Sensitivity of the saved scores
+
+A subsequent CPU-only audit checks 7,680 saved text identities against their scorer-record hashes and reproduces every reported mean to its published three-decimal precision. It then reaggregates the same NLLs; no samples are generated or rescored. Pooled token PPL exponentiates total NLL divided by total scored tokens. Equal-sample geometric PPL exponentiates the mean per-output token NLL, giving each output equal weight. Median sample PPL describes the central output. These are alternative summaries of one scorer, rather than independent quality measurements.
+
+| Model | Reported mean seed PPL | Pooled token PPL | Equal-sample geometric PPL | Median sample PPL |
+|---|---:|---:|---:|---:|
+| E21 | 47.897 | 47.891 | 47.862 | 46.196 |
+| E22 | 54.923 | 54.906 | 54.868 | 52.635 |
+| E23 | 97.776 | 97.757 | 97.680 | 95.498 |
+| Common AR | 14.676 | 14.671 | 14.708 | 13.612 |
+
+The ranking survives each aggregation. Mean scored lengths are similar: 127.1, 127.1 and 127.5 GPT-2 tokens for E21/E22/E23. Within the 96–127-token group, pooled PPL is 46.089 / 53.804 / 94.413; within 128–159 tokens, it is 50.807 / 56.304 / 100.457. Each group contains at least 494 outputs per NCM model, and the AR remains ahead within both groups. These post-hoc length groups do not control every generation difference or establish human-rated quality. They show that these particular aggregation and length checks do not reverse the first-seed result. Exact values and input hashes are retained under `additional_cpu_audit` in the [evidence extract](e21-e23-evidence.json).
 
 ## E21: establish a text-training pilot
 
@@ -99,7 +118,7 @@ This score is useful for a fixed comparison, but does not directly establish coh
 
 **Result.** Clean code CE improves to **1.66515**, while external generative perplexity worsens to **54.923**. Codec results remain identical because the codec is shared.
 
-**Conclusion.** Lower clean-context loss does not transfer to better free-running text in this seed-0 comparison. Reduced corruption is not an improvement under the fixed generation protocol. The direction is consistent across the five sampling-seed scores, but training-seed replication remains pending.
+**Conclusion.** Lower clean-context loss does not transfer to better free-running text in this seed-0 comparison. Reduced corruption is not an improvement under the fixed generation protocol. The direction is consistent across the five sampling-seed scores, and the seed-1 repeat (below) points the same way.
 
 ## E23: remove conditioning corruption
 
@@ -108,6 +127,25 @@ This score is useful for a fixed comparison, but does not directly establish coh
 **Result.** Clean code CE improves further to **1.38995**, while external generative perplexity deteriorates to **97.776**. The common codec and AR control are unchanged.
 
 **Conclusion.** This is the clearest negative result. Training on perfect earlier codes produces the best clean-context loss of the three and the worst independently generated text score. It is consistent with sensitivity to self-generated context errors; it does not isolate every mechanism behind the failure.
+
+## E24 and the seed-1 repeats
+
+**Objective and hypothesis.** Check whether the E21 < E22 < E23 ordering is a property of the corruption schedule or of one generator seed. E24 repeats E21's generator recipe, and E22-seed1 and E23-seed1 repeat E22 and E23, each with training seed 1 and the same frozen seed-0 codec, BPE and level-0 unigram. A fresh seed-1 AR control (E24's) serves all three. All three generators complete 15,000 of 15,000 updates at batch 64 and none is time-limited. A disk-headroom guard stopped the E24 controller once, after generator training had finished; the queue resumed at AR training without retraining the generator or changing a recipe. The same evaluation contract applies: 4,096 held-out windows, 256 outputs × sampling seeds 42, 0, 1, 2, 3, temperature 1, top-k 0, top-p 1.
+
+| Run | Corruption | Training seed | Clean code CE, nats/code | External generative PPL | SD across sampling seeds |
+|---|---|---:|---:|---:|---:|
+| E21 | 0.75 → 0.25 | 0 | 2.24875 | 47.897 | 0.797 |
+| E24 | 0.75 → 0.25 | 1 | 2.24909 | 45.568 | 0.909 |
+| E22 | 0.30 → 0.05 | 0 | 1.66515 | 54.923 | 1.548 |
+| E22-seed1 | 0.30 → 0.05 | 1 | 1.66106 | 55.114 | 1.568 |
+| E23 | 0 → 0 | 0 | 1.38995 | 97.776 | 2.107 |
+| E23-seed1 | 0 → 0 | 1 | 1.38638 | 93.833 | 1.424 |
+| AR control, seed 0 | n/a | 0 | AR token CE 1.31454 | 14.676 | 0.450 |
+| AR control, seed 1 | n/a | 1 | AR token CE 1.31806 | 14.311 | 0.237 |
+
+Per-sampling-seed values (42, 0, 1, 2, 3): E24 45.737, 44.409, 45.102, 46.870, 45.722; E22-seed1 54.969, 55.192, 56.967, 55.768, 52.675; E23-seed1 94.068, 91.984, 93.083, 95.816, 94.213; AR seed 1 14.246, 14.254, 13.977, 14.534, 14.547. No sample was unscorable in any run, and codec reconstruction is the shared 99.816% non-pad token accuracy.
+
+**Conclusion.** The ordering of free-running scorer quality is the same in both generator seeds, as is the opposite ordering of clean code CE. Between generator seeds the means differ by 2.329 for E21/E24, 0.191 for E22 and 3.943 for E23, all much smaller than the gaps of 7.0 to 42.9 between adjacent corruption settings within a seed, but not negligible beside the sampling-seed SDs. With two generator seeds on one codec, these differences describe run-to-run variation, not a variance estimate or significance test. The AR controls differ slightly between seeds (14.676 and 14.311), so seed-1 gaps are measured against the seed-1 control. The seed-1 repeats do not test codec-seed variation.
 
 ## Comparison
 
@@ -145,7 +183,7 @@ These are the **first** NCM output for sampling seed 42, index 0, in each aligne
 
 > Jack and his mum were walking by the beach at. T T gears. Tom loved to harbor because learn learned he wanted to travel beyond and was and excited, green trees and trees.
 
-Assistant inspection of the first eight retained outputs from each run identifies recognizable story vocabulary and short plausible phrases mixed with word duplication, incomplete clauses, name/pronoun changes, implausible actions and unstable narrative continuity. The first E21 output switches among Jack, Joe and John. E23's first output shifts among beach, trees, a park, a lizard, a squirrel and ducks with broken transitions. These are qualitative observations from a fixed small sample, not human ratings, a blinded comparison or an estimated grammatical-error rate. Many outputs, including the data reference, end mid-story because the protocol caps length at 128 BPE tokens.
+Inspection of the first eight retained outputs from each run identifies recognizable story vocabulary and short plausible phrases mixed with word duplication, incomplete clauses, name/pronoun changes, implausible actions and unstable narrative continuity. The first E21 output switches among Jack, Joe and John. E23's first output shifts among beach, trees, a park, a lizard, a squirrel and ducks with broken transitions. These are qualitative observations from a fixed small sample, not human ratings, a blinded comparison or an estimated grammatical-error rate. Many outputs, including the data reference, end mid-story because the protocol caps length at 128 BPE tokens.
 
 ## Latency, memory and interpretation
 
@@ -164,17 +202,17 @@ The 11-forward generator is faster in these recorded eager comparisons, while sc
 
 ## What is established and what remains open
 
-**Established:** independently trained short-prose reconstruction and unconditional generation run end to end; retained evidence separates code prediction from actual generated text; this fixed-seed corruption ablation exhibits opposite movements in clean-context code loss and free-running scorer quality. The large reconstruction/generation gap is measurable rather than inferred from loss alone.
+**Established:** independently trained short-prose reconstruction and unconditional generation run end to end; retained evidence separates code prediction from actual generated text; this corruption ablation, in two generator seeds on one codec, exhibits opposite movements in clean-context code loss and free-running scorer quality. The large reconstruction/generation gap is measurable rather than inferred from loss alone.
 
-**Unproven:** useful natural-document language quality, conditional continuation, long-form coherence, robust grammar, full memorization safety, temperature sensitivity, causal attribution across training seeds, independent codec-seed replication, and matched-quality or matched-total-compute superiority to AR. The pilot also does not test the ceiling of the architecture under the released model's far larger budget. No energy measurement, rental cost or independent hardware replication is available.
+**Unproven:** useful natural-document language quality, conditional continuation, long-form coherence, robust grammar, full memorization safety, temperature sensitivity, causal attribution beyond two generator seeds, independent codec-seed replication, and matched-quality or matched-total-compute superiority to AR. The pilot also does not test the ceiling of the architecture under the released model's far larger budget. No energy measurement, rental cost or independent hardware replication is available.
 
-**Reproducibility:** final exports, full-state training snapshots, configs, source digests, ordered scoring-input hash, all sample outputs and per-sample scorer values exist locally. The audit can recover the published aggregates from those values. However, the unmerged text workflow and private evaluation/benchmark driver are not yet a public clean-checkout recipe. The optimized sampler is pinned by frozen source hashes rather than a selected public release commit. A release must include a reviewed public evaluation driver or an equivalent deterministic reproduction path, complete source snapshot, sample/scorer artifacts and data-rights notes. The sanitized extract alone does not satisfy that release gate.
+**Reproducibility:** final exports, full-state training snapshots, configs, source digests, ordered scoring-input hash, all sample outputs and per-sample scorer values exist locally. The audit can recover the published aggregates from those values. The training and evaluation workflow is now in this repository, but the aligned evaluation and benchmark job driver that produced these reports is not part of it, so a clean-checkout reproduction has not been verified. The optimized sampler is pinned by frozen source hashes rather than a selected public release commit. A reproducible release needs a reviewed public evaluation driver or an equivalent deterministic reproduction path, a complete source snapshot, sample and scorer artifacts, and data-rights notes. The sanitized extract alone does not provide that.
 
-## Next research stage and publication readiness
+## Next research steps
 
-1. Let the existing E24 and E22/E23 seed-1 queue finish within its already-authorized bounds. Preserve incomplete/failed/time-limited stages if the controller stops. Report seed-1 results alongside seed 0; do not replace seed 0 with a selected winner. No additional training is justified before these results are reviewed.
+1. Keep seed-0 and seed-1 results side by side; do not replace either with a selected winner.
 2. Use the retained outputs to perform a small fixed, blinded human comparison with the AR and reference, recording instructions, sample identities and failures. Expand novelty checks beyond exact openings. These address quality and memorization questions the scorer cannot answer.
-3. Before further compute, choose a targeted test: a small sampling-policy sweep can separate poor sampling calibration from poor learned generation; a teacher-forced versus self-generated per-level error analysis can probe the corruption hypothesis. Both need a documented budget and should wait for a free accelerator. Neither requires another large training campaign.
-4. Integrate and verify the public text-training/evaluation recipe and sanitized evidence. Assess data and weight distribution terms before a new checkpoint release. Keep actual model generation separate from illustrative refinement explanations in any demo.
+3. Before further compute, choose a targeted test: a small sampling-policy sweep can separate poor sampling calibration from poor learned generation; a teacher-forced versus self-generated per-level error analysis can probe the corruption hypothesis. Both need a documented budget and a free accelerator. Neither requires another large training campaign. A second codec seed is the first test of codec-conditional variation.
+4. Verify the public text-training and evaluation recipe from a clean checkout. Assess data and weight distribution terms before any new checkpoint release. Keep actual model generation separate from illustrative refinement explanations in any demo.
 
-**Paper classification: B, incremental revision, with a pending evidence freeze.** The new controlled-text workflow and negative ablation materially extend the current documented findings, so a documentation-only update would miss research content. The evidence does not support category C claims of strong natural-language generation or superiority to AR. Draft the methods and failure analysis now; freeze comparative conclusions after the already-running reliability checks and public reproduction review. A scientific software release can accompany that review once integration tests pass. A new public paper version, new model upload or coordinated announcement requires owner approval. No new public artifact was published by this assessment.
+**Scope of claims.** The controlled-text workflow and the corruption ablation extend the documented findings with a reproducibility and failure analysis. The evidence does not support claims of strong natural-language generation or superiority to AR.

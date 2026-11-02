@@ -1,4 +1,4 @@
-"""Render the Sudoku evidence and research gates without running a model."""
+"""Render the Sudoku evidence and the project roadmap without running a model."""
 
 from __future__ import annotations
 
@@ -182,43 +182,79 @@ def seed_chart(theme: str, mobile: bool) -> None:
     plt.close(fig)
 
 
-def research_path(theme: str, mobile: bool) -> None:
-    d = Drawing(420 if mobile else 1080, 1000 if mobile else 440, theme,
-                "From measured systems to controlled text research.",
-                "TinyWorld and Sudoku have measured results. Controlled text is planned, gated on data rights, "
-                "held-out quality and a matched autoregressive baseline. General text quality is not established.")
-    d.text(28 if mobile else 32, 49, "Evidence first. Text research next.", 24 if mobile else 32, weight=650)
-    cards = [
-        ("01  MEASURED", "TinyWorld", ["Synthetic grammar", "Codec + generator + AR", "Quality and latency trade-off"]),
-        ("02  MEASURED", "Sudoku", ["E19 and E20 completed", "Easy / medium retained", "Hard-board gap unresolved"]),
-        ("03  PLANNED", "Controlled text", ["Pin data rights and splits", "Measure held-out quality", "Match an AR training budget"]),
-    ]
-    for index, (state, title, labels) in enumerate(cards):
-        x, y = (28, 95 + index * 263) if mobile else (32 + index * 352, 110)
-        w, h = (364, 216) if mobile else (312, 211)
-        if index == 2:
-            d.parts.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="4" '
-                           f'fill="none" stroke="{d.line}" stroke-dasharray="5 5"/>')
-        else:
-            d.box(x, y, w, h)
-        d.text(x + 20, y + 32, state, 16, muted=True)
-        d.text(x + 20, y + 77, title, 27, weight=600)
-        for row, label in enumerate(labels):
-            d.text(x + 20, y + 119 + row * 31, label, 18 if mobile else 17, muted=True)
-        if index < 2:
-            if mobile:
-                d.arrow(210, y + h + 10, True)
-            else:
-                d.arrow(x + w + 5, y + 101)
+COMPLETED = [
+    ("TinyWorld", ["Synthetic grammar", "Codec, generator, AR", "Latency and quality"]),
+    ("Sudoku", ["E6 to E20, two seeds", "Easy 98.1%, medium 83.4%", "Hard boards still behind"]),
+    ("Checkpoint port", ["Runs Kumbong et al.", "TinyStories and Sudoku", "Agrees with PyTorch, tested"]),
+    ("TinyStories", ["E21 to E24, two seeds", "Lower loss, worse text", "Best NCM perplexity 3x AR"]),
+]
+PLANNED = [
+    ("Close the gap at small scale", ["Best NCM perplexity is about 3x AR;", "corruption and loss-weighting ablations"]),
+    ("Prompt-conditioned training", ["Official XSum and WMT14 codecs", "Red-fuchs/ncm-modular, issue #3"]),
+    ("Mixed-precision throughput", ["Measure speed before scaling up"]),
+    ("Natural-text corpus", ["Several billion tokens"]),
+    ("100M model, about 2B tokens", ["The go / no-go against AR"]),
+    ("300M, then about 1B", ["Only if NCM is close to AR", "at matched compute"]),
+]
+
+
+def project_roadmap(theme: str, mobile: bool) -> None:
+    d = Drawing(420 if mobile else 1080, 1620 if mobile else 735, theme,
+                "From a laptop study to a text model: completed work and planned steps.",
+                "Four completed milestones: TinyWorld, Sudoku, the released-checkpoint port and the TinyStories "
+                "ablation. Six planned steps in order: close the gap to the autoregressive baseline at small scale, "
+                "prompt-conditioned training, mixed-precision throughput, a natural-text corpus, a 100M go/no-go "
+                "run, then 300M and about 1B only if NCM is close to the baseline. Planned steps are plans, not results.")
+    m = 28 if mobile else 32
+    d.text(m, 49, "Roadmap" if mobile else "Roadmap: measured so far, planned next", 26 if mobile else 32, weight=650)
+    goal = ["Goal: about 1B parameters, text not worse than", "a matched autoregressive baseline."]
     if mobile:
-        d.rule(28, 897, 392, 897)
-        d.text(28, 932, "Next gates, not promised capabilities.", 19, weight=600)
-        d.text(28, 964, "Real-text quality is not established today.", 17, muted=True)
+        d.text(m, 84, goal[0], 17, muted=True)
+        d.text(m, 108, goal[1], 17, muted=True)
+        y0 = 148
     else:
-        d.rule(32, 357, 1048, 357)
-        d.text(32, 398, "Next gates, not promised capabilities.", 21, weight=600)
-        d.text(1048, 398, "Real-text quality is not established today.", 18, muted=True, anchor="end")
-    save(d, "research-path", theme, mobile)
+        d.text(m, 88, " ".join(goal), 19, muted=True)
+        y0 = 128
+    d.text(m, y0, "COMPLETED", 16, muted=True)
+    if mobile:
+        for i, (title, lines) in enumerate(COMPLETED):
+            y = y0 + 20 + i * 150
+            d.box(m, y, 364, 136)
+            d.text(m + 20, y + 36, f"{i + 1:02}  {title}", 24, weight=600)
+            for r, line in enumerate(lines):
+                d.text(m + 20, y + 68 + r * 26, line, 17, muted=True)
+        y1 = y0 + 20 + 4 * 150 + 8
+    else:
+        w = 246
+        for i, (title, lines) in enumerate(COMPLETED):
+            x = m + i * (w + 10)
+            y = y0 + 20
+            d.box(x, y, w, 146)
+            d.text(x + 20, y + 36, title, 24, weight=600)
+            for r, line in enumerate(lines):
+                d.text(x + 20, y + 72 + r * 27, line, 16, muted=True)
+        y1 = y0 + 20 + 146 + 30
+    d.rule(m, y1, 1048 if not mobile else 392, y1)
+    d.text(m, y1 + 40, "PLANNED, IN ORDER", 16, muted=True)
+    y2 = y1 + 60
+    for i, (title, lines) in enumerate(PLANNED):
+        if mobile:
+            x, y, w, h = m, y2 + i * 114, 364, 100
+        else:
+            x, y, w, h = m + (i % 3) * 344, y2 + (i // 3) * 126, 328, 112
+        d.parts.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="4" fill="none" '
+                       f'stroke="{d.line}" stroke-dasharray="5 5"/>')
+        d.text(x + 20, y + 34, f"{i + 1:02}  {title}", 19 if not mobile else 20, weight=600)
+        for r, line in enumerate(lines):
+            d.text(x + 20, y + 62 + r * 24, line, 16 if not mobile else 15, muted=True)
+    yf = (y2 + 6 * 114 + 12) if mobile else (y2 + 2 * 126 + 14)
+    d.rule(m, yf, 392 if mobile else 1048, yf)
+    d.text(m, yf + 38, "Planned steps are plans, not results.", 19, weight=600)
+    if mobile:
+        d.text(m, yf + 68, "No delivery dates.", 16, muted=True)
+    else:
+        d.text(1048, yf + 38, "No delivery dates.", 17, muted=True, anchor="end")
+    save(d, "project-roadmap", theme, mobile)
 
 
 def main() -> None:
@@ -226,8 +262,8 @@ def main() -> None:
         for mobile in (False, True):
             sudoku(theme, mobile)
             seed_chart(theme, mobile)
-            research_path(theme, mobile)
-    print("Rendered Sudoku workflow, two-seed evidence and research gates in both themes and layouts")
+            project_roadmap(theme, mobile)
+    print("Rendered Sudoku workflow, two-seed evidence and roadmap in both themes and layouts")
 
 
 if __name__ == "__main__":

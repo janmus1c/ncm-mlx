@@ -1,0 +1,122 @@
+{
+ "description": "TinyStories corruption ablation (Section 10): clean teacher-forced code cross-entropy and GPT-2-large generative perplexity of the MLX NCM generators, by corruption schedule and generator seed. Copied from the saved evaluation reports; read by paper/make_figures.py.",
+ "scorer": "openai-community/gpt2-large@32b71b12589c2f8d625668d2335a01cac3249519",
+ "schedules": {
+  "strong": {
+   "label": "0.75 to 0.25",
+   "runs": [
+    {
+     "generator_seed": 0,
+     "clean_code_ce": 2.24875,
+     "gen_ppl_per_sampling_seed": {
+      "42": 48.559,
+      "0": 46.974,
+      "1": 48.46,
+      "2": 48.412,
+      "3": 47.08
+     },
+     "gen_ppl_mean": 47.897
+    },
+    {
+     "generator_seed": 1,
+     "clean_code_ce": 2.24909,
+     "gen_ppl_per_sampling_seed": {
+      "42": 45.737,
+      "0": 44.409,
+      "1": 45.102,
+      "2": 46.87,
+      "3": 45.722
+     },
+     "gen_ppl_mean": 45.568
+    }
+   ]
+  },
+  "reduced": {
+   "label": "0.30 to 0.05",
+   "runs": [
+    {
+     "generator_seed": 0,
+     "clean_code_ce": 1.66515,
+     "gen_ppl_per_sampling_seed": {
+      "42": 57.06,
+      "0": 55.003,
+      "1": 55.205,
+      "2": 54.626,
+      "3": 52.721
+     },
+     "gen_ppl_mean": 54.923
+    },
+    {
+     "generator_seed": 1,
+     "clean_code_ce": 1.66106,
+     "gen_ppl_per_sampling_seed": {
+      "42": 54.969,
+      "0": 55.192,
+      "1": 56.967,
+      "2": 55.768,
+      "3": 52.675
+     },
+     "gen_ppl_mean": 55.114
+    }
+   ]
+  },
+  "none": {
+   "label": "none",
+   "runs": [
+    {
+     "generator_seed": 0,
+     "clean_code_ce": 1.38995,
+     "gen_ppl_per_sampling_seed": {
+      "42": 100.459,
+      "0": 95.578,
+      "1": 95.674,
+      "2": 98.571,
+      "3": 98.599
+     },
+     "gen_ppl_mean": 97.776
+    },
+    {
+     "generator_seed": 1,
+     "clean_code_ce": 1.38638,
+     "gen_ppl_per_sampling_seed": {
+      "42": 94.068,
+      "0": 91.984,
+      "1": 93.083,
+      "2": 95.816,
+      "3": 94.213
+     },
+     "gen_ppl_mean": 93.833
+    }
+   ]
+  }
+ },
+ "ar_baseline": {
+  "0": {
+   "per_sampling_seed": {
+    "42": 14.885,
+    "0": 14.581,
+    "1": 14.032,
+    "2": 15.258,
+    "3": 14.623
+   },
+   "mean": 14.676
+  },
+  "1": {
+   "per_sampling_seed": {
+    "42": 14.246,
+    "0": 14.254,
+    "1": 13.977,
+    "2": 14.534,
+    "3": 14.547
+   },
+   "mean": 14.311
+  }
+ },
+ "released_checkpoint": {
+  "clean_code_ce": 1.37032,
+  "gen_ppl_mean": 16.259
+ },
+ "held_out_data": {
+  "gen_ppl_mean": 8.529
+ }
+}

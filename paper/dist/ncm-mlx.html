@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en-GB" xml:lang="en-GB">
 <head>
   <meta charset="utf-8" />
-  <meta name="generator" content="pandoc 3.12.1" />
+  <meta name="generator" content="pandoc 3.13" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Jan Music" />
   <meta name="keywords" content="coarse-to-fine generation, residual
@@ -130,31 +130,48 @@ nav#TOC { font-size: .9rem; border: 1px solid var(--rule); padding: .5rem 1rem; 
 <h1 class="title">Coarse-to-Fine Text Generation on a Laptop: A Native
 MLX Study of Next-Concept Modeling</h1>
 <p class="author">Jan Music</p>
-<p class="date">v0.11 · 2026-10-27</p>
+<p class="date">v0.12 · 2026-11-02</p>
 <div class="abstract">
 <div class="abstract-title">Abstract</div>
 <p>Next-Concept Modeling (NCM) generates a sequence through successive
-levels of discrete latent codes, predicting each level in parallel. We
-independently implement the method in MLX and study synthetic language
-and Sudoku on Apple Silicon and NVIDIA GPUs. On a finite synthetic
-grammar, a 5M-parameter generator achieves lower small-batch latency
-than a similarly sized autoregressive generator, with lower sentence
-validity (89.8% versus 98.6%). Two Sudoku training seeds use the same
-6.44M-parameter generator recipe and 16.384M presentations each.
-Retained greedy evaluation aggregates report easy/medium/hard solve
-rates of 98.10/83.40/40.30% for seed 0 and 97.25/79.60/33.25% for seed
-1, with 2,000 boards per difficulty. The hard-set difference is 7.05
-percentage points; two seeds do not establish population training
-variability or its cause. Original NCM reports 99.50/96.50/86.10% with a
-25.46M generator, 51.2M presentations and a different task setup. Our
-generator is 3.95 times smaller, excluding its additional codec; the
+levels of discrete latent codes, predicting each level in parallel. The
+method is by Kumbong et al.; we implement it independently in MLX and
+study synthetic language, Sudoku and short synthetic stories on Apple
+Silicon and NVIDIA GPUs. On a finite synthetic grammar, a 5M-parameter
+generator achieves lower small-batch latency than a similarly sized
+autoregressive generator, with lower sentence validity (89.8% versus
+98.6%). Two Sudoku training seeds use the same 6.44M-parameter generator
+recipe and 16.384M presentations each. Retained greedy evaluation
+aggregates report easy/medium/hard solve rates of 98.10/83.40/40.30% for
+seed 0 and 97.25/79.60/33.25% for seed 1, with 2,000 boards per
+difficulty; two seeds do not establish population training variability
+or its cause. Original NCM reports 99.50/96.50/86.10% with a 25.46M
+generator, 51.2M presentations and a different task setup, so the
 comparison establishes neither task parity nor matched-cost efficiency.
-E20 completes its schedule without a recorded reset or truncation, but
-missing per-board predictions and remote provenance manifests limit
-independent audit. We characterize this phase as a partial
-implementation and small-model success, retain the substantial
-hard-Sudoku deficit, and define controlled text evaluation as the next
-research direction rather than a demonstrated capability.</p>
+Missing per-board predictions and remote provenance manifests limit
+independent audit of the Sudoku runs. This version adds two bounded
+results. First, an inference-only MLX port of the released TinyStories
+and Sudoku checkpoints agrees with upstream PyTorch on CPU in the tested
+computations: the largest compared fp32 TinyStories logit difference is
+0.100 at logit magnitudes up to 853, and 3.2e-10 in a composed fp64
+diagnostic. The converted Sudoku checkpoints solve 99.40/96.30/86.20% of
+2,000 boards per difficulty. This concerns upstream-trained weights, not
+their training. Second, we train small TinyStories models (an
+11.8M-value generator on a frozen 15.5M-value codec) and ablate
+conditioning corruption with two generator seeds that share one codec.
+The codec reconstructs held-out windows accurately (99.816% of
+non-padding tokens). Clean teacher-forced code cross-entropy and
+free-running quality rank the three corruption schedules in opposite
+order in both seeds. Under a fixed external scorer (GPT-2 large),
+generative perplexity for strong, reduced and no corruption is
+47.897/54.923/97.776 for generator seed 0 and 45.568/55.114/93.833 for
+seed 1. An MLX autoregressive baseline with the same block stack scores
+14.676 and 14.311, the released TinyStories checkpoint 16.259 and
+held-out text 8.529. Total training compute is not matched, the corpus
+is synthetic, generation is unconditional and no conditional task is
+tested. We characterize the work as a partial implementation, a
+small-model Sudoku success and a documented failure of free-running text
+quality at pilot scale.</p>
 </div>
 </header>
 <nav id="TOC" role="doc-toc">
@@ -169,10 +186,15 @@ Silicon</a></li>
 <li><a href="#experiments" id="toc-experiments"><span class="toc-section-number">7</span> Experiments</a></li>
 <li><a href="#the-journey-experiment-by-experiment" id="toc-the-journey-experiment-by-experiment"><span class="toc-section-number">8</span> The journey: experiment by
 experiment</a></li>
-<li><a href="#discussion" id="toc-discussion"><span class="toc-section-number">9</span> Discussion</a></li>
-<li><a href="#limitations" id="toc-limitations"><span class="toc-section-number">10</span> Limitations</a></li>
-<li><a href="#related-work" id="toc-related-work"><span class="toc-section-number">11</span> Related work</a></li>
-<li><a href="#conclusion" id="toc-conclusion"><span class="toc-section-number">12</span> Conclusion</a></li>
+<li><a href="#released-checkpoints-in-mlx-inference-parity" id="toc-released-checkpoints-in-mlx-inference-parity"><span class="toc-section-number">9</span> Released checkpoints in MLX:
+inference parity</a></li>
+<li><a href="#controlled-text-tinystories-pilots" id="toc-controlled-text-tinystories-pilots"><span class="toc-section-number">10</span> Controlled text: TinyStories
+pilots</a></li>
+<li><a href="#discussion" id="toc-discussion"><span class="toc-section-number">11</span> Discussion</a></li>
+<li><a href="#limitations" id="toc-limitations"><span class="toc-section-number">12</span> Limitations</a></li>
+<li><a href="#related-work" id="toc-related-work"><span class="toc-section-number">13</span> Related work</a></li>
+<li><a href="#roadmap" id="toc-roadmap"><span class="toc-section-number">14</span> Roadmap</a></li>
+<li><a href="#conclusion" id="toc-conclusion"><span class="toc-section-number">15</span> Conclusion</a></li>
 <li><a href="#code-and-reproducibility" id="toc-code-and-reproducibility">Code and reproducibility</a></li>
 <li><a href="#ai-assistance" id="toc-ai-assistance">AI
 assistance</a></li>
@@ -183,12 +205,17 @@ assistance</a></li>
 </ul>
 </nav>
 <blockquote>
-<p><strong>Status.</strong> Working paper, version 0.11. Every number
-here is copied from a run in the code repository (<code>runs/</code>,
-summarised in <code>paper/data/results.json</code>) or quoted from the
-cited paper and marked as quoted. Experiments still running are marked
-<em>in progress</em> and never estimated. Appendix C lists the changes
-between versions.</p>
+<p><strong>Status.</strong> Unreviewed working paper, version 0.12
+(version DOI: <a href="https://doi.org/10.5281/zenodo.23897923">10.5281/zenodo.23897923</a>).
+Every number here is copied from a run in the code repository
+(<code>runs/</code>, summarised in
+<code>paper/data/results.json</code>), from the retained evidence
+extracts under <code>docs/research/</code>, or quoted from the cited
+paper and marked as quoted. The TinyStories evidence of Section 10 is
+retained as described there; its sample-level records are not yet part
+of a clean public checkout. Experiments still running are marked <em>in
+progress</em> and never estimated. Appendix C lists the changes between
+versions.</p>
 </blockquote>
 <h1 data-number="1" id="reading-guide"><span class="header-section-number">1</span> Reading guide</h1>
 <p>This paper has two audiences. <strong>If you are new to language
@@ -197,7 +224,10 @@ models</strong>, read Section 2 (the idea in plain language) and Section
 <strong>If you build models</strong>, Sections 5–7 give the method with
 every formula explained, the Apple Silicon implementation and the
 experiments. Section 8 tells the story of the project run by run: what
-each experiment (E0, E1, …) asked, what changed and what we learned.</p>
+each experiment (E0, E1, …) asked, what changed and what we learned.
+Section 9 reports how the released checkpoints of the original authors
+run in our MLX port, and Section 10 reports our own TinyStories
+experiments, including the corruption ablation and its seed repeat.</p>
 <h1 data-number="2" id="the-idea-in-plain-language"><span class="header-section-number">2</span> The idea in plain language</h1>
 <h2 data-number="2.1" id="how-a-chat-model-writes"><span class="header-section-number">2.1</span> How a chat model writes</h2>
 <p>A chat model such as ChatGPT or Qwen writes one <em>token</em> (a
@@ -264,9 +294,16 @@ a laptop. On Sudoku, two training seeds solve 97.25–98.10% of easy
 boards but only 33.25–40.30% of hard boards. Original NCM reports 99.5%
 and 86.1%, respectively, under a different setup. A historical
 comparison matches generator presentations against our AR baseline;
-Section 8 records the experiments. NCM is a generation method used here
-for two tasks, not a Sudoku-specific expansion of the term or an
-instruction-following language model.</p>
+Section 8 records the experiments.</p>
+<p>Two later additions concern text. We wrote an inference-only port
+that runs the original authors’ released checkpoints and checked it
+against their PyTorch code (Section 9). We also trained small models of
+our own on TinyStories, a corpus of short synthetic children’s stories
+(Section 10). Those models reconstruct held-out story text accurately
+but generate stories that an external language model scores far worse
+than a word-by-word baseline built from the same transformer blocks. NCM
+is a generation method used here for three tasks, not a Sudoku-specific
+expansion of the term or an instruction-following language model.</p>
 <h1 data-number="3" id="glossary"><span class="header-section-number">3</span> Glossary</h1>
 <table>
 <caption>Terms used in this paper.</caption>
@@ -283,8 +320,8 @@ instruction-following language model.</p>
 <tbody>
 <tr>
 <td>Token</td>
-<td>The unit a model reads and writes. Here: one character (TinyWorld)
-or one Sudoku cell.</td>
+<td>The unit a model reads and writes. Here: one character (TinyWorld),
+one Sudoku cell or one byte-pair piece of text (TinyStories).</td>
 </tr>
 <tr>
 <td>Autoregressive (AR) model</td>
@@ -369,6 +406,23 @@ nats is a uniform guess among 16 codes.</td>
 <td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>e</mi><mrow><mi mathvariant="normal">C</mi><mi mathvariant="normal">E</mi></mrow></msup><annotation encoding="application/x-tex">e^{\mathrm{CE}}</annotation></semantics></math>,
 the effective number of choices. Code perplexity 1 means a level always
 uses the same code and carries no information.</td>
+</tr>
+<tr>
+<td>BPE</td>
+<td>Byte-pair encoding: a fixed vocabulary of frequent word pieces
+(8,192 here) into which text is split.</td>
+</tr>
+<tr>
+<td>Clean code CE</td>
+<td>Generator cross-entropy per code when every coarser level is
+supplied correctly (teacher forcing), on held-out windows. It is not a
+measure of free-running generation.</td>
+</tr>
+<tr>
+<td>Generative perplexity</td>
+<td>Perplexity that an <em>external</em> language model (GPT-2 large)
+assigns to text a model generated on its own. Lower is better; it is not
+the generating model’s own likelihood.</td>
 </tr>
 <tr>
 <td>Temperature, greedy</td>
@@ -670,7 +724,8 @@ falling linearly across levels <span class="citation" data-cites="ncm2026">(<a h
 <p>This is the coarse-to-fine analogue of scheduled sampling <span class="citation" data-cites="ss2015">(<a href="#ref-ss2015" role="doc-biblioref">Bengio et al. 2015</a>)</span>. The paper notes
 that corruption “based on the model’s actual errors may better match
 inference conditions” but does not test it; experiment E9 tests it and
-finds no gain at our scale (Section 8).</p>
+finds no gain at our scale (Section 8). Section 10 varies the corruption
+schedule itself on TinyStories text.</p>
 <h2 data-number="5.3" id="generation"><span class="header-section-number">5.3</span> Generation</h2>
 <p>For
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi><mo>=</mo><mn>0</mn><mo>,</mo><mi>…</mi><mo>,</mo><mi>K</mi><mo>−</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">k = 0, \dots, K-1</annotation></semantics></math>:
@@ -838,7 +893,8 @@ not match Original NCM’s reported result.</p>
 <p>Runs use an Apple M5 Pro (64 GB unified memory, macOS 26.5), an RTX
 3080 or a rented A40, as labelled for each experiment, with MLX 0.32.3.
 Other GPU workloads often ran on the Mac; timings this affects are
-marked.</p>
+marked. The TinyStories experiments of Section 10 and the parity checks
+of Section 9 ran on the Mac.</p>
 <h2 data-number="7.1" id="tinyworld-an-invented-language"><span class="header-section-number">7.1</span> TinyWorld: an invented
 language</h2>
 <p>TinyWorld has 15,360 sentences of the form <em>name verb count
@@ -1056,6 +1112,14 @@ differ except for the explicitly matched E11 comparison.</caption>
 <td>96.5%</td>
 <td>86.1%</td>
 </tr>
+<tr>
+<td>Released Sudoku checkpoints (Kumbong et al.), run in the MLX port on
+the M5 Pro</td>
+<td>25M</td>
+<td>99.40%</td>
+<td>96.30%</td>
+<td>86.20%</td>
+</tr>
 </tbody>
 </table>
 <p>The first AR row is within a few percentage points of the Original AR
@@ -1066,7 +1130,10 @@ fills 74.7% of blank cells correctly, more than the AR model’s 71.0%,
 while still solving fewer boards. E11 solves 55.2% of easy boards; at
 the same 2.048M generator presentations, the AR model solves 20.5%, 4.9%
 and 0.5%. This matches generator data exposure, not total training cost,
-FLOPs or system size. Section 8 records the changes.</p>
+FLOPs or system size. Section 8 records the changes. The last row
+evaluates the original authors’ released, upstream-trained weights
+through our inference port (Section 9); it is separate from the E19 and
+E20 models trained here.</p>
 <p>The shared E6 codec contains 13,816,704 gradient-trained values,
 49,152 EMA-trained codebook values and 49,344 EMA accumulators:
 13,915,200 saved scalar values in total. Its learned first-level down/up
@@ -1353,7 +1420,8 @@ in <code>docs/EXPERIMENTS.md</code>.</p>
 </blockquote>
 <table>
 <caption>Experiments in order. Sudoku results are for the easy test
-boards.</caption>
+boards; E21 onwards use TinyStories and report external generative
+perplexity (GPT-2 large, lower is better).</caption>
 <colgroup>
 <col style="width: 20%" />
 <col style="width: 20%" />
@@ -1535,6 +1603,43 @@ NCM</td>
 <td>Easy/medium gains persist; hard result varies by 7.05 points; audit
 limits remain</td>
 </tr>
+<tr>
+<td>E21</td>
+<td>Can NCM be trained on BPE story text?</td>
+<td>New codec on TinyStories windows; generator corruption 0.75 → 0.25;
+AR control</td>
+<td>Reconstruction 99.816%; perplexity 47.897 (AR 14.676)</td>
+<td>The pipeline runs end to end; free-running text is far behind
+AR</td>
+</tr>
+<tr>
+<td>E22</td>
+<td>Is that corruption too strong?</td>
+<td>Corruption 0.30 → 0.05, same codec and exposure</td>
+<td>Clean code CE 1.66515; perplexity 54.923</td>
+<td>Lower clean loss, worse generated text</td>
+</tr>
+<tr>
+<td>E23</td>
+<td>What happens without corruption?</td>
+<td>Corruption 0 → 0</td>
+<td>Clean code CE 1.38995; perplexity 97.776</td>
+<td>Best clean loss, worst generated text</td>
+</tr>
+<tr>
+<td>E24</td>
+<td>Does E21 repeat across generator seeds?</td>
+<td>Generator and AR seed 1, same frozen codec</td>
+<td>Clean code CE 2.24909; perplexity 45.568 (AR 14.311)</td>
+<td>E21’s result repeats; one codec only</td>
+</tr>
+<tr>
+<td>E22 / E23, seed 1</td>
+<td>Does the ordering repeat?</td>
+<td>Generator seed 1, same frozen codec</td>
+<td>Code CE 1.66106 / 1.38638; perplexity 55.114 / 93.833</td>
+<td>The inverted ordering repeats in both generator seeds</td>
+</tr>
 </tbody>
 </table>
 <p><strong>What the journey shows.</strong> The first Sudoku
@@ -1548,16 +1653,805 @@ corruption and a training budget about a hundred times larger.
 Corruption alone (E8) produced the first solved boards and lifted
 blank-cell accuracy by 20 points on every test set. Its validation loss
 was <em>worse</em> than without corruption, a reminder that
-teacher-forced loss does not measure what generation needs.</p>
-<h1 data-number="9" id="discussion"><span class="header-section-number">9</span> Discussion</h1>
+teacher-forced loss does not measure what generation needs. The
+TinyStories ablation of Section 10 shows the same dissociation on text:
+less corruption lowers clean loss and worsens generated text.</p>
+<h1 data-number="9" id="released-checkpoints-in-mlx-inference-parity"><span class="header-section-number">9</span> Released checkpoints in MLX:
+inference parity</h1>
+<blockquote>
+<p><strong>In short.</strong> The released TinyStories and Sudoku
+checkpoints of Kumbong et al. run in an independent, inference-only MLX
+port. In the tested computations the port agrees with upstream PyTorch
+on CPU, up to stated floating-point effects. This section concerns
+upstream-trained weights. It does not reproduce upstream training and
+says nothing about the models we trained ourselves.</p>
+</blockquote>
+<p>Throughout this section the models are called the <strong>Released
+TinyStories checkpoint (Kumbong et al.)</strong> and the released Sudoku
+checkpoints. They were trained by the original authors; we only convert
+and run them.</p>
+<h2 data-number="9.1" id="what-was-ported-and-how-it-is-converted"><span class="header-section-number">9.1</span> What was ported and how it is
+converted</h2>
+<p>The port (<code>ncm_mlx/official/</code>) implements the inference
+computation of the released codec and generator for TinyStories
+(unconditional BPE text) and for the easy, medium and hard Sudoku
+models. It is written from the published architecture and the released
+configurations and contains no upstream source code. It is pinned to
+upstream code revision
+<code>c70274273f489abc73832b2b98584a8483b6b203</code> and checkpoint
+revision <code>d342ce8aaea58830eef3b8ad473664673e41f692</code>. The
+weights are downloaded from their Hugging Face repository on demand and
+are not redistributed in our code repository.</p>
+<p>Conversion does not need PyTorch. A small reader parses the
+checkpoint’s zip container, tensor storage and reconstruction metadata
+through a restricted unpickler that accepts only the globals a tensor
+checkpoint uses and refuses all others; the tokenizer pickles are read
+by an unpickler that refuses every global. Each upstream tensor name
+must match exactly one explicit rule: it becomes an MLX parameter with a
+stated layout change (for example convolution weights change from
+<code>[out, in, kernel]</code> to <code>[out, kernel, in]</code>), or it
+is dropped. Dropped names are the EMA training state and two derived
+buffers, the level identifiers and the block-diagonal mask, which are
+first checked against the values the MLX model assumes. An unmatched
+name, a missing parameter or a shape mismatch stops the conversion, and
+a configuration whose SHA-256 differs from the pinned one is refused.
+The output is safetensors plus an architecture specification, tokenizer
+JSON and, for TinyStories, the level-0 distribution. This is a format
+and layout conversion, not quantisation or further training.</p>
+<p>TinyStories uses the released 8,192-token BPE tokenizer. Replacing it
+with a similar tokenizer would change every input, so we reimplemented
+its pre-tokenisation, byte handling, merges and special tokens. Thirteen
+retained cases, including Unicode, agree with upstream in
+pre-tokenisation, token identifiers and round trip. Rare whitespace
+classes are not exhausted and remain a documented limitation.</p>
+<h2 data-number="9.2" id="parity-with-upstream-pytorch"><span class="header-section-number">9.2</span> Parity with upstream
+PyTorch</h2>
+<p>A parity script runs upstream PyTorch 2.15.0 on CPU and the MLX port
+(0.32.3) on <code>mx.cpu</code> in one process with identical inputs,
+and routes teacher-forced codes through each implementation’s own
+generation loop. The TinyStories check uses four input texts for the
+codec and eight greedy samples; the Sudoku check uses the first 64
+published easy boards.</p>
+<table>
+<caption>MLX port versus upstream PyTorch, CPU, fp32 unless
+stated.</caption>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Check</th>
+<th>Released TinyStories</th>
+<th>Released Sudoku-easy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BPE pre-tokenisation, identifiers, round trip (13 cases)</td>
+<td>identical</td>
+<td>not applicable</td>
+</tr>
+<tr>
+<td>Codec embedding, largest absolute difference</td>
+<td>2.9e-6</td>
+<td>1.4e-6</td>
+</tr>
+<tr>
+<td>Codec codes from real inputs, agreement per level</td>
+<td>97.45–100%</td>
+<td>100% (64 boards)</td>
+</tr>
+<tr>
+<td>Per-level logits, largest absolute difference</td>
+<td>0.100 (logit magnitudes up to 853)</td>
+<td>7.2e-5 (magnitudes up to 29)</td>
+</tr>
+<tr>
+<td>Same, both sides in exact fp64</td>
+<td>3.2e-10</td>
+<td>1.2e-13</td>
+</tr>
+<tr>
+<td>Greedy generation, codes and decoded text</td>
+<td>identical, 8 of 8</td>
+<td>identical, 64 of 64</td>
+</tr>
+</tbody>
+</table>
+<p>The TinyStories fp32 difference exceeds a naive absolute threshold of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>10</mn><mrow><mi>−</mi><mn>4</mn></mrow></msup><annotation encoding="application/x-tex">10^{-4}</annotation></semantics></math>
+for a numerical reason. The model carries activations of magnitude
+several hundred, and its codebook-tied output head subtracts large
+squared-codebook terms, which amplifies float32 rounding. Upstream
+PyTorch’s own fp32 result is 0.071 from an exact-fp64 reference, and the
+MLX fp32 result is 0.126 from it. The exact-fp64 row shows that the two
+implementations compute the same function. The argmax agrees at every
+compared position.</p>
+<p>The fp64 row is a diagnostic computation, run only for this check.
+Upstream normalisation layers, tied-head norm buffers and rotary tables,
+which it computes in float32 even for float64 inputs, are recomputed in
+float64. On the MLX side, composed operations replace primitives that do
+not preserve float64 accuracy on CPU, with <code>exp</code> and
+<code>erf</code> evaluated on the host. Production inference stays
+float32. This supports agreement of the tested computations; it does not
+establish bitwise identity of production inference. Apple GPUs also
+compute fp32 matrix products at reduced precision (Section 6.2), so
+Metal outputs can differ from CPU outputs at near-ties.</p>
+<p>The four TinyStories codec inputs show per-level code agreement below
+100% for a precise reason. The first differing code of each affected
+input is a near-tie in quantiser distance (gaps of 4.5e-3 and 2.4e-4 at
+distances near 10), and the changed code alters the residual and
+therefore later levels. A repository test requires codes to match up to
+the first divergence and the two candidates to lie within a small
+relative distance. With four inputs this is a spot check and not a
+distributional claim.</p>
+<h2 data-number="9.3" id="released-sudoku-evaluation"><span class="header-section-number">9.3</span> Released Sudoku evaluation</h2>
+<p>On the published 2,000-board test sets, greedy decoding with the MLX
+port on the Metal GPU solves 99.40%, 96.30% and 86.20% of easy, medium
+and hard boards (1,988, 1,926 and 1,724 boards). The original paper
+reports 99.5%, 96.5% and 86.1% <span class="citation" data-cites="ncm2026">(<a href="#ref-ncm2026" role="doc-biblioref">Kumbong et al. 2026</a>, Table 3)</span>. On the
+easy set, upstream PyTorch on this machine’s CPU produces exactly the
+same 2,000 outputs, and Metal and CPU MLX outputs are also identical, so
+the 0.10-point difference from the quoted value does not come from the
+port. Upstream was not rerun locally on the medium and hard sets, so the
+differences of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mn>0.20</mn></mrow><annotation encoding="application/x-tex">-0.20</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>+</mi><mn>0.10</mn></mrow><annotation encoding="application/x-tex">+0.10</annotation></semantics></math>
+points there are not diagnosed. These are results of upstream-trained
+models. They are separate from E19 and E20 and say nothing about our
+smaller generators.</p>
+<h2 data-number="9.4" id="latency-and-what-this-section-does-not-establish"><span class="header-section-number">9.4</span> Latency, and what this section
+does not establish</h2>
+<p>The recorded eager TinyStories batch-1 median is 39.8 ms on the Metal
+GPU for the MLX port and 280 ms for upstream PyTorch on CPU, each
+completing a 128-position sample through a host copy. MLX used three
+warmups and 20 timed iterations, PyTorch two and ten; the GPU was shared
+with desktop applications. This compares a working GPU port with a CPU
+reference, because the tested PyTorch MPS path rejects the non-divisible
+area interpolation the model requires. It is not an architecture-only
+speed ratio. Later repository work adds prefix caching and optional
+compilation for the port; Section 10.8 reports their timings and the
+output differences they introduce, and no quality score here is attached
+to those modes.</p>
+<p>The port establishes that the tested inference computation is
+implemented independently and checkably. It does not reproduce upstream
+training or its results. Upstream’s TinyStories generative-perplexity
+protocol is not reproduced: Section 10 scores the Released TinyStories
+checkpoint with our own pinned scorer. Sampled outputs use MLX’s random
+generator and so do not match upstream sample for sample. The LM1B,
+OpenWebText, WMT14 and XSum checkpoints are not converted. A
+fresh-environment installation and inference check on an accelerator
+remains a verification limit.</p>
+<h1 data-number="10" id="controlled-text-tinystories-pilots"><span class="header-section-number">10</span> Controlled text: TinyStories
+pilots</h1>
+<blockquote>
+<p><strong>In short.</strong> We trained a small NCM and a small AR
+baseline on TinyStories, a synthetic children’s-story corpus, and
+compared them under one fixed external scorer. The NCM reconstructs
+held-out windows accurately but generates text that scores far worse
+than the AR baseline. Varying the conditioning-corruption schedule moves
+clean teacher-forced loss and free-running quality in opposite
+directions, in two generator seeds that share one frozen codec. The
+comparison does not match total compute, uses synthetic prose and
+includes no conditional task.</p>
+</blockquote>
+<h2 data-number="10.1" id="scope-and-labels"><span class="header-section-number">10.1</span> Scope and labels</h2>
+<p>Three kinds of model appear. <strong>MLX NCM</strong> means the NCM
+models trained in this project (called “MLX implementation” in the
+Sudoku tables). <strong>MLX AR baseline</strong> is the autoregressive
+model trained here on the same windows. <strong>Released TinyStories
+checkpoint (Kumbong et al.)</strong> is the original authors’ released
+model, run through the port of Section 9; it is a reference and is not
+trained here. A fourth row, <em>held-out data</em>, scores real held-out
+stories windowed in the same way. The study is unconditional generation
+of 128-token story openings from a null prefix. No supplied prompt,
+continuation or other conditional task is evaluated.</p>
+<h2 data-number="10.2" id="representation-and-training-contract"><span class="header-section-number">10.2</span> Representation and training
+contract</h2>
+<table>
+<caption>TinyStories contract shared by the MLX NCM and MLX AR baseline
+runs. These differ from the character and Sudoku path of Sections
+5–7.</caption>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Component</th>
+<th>Setting</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Corpus</td>
+<td><code>roneneldan/TinyStories</code> <span class="citation" data-cites="tinystories2023">(<a href="#ref-tinystories2023" role="doc-biblioref">Eldan and Li 2023</a>)</span>, V2 GPT-4 train and
+validation text, revision
+<code>f54c09fd23315a6f9c86f9dc80f725de7d8f9c64</code>. The pinned <a href="https://huggingface.co/datasets/roneneldan/TinyStories/blob/f54c09fd23315a6f9c86f9dc80f725de7d8f9c64/README.md">dataset
+card</a> identifies it as GPT-4-generated and lists
+CDLA-Sharing-1.0.</td>
+</tr>
+<tr>
+<td>Splits</td>
+<td>2,717,495 training stories. The validation file is split by SHA-1
+parity of the stripped story into 13,960 validation and 13,670 test
+stories, so splits are document-level; document overlap with training is
+checked in preprocessing.</td>
+</tr>
+<tr>
+<td>Tokenisation</td>
+<td>The released 8,192-token BPE (EOS 0, PAD 1). Each story is taken
+verbatim with its leading newline; the window is the first 128 tokens of
+story plus EOS, then right padding. Later parts of long stories are
+dropped; about 5% of training windows contain their story’s EOS and
+about 0.38% of training positions are padding. Losses include
+padding.</td>
+</tr>
+<tr>
+<td>Hierarchy</td>
+<td>12 levels with lengths 1, 8, 16, 24, 32, 40, 52, 64, 76, 92, 108,
+128 and 2,048 codes per level.</td>
+</tr>
+<tr>
+<td>Generation</td>
+<td>Level 0 is sampled from the stored empirical unigram of level-0
+codes. Exactly 11 generator forwards predict the remaining levels, and
+the result is decoded to 128 tokens.</td>
+</tr>
+<tr>
+<td>Conditioning</td>
+<td>A single null EOS prefix. Previous concept levels supply the only
+internal conditioning.</td>
+</tr>
+<tr>
+<td>Codec</td>
+<td>Token and position lookup encoder, GroupNorm (8 groups), learned
+strided level-0 cascade, area pooling and linear interpolation at other
+levels, per-level residual transforms and one transformer decoder block;
+width 256, 4 heads. 15,508,096 saved values, of which 6,291,456 are EMA
+codebook values and 9,216,640 are gradient-trained.</td>
+</tr>
+<tr>
+<td>MLX NCM generator</td>
+<td>6 blocks, width 384, 6 heads, QK normalisation, RoPE base 100,000,
+codebook-tied distance heads, block-diagonal level attention. 11,832,587
+values.</td>
+</tr>
+<tr>
+<td>MLX AR baseline</td>
+<td>The same 6-block, width-384, 6-head stack with a tied 8,192-token
+embedding: 13,794,048 parameters, 128 cached next-token forwards.</td>
+</tr>
+<tr>
+<td>Released TinyStories checkpoint</td>
+<td>36,434,816 codec values and 88,605,707 generator values (Section
+9).</td>
+</tr>
+<tr>
+<td>Optimisation</td>
+<td>AdamW, peak learning rate 5e-4 with cosine decay to 5e-5, betas
+(0.9, 0.95), gradient clipping 1, compiled steps. Codec: warmup 1,000,
+weight decay 0.01, dropout 0.3, fine-level dropout 0.5, commitment 0.25,
+EMA decay 0.95, dead-code restart below count 0.01. Generator and AR:
+warmup 500, weight decay 0.1, dropout 0.1. Generator loss uses
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>α</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\alpha = 0</annotation></semantics></math>
+(equal weight per code). Final exported weights are evaluated; no
+checkpoint is selected on validation data.</td>
+</tr>
+<tr>
+<td>Stage budgets</td>
+<td>Codec: 14,000 updates × 256 = 3,584,000 windows, trained once with
+seed 0 and then frozen. Generator: 15,000 × 64 = 960,000 windows
+(122,880,000 output-token positions) per run. AR: 7,500 × 128 = 960,000
+windows per run.</td>
+</tr>
+</tbody>
+</table>
+<p>Seed 0 training-loop times on the Mac were 5,517.25 s for the codec,
+13,898.17 s for the strong-corruption generator, 14,435.59 s for the
+reduced-corruption generator, 20,734.07 s for the no-corruption
+generator and 2,062.03 s for the AR baseline, none time-limited. These
+are elapsed times on a desktop with other workloads, not FLOP, energy or
+cost measurements; the longer no-corruption time cannot be attributed to
+corruption alone. The seed-1 generators took 18,842.73 s (strong),
+22,419.19 s (reduced) and 18,706.68 s (none) under similarly
+uncontrolled desktop load; the seed-1 AR training time is not reported.
+Configured seeds are offset internally (the generator derives
+initialisation and minibatch streams from seed + 1 and the AR from seed
++ 2), so configured seed 0 does not mean every stream is seeded with
+zero.</p>
+<p><strong>What the budgets do and do not match.</strong> The generator
+and AR runs see the same number of windows (960,000) and use the same
+block stack. Total compute and total system size differ. The NCM’s
+teacher-forced input has 641 positions per window (640 predicted code
+positions plus the EOS prefix) against 128 for the AR; sequence length
+alone is not a FLOP estimate. The NCM also needs a codec, trained
+separately at additional cost and counted here as 15,508,096 more
+values, so the MLX NCM system holds 27,340,683 saved values against
+13,794,048 for the AR baseline. The Released TinyStories checkpoint has
+a much larger parameter count and training budget and is not a matched
+reproduction target.</p>
+<h2 data-number="10.3" id="evaluation-protocol"><span class="header-section-number">10.3</span> Evaluation protocol</h2>
+<p>Three different quantities are reported and must not be
+conflated.</p>
+<ol type="1">
+<li><strong>Reconstruction.</strong> Non-padding token accuracy and
+exact-window rate when held-out windows are encoded and decoded through
+the full hierarchy, on the first 4,096 ordered held-out test
+windows.</li>
+<li><strong>Clean code CE.</strong> The generator’s position-weighted
+cross-entropy in nats per code on the same windows when every earlier
+level is supplied correctly. Values from different codecs, such as the
+released model’s, are not directly comparable with ours.</li>
+<li><strong>Free-running quality.</strong> Each model generates 256
+outputs for each of five sampling seeds (42, 0, 1, 2, 3), 1,280 outputs
+per model, at batch 128, temperature 1, top-k 0 and top-p 1. The outputs
+are scored by the external model GPT-2 large at pinned revision <a href="https://huggingface.co/openai-community/gpt2-large/tree/32b71b12589c2f8d625668d2335a01cac3249519"><code>32b71b1</code></a>.
+Cleanup stops each output at the first EOS and removes PAD tokens before
+decoding. The scorer adds no beginning-of-sequence token, so every token
+after the first is scored; padded targets are masked. NLL sums are
+divided by scored-token counts within each sampling seed, and the five
+resulting perplexities are averaged. Empty or one-token strings would be
+unscorable and counted separately; none occurred in any model or run.
+The scorer’s 1,024-token limit was never reached (retained records have
+at most 155 scored tokens).</li>
+</ol>
+<p>Generative perplexity is a fixed external probability score of
+generated text. It is not the generating model’s own perplexity, and it
+is neither a human rating nor an LLM-judge score. It does not directly
+establish coherence, grammaticality, truthfulness or usefulness. The
+five sampling seeds are repeated draws from one trained model; the
+standard deviation across them is not a confidence interval over
+training runs. Temperature, top-k and top-p sensitivity was not
+evaluated. Novelty is checked only by exact match of the first 32 output
+tokens against training windows, and by the diagnostics below.</p>
+<h2 data-number="10.4" id="the-corruption-ablation-with-two-generator-seeds"><span class="header-section-number">10.4</span> The corruption ablation, with
+two generator seeds</h2>
+<p>During generator training, a fraction
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>p</mi><mi>k</mi></msub><annotation encoding="application/x-tex">p_k</annotation></semantics></math>
+of the conditioning codes of level
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>
+is replaced by random codes of that level (Section 5.2), falling
+linearly across levels from
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>p</mi><mrow><mi mathvariant="normal">f</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">s</mi><mi mathvariant="normal">t</mi></mrow></msub><annotation encoding="application/x-tex">p_{\mathrm{first}}</annotation></semantics></math>
+to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>p</mi><mrow><mi mathvariant="normal">l</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">s</mi><mi mathvariant="normal">t</mi></mrow></msub><annotation encoding="application/x-tex">p_{\mathrm{last}}</annotation></semantics></math>.
+We compare three schedules with fresh generators on the same frozen
+codec, the same level-0 unigram, tokenizer, architecture, optimizer and
+window exposure: <strong>strong</strong> 0.75 → 0.25 (E21, repeated as
+E24), <strong>reduced</strong> 0.30 → 0.05 (E22) and
+<strong>none</strong> 0 → 0 (E23).</p>
+<p>Every generator schedule was run with configured generator seed 0 and
+again with seed 1. Each seed-1 configuration differs from its seed-0
+counterpart only in the configured seed, run name and output path. Both
+generator seeds use <strong>the same frozen seed-0 codec</strong>, so
+the repeat measures generator variability conditional on one codec and
+not variability of the full two-stage procedure. The AR baseline was
+trained once for seed 0 and once for seed 1 (in the E24 run); within
+each seed it is a single control shared by all three schedules, not
+three independent runs. All completed outcomes are reported, and none
+was replaced by a selected winner. The E24 controller was interrupted
+once, by a disk-headroom guard after generator training had finished;
+the original queue then resumed at AR training without retraining the
+generator or changing a recipe.</p>
+<table style="width:99%;">
+<caption>Corruption ablation, MLX NCM versus controls. Perplexity is
+external GPT-2-large generative perplexity, the mean of five
+sampling-seed values (their standard deviation in brackets), lower is
+better. Non-padding reconstruction is 99.816% for every MLX NCM row
+because the codec is shared.</caption>
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 22%" />
+<col style="width: 16%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+</colgroup>
+<thead>
+<tr>
+<th>Model</th>
+<th style="text-align: right;">Generator seed</th>
+<th>Corruption</th>
+<th style="text-align: right;">Clean code CE (nats/code)</th>
+<th style="text-align: right;">Generative perplexity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MLX NCM, strong (E21 / E24)</td>
+<td style="text-align: right;">0</td>
+<td>0.75 → 0.25</td>
+<td style="text-align: right;">2.24875</td>
+<td style="text-align: right;">47.897 (0.797)</td>
+</tr>
+<tr>
+<td></td>
+<td style="text-align: right;">1</td>
+<td>0.75 → 0.25</td>
+<td style="text-align: right;">2.24909</td>
+<td style="text-align: right;">45.568 (0.909)</td>
+</tr>
+<tr>
+<td>MLX NCM, reduced (E22)</td>
+<td style="text-align: right;">0</td>
+<td>0.30 → 0.05</td>
+<td style="text-align: right;">1.66515</td>
+<td style="text-align: right;">54.923 (1.548)</td>
+</tr>
+<tr>
+<td></td>
+<td style="text-align: right;">1</td>
+<td>0.30 → 0.05</td>
+<td style="text-align: right;">1.66106</td>
+<td style="text-align: right;">55.114 (1.568)</td>
+</tr>
+<tr>
+<td>MLX NCM, none (E23)</td>
+<td style="text-align: right;">0</td>
+<td>0 → 0</td>
+<td style="text-align: right;">1.38995</td>
+<td style="text-align: right;">97.776 (2.107)</td>
+</tr>
+<tr>
+<td></td>
+<td style="text-align: right;">1</td>
+<td>0 → 0</td>
+<td style="text-align: right;">1.38638</td>
+<td style="text-align: right;">93.833 (1.424)</td>
+</tr>
+<tr>
+<td>MLX AR baseline</td>
+<td style="text-align: right;">0</td>
+<td>not applicable</td>
+<td style="text-align: right;">not applicable</td>
+<td style="text-align: right;">14.676 (0.450)</td>
+</tr>
+<tr>
+<td></td>
+<td style="text-align: right;">1</td>
+<td>not applicable</td>
+<td style="text-align: right;">not applicable</td>
+<td style="text-align: right;">14.311 (0.237)</td>
+</tr>
+<tr>
+<td>Released TinyStories checkpoint (Kumbong et al.)</td>
+<td style="text-align: right;">not trained here</td>
+<td>not applicable</td>
+<td style="text-align: right;">1.37032 (different codec)</td>
+<td style="text-align: right;">16.259 (0.315)</td>
+</tr>
+<tr>
+<td>Held-out data</td>
+<td style="text-align: right;">not applicable</td>
+<td>not applicable</td>
+<td style="text-align: right;">not applicable</td>
+<td style="text-align: right;">8.529 (0.067)</td>
+</tr>
+</tbody>
+</table>
+<p>The two measurements order the schedules oppositely, in both
+generator seeds. Clean code CE falls as corruption falls: 2.24875,
+1.66515 and 1.38995 for seed 0 and 2.24909, 1.66106 and 1.38638 for seed
+1. Free-running perplexity rises: 47.897, 54.923 and 97.776 for seed 0
+and 45.568, 55.114 and 93.833 for seed 1. Between the two generator
+seeds the clean code CE of a schedule changes by at most 0.005 nats per
+code, while perplexity changes by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mn>2.329</mn></mrow><annotation encoding="application/x-tex">-2.329</annotation></semantics></math>
+(strong),
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>+</mi><mn>0.191</mn></mrow><annotation encoding="application/x-tex">+0.191</annotation></semantics></math>
+(reduced) and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mn>3.943</mn></mrow><annotation encoding="application/x-tex">-3.943</annotation></semantics></math>
+(none), within a few sampling-seed standard deviations (0.8 to 2.1). The
+ordering of the three schedules is the same in both seeds, but two
+generator seeds are too few to estimate how much a single schedule
+varies across training runs. The best MLX NCM configuration scores about
+3.3 times (seed 0) and 3.2 times (seed 1) the AR baseline’s perplexity.
+A plausible reading is that a generator trained only on correct context
+is more sensitive to its own earlier errors, which corruption is meant
+to address. The experiment does not isolate that mechanism: corruption
+strength and schedule, optimisation and level-wise error behaviour are
+not separated, and no control with matched total corruption but
+different distribution across levels is reported here.</p>
+<p>Each seed-1 evaluation report passes the result audit built into the
+evaluation pipeline (2,560 scored outputs per report). The independent
+recomputation described below was carried out for seed 0 only. The
+seed-1 evidence has the same format as seed 0; both are attached to the
+paper release as
+<code>ncm-mlx-tinystories-evidence-e21-e24.tar.gz</code> (SHA-256
+<code>4a744f5306ebef3433abbab9647372d6ad00949f616c7befe9476fbccb0d20b8</code>,
+<a href="https://github.com/janmus1c/ncm-mlx/releases/download/paper-v0.12/ncm-mlx-tinystories-evidence-e21-e24.tar.gz">download</a>).</p>
+<figure>
+<img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIKICAiaHR0cDovL3d3dy53My5vcmcvR3JhcGhpY3MvU1ZHLzEuMS9EVEQvc3ZnMTEuZHRkIj4KPHN2ZyB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgd2lkdGg9IjQ2MC44cHQiIGhlaWdodD0iMjA4LjhwdCIgdmlld0JveD0iMCAwIDQ2MC44IDIwOC44IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZlcnNpb249IjEuMSI+CiA8bWV0YWRhdGE+CiAgPHJkZjpSREYgeG1sbnM6ZGM9Imh0dHA6Ly9wdXJsLm9yZy9kYy9lbGVtZW50cy8xLjEvIiB4bWxuczpjYz0iaHR0cDovL2NyZWF0aXZlY29tbW9ucy5vcmcvbnMjIiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogICA8Y2M6V29yaz4KICAgIDxkYzp0eXBlIHJkZjpyZXNvdXJjZT0iaHR0cDovL3B1cmwub3JnL2RjL2RjbWl0eXBlL1N0aWxsSW1hZ2UiLz4KICAgIDxkYzpkYXRlPjIwMjYtMTEtMDJUMTc6MTM6NTMuODQzNjAwPC9kYzpkYXRlPgogICAgPGRjOmZvcm1hdD5pbWFnZS9zdmcreG1sPC9kYzpmb3JtYXQ+CiAgICA8ZGM6Y3JlYXRvcj4KICAgICA8Y2M6QWdlbnQ+CiAgICAgIDxkYzp0aXRsZT5NYXRwbG90bGliIHYzLjExLjIsIGh0dHBzOi8vbWF0cGxvdGxpYi5vcmcvPC9kYzp0aXRsZT4KICAgICA8L2NjOkFnZW50PgogICAgPC9kYzpjcmVhdG9yPgogICA8L2NjOldvcms+CiAgPC9yZGY6UkRGPgogPC9tZXRhZGF0YT4KIDxkZWZzPgogIDxzdHlsZSB0eXBlPSJ0ZXh0L2NzcyI+KntzdHJva2UtbGluZWpvaW46IHJvdW5kOyBzdHJva2UtbGluZWNhcDogYnV0dH08L3N0eWxlPgogPC9kZWZzPgogPGcgaWQ9ImZpZ3VyZV8xIj4KICA8ZyBpZD0icGF0Y2hfMSI+CiAgIDxwYXRoIGQ9Ik0gMCAyMDguOApMIDQ2MC44IDIwOC44CkwgNDYwLjggMApMIDAgMAp6CiIgc3R5bGU9ImZpbGw6ICNmZmZmZmYiLz4KICA8L2c+CiAgPGcgaWQ9ImF4ZXNfMSI+CiAgIDxnIGlkPSJwYXRjaF8yIj4KICAgIDxwYXRoIGQ9Ik0gNDQuNDgyMTA5IDE2My4yNzM4NjcKTCAyMjQuMSAxNjMuMjczODY3CkwgMjI0LjEgMjIuOTIKTCA0NC40ODIxMDkgMjIuOTIKegoiIHN0eWxlPSJmaWxsOiAjZmZmZmZmIi8+CiAgIDwvZz4KICAgPGcgaWQ9Im1hdHBsb3RsaWIuYXhpc18xIj4KICAgIDxnIGlkPSJ4dGlja18xIj4KICAgICA8ZyBpZD0ibGluZTJkXzEiPgogICAgICA8cGF0aCBkPSJNIDY5LjI1Njk5MSAxNjMuMjczODY3CkwgNjkuMjU2OTkxIDIyLjkyCiIgY2xpcC1wYXRoPSJ1cmwoI3BhM2RiYjYzOTJkKSIgc3R5bGU9ImZpbGw6IG5vbmU7IHN0cm9rZTogI2UzZTZlMTsgc3Ryb2tlLXdpZHRoOiAwLjY7IHN0cm9rZS1saW5lY2FwOiBzcXVhcmUiLz4KICAgICA8L2c+CiAgICAgPGcgaWQ9ImxpbmUyZF8yIj4KICAgICAgPGRlZnM+CiAgICAgICA8cGF0aCBpZD0ibTNjZTQzZTU3ZDUiIGQ9Ik0gMCAwCkwgMCAzLjUKIiBzdHlsZT0ic3Ryb2tlOiAjMWQyNDIwOyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2RlZnM+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTNjZTQzZTU3ZDUiIHg9IjY5LjI1Njk5MSIgeT0iMTYzLjI3Mzg2NyIgc3R5bGU9ImZpbGw6ICMxZDI0MjA7IHN0cm9rZTogIzFkMjQyMDsgc3Ryb2tlLXdpZHRoOiAwLjgiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgICA8ZyBpZD0idGV4dF8xIj4KICAgICAgPCEtLSBzdHJvbmcgLS0+CiAgICAgIDxnIHN0eWxlPSJmaWxsOiAjMWQyNDIwIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1Ny43Nzk3MjUgMTc2LjI5MjkxKSBzY2FsZSgwLjA3IC0wLjA3KSI+CiAgICAgICA8ZGVmcz4KICAgICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtNTYiIGQ9Ik0gMzU5IDE4NApMIDM1OSA5NTkKTCA2OTEgOTU5ClEgNzAzIDU4OCA5MjMgNDAzClEgMTE0NCAyMTkgMTU3NSAyMTkKUSAxOTYzIDIxOSAyMTY2IDM2NApRIDIzNjkgNTA5IDIzNjkgNzg4ClEgMjM2OSAxMDA2IDIyMjAgMTE0MApRIDIwNzIgMTI3NSAxNTk0IDE0MjgKTCAxMTc4IDE1NjkKUSA3NTAgMTcwNiA1NTggMTkxMgpRIDM2NiAyMTE5IDM2NiAyNDM4ClEgMzY2IDI4OTQgNzAwIDMxNTMKUSAxMDM0IDM0MTMgMTYyNSAzNDEzClEgMTg4OCAzNDEzIDIxNzggMzM0NApRIDI0NjkgMzI3NSAyNzc4IDMxNDQKTCAyNzc4IDI0MTkKTCAyNDQ3IDI0MTkKUSAyNDM0IDI3NDEgMjIyMSAyOTIyClEgMjAwOSAzMTAzIDE2NDQgMzEwMwpRIDEyODEgMzEwMyAxMDk1IDI5NzUKUSA5MDkgMjg0NyA5MDkgMjU5MQpRIDkwOSAyMzgxIDEwNTAgMjI1NApRIDExOTEgMjEyOCAxNjEzIDE5OTcKTCAyMDY5IDE4NTYKUSAyNTQxIDE3MDkgMjc0OCAxNDg5ClEgMjk1NiAxMjY5IDI5NTYgOTIyClEgMjk1NiA0NTAgMjU5NSAxNzkKUSAyMjM0IC05MSAxNjAwIC05MQpRIDEyNzggLTkxIDk3MiAtMjIKUSA2NjYgNDcgMzU5IDE4NAp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtNTciIGQ9Ik0gNjkxIDI5ODgKTCAxODQgMjk4OApMIDE4NCAzMzIyCkwgNjkxIDMzMjIKTCA2OTEgNDM1MwpMIDEyNjkgNDM1MwpMIDEyNjkgMzMyMgpMIDIzNTAgMzMyMgpMIDIzNTAgMjk4OApMIDEyNjkgMjk4OApMIDEyNjkgODc4ClEgMTI2OSA0NTYgMTM1MCAzMzcKUSAxNDMxIDIxOSAxNjUwIDIxOQpRIDE4NzUgMjE5IDE5NzggMzUxClEgMjA4MSA0ODQgMjA4OCA3ODEKTCAyNTIyIDc4MQpRIDI0OTcgMzI4IDIyNzUgMTE4ClEgMjA1MyAtOTEgMTYwMCAtOTEKUSAxMTAzIC05MSA4OTcgMTI5ClEgNjkxIDM1MCA2OTEgODc4CkwgNjkxIDI5ODgKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgICAgPHBhdGggaWQ9IkRlamFWdVNlcmlmLTU1IiBkPSJNIDMwNTkgMzMyOApMIDMwNTkgMjQ5NwpMIDI3MjggMjQ5NwpRIDI3MTMgMjc0NCAyNTkxIDI4NjYKUSAyNDY5IDI5ODggMjIzNCAyOTg4ClEgMTgwOSAyOTg4IDE1ODIgMjY5NApRIDEzNTYgMjQwMCAxMzU2IDE4NTAKTCAxMzU2IDMzMQpMIDIwMjIgMzMxCkwgMjAyMiAwCkwgMjYzIDAKTCAyNjMgMzMxCkwgNzgxIDMzMQpMIDc4MSAyOTk0CkwgMjMxIDI5OTQKTCAyMzEgMzMyMgpMIDEzNTYgMzMyMgpMIDEzNTYgMjczMQpRIDE1MjUgMzA3OCAxNzkwIDMyNDUKUSAyMDU2IDM0MTMgMjQzOCAzNDEzClEgMjU3OCAzNDEzIDI3MzMgMzM5MQpRIDI4ODggMzM2OSAzMDU5IDMzMjgKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgICAgPHBhdGggaWQ9IkRlamFWdVNlcmlmLTUyIiBkPSJNIDE5MjUgMjE5ClEgMjM4OCAyMTkgMjYyMyA1ODQKUSAyODU5IDk1MCAyODU5IDE2NjMKUSAyODU5IDIzNzUgMjYyMyAyNzM5ClEgMjM4OCAzMTAzIDE5MjUgMzEwMwpRIDE0NjMgMzEwMyAxMjI3IDI3MzkKUSA5OTEgMjM3NSA5OTEgMTY2MwpRIDk5MSA5NTAgMTIyOCA1ODQKUSAxNDY2IDIxOSAxOTI1IDIxOQp6Ck0gMTkyNSAtOTEKUSAxMjAwIC05MSA3NTkgMzg5ClEgMzE5IDg2OSAzMTkgMTY2MwpRIDMxOSAyNDU2IDc1OCAyOTM0ClEgMTE5NyAzNDEzIDE5MjUgMzQxMwpRIDI2NTMgMzQxMyAzMDkyIDI5MzQKUSAzNTMxIDI0NTYgMzUzMSAxNjYzClEgMzUzMSA4NjkgMzA5MiAzODkKUSAyNjUzIC05MSAxOTI1IC05MQp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtNTEiIGQ9Ik0gMjYzIDAKTCAyNjMgMzMxCkwgNzgxIDMzMQpMIDc4MSAyOTg4CkwgMjMxIDI5ODgKTCAyMzEgMzMyMgpMIDEzNTYgMzMyMgpMIDEzNTYgMjczMQpRIDE1MTYgMzA2OSAxNzcwIDMyNDEKUSAyMDI1IDM0MTMgMjM2MyAzNDEzClEgMjkxMyAzNDEzIDMxNzIgMzA5NwpRIDM0MzEgMjc4MSAzNDMxIDIxMTMKTCAzNDMxIDMzMQpMIDM5NDQgMzMxCkwgMzk0NCAwCkwgMjM1NiAwCkwgMjM1NiAzMzEKTCAyODUzIDMzMQpMIDI4NTMgMTkzMQpRIDI4NTMgMjU0MSAyNzAzIDI3NjcKUSAyNTUzIDI5OTQgMjE3NSAyOTk0ClEgMTc3NSAyOTk0IDE1NjUgMjcwMQpRIDEzNTYgMjQwOSAxMzU2IDE4NTAKTCAxMzU2IDMzMQpMIDE4NTYgMzMxCkwgMTg1NiAwCkwgMjYzIDAKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgICAgPHBhdGggaWQ9IkRlamFWdVNlcmlmLTRhIiBkPSJNIDMzNTkgMjk4OApMIDMzNTkgNzIKUSAzMzU5IC02NDQgMjk2NSAtMTAzMwpRIDI1NzIgLTE0MjIgMTg0NCAtMTQyMgpRIDE1MTYgLTE0MjIgMTIxNiAtMTM2MgpRIDkxNiAtMTMwMyA2NDEgLTExODQKTCA2NDEgLTQ4OApMIDk0MSAtNDg4ClEgOTk3IC04MTMgMTIwNiAtOTYzClEgMTQxNiAtMTExMyAxODA2IC0xMTEzClEgMjMxMyAtMTExMyAyNTQ4IC04MjcKUSAyNzg0IC01NDEgMjc4NCA3MgpMIDI3ODQgNTE5ClEgMjYxNiAyMDYgMjM1NSA1NwpRIDIwOTQgLTkxIDE3MDkgLTkxClEgMTA5NyAtOTEgNzA4IDM5NQpRIDMxOSA4ODEgMzE5IDE2NjMKUSAzMTkgMjQ0NCA3MDYgMjkyOApRIDEwOTQgMzQxMyAxNzA5IDM0MTMKUSAyMDk0IDM0MTMgMjM1NSAzMjY0ClEgMjYxNiAzMTE2IDI3ODQgMjgwMwpMIDI3ODQgMzMyMgpMIDM5MDkgMzMyMgpMIDM5MDkgMjk4OApMIDMzNTkgMjk4OAp6Ck0gMjc4NCAxODI1ClEgMjc4NCAyNDIyIDI1NTQgMjczNwpRIDIzMjUgMzA1MyAxODg4IDMwNTMKUSAxNDQ0IDMwNTMgMTIxNyAyNzAzClEgOTkxIDIzNTMgOTkxIDE2NjMKUSA5OTEgOTc1IDEyMTcgNjIyClEgMTQ0NCAyNjkgMTg4OCAyNjkKUSAyMzI1IDI2OSAyNTU0IDU4MwpRIDI3ODQgODk3IDI3ODQgMTQ5NwpMIDI3ODQgMTgyNQp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgIDwvZGVmcz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU2Ii8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTEuMzEyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDkxLjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTUyIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMzkuMjk2ODc1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTk5LjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTRhIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNjMuOTA2MjUgMCkiLz4KICAgICAgPC9nPgogICAgICA8IS0tIDAuNzUgdG8gMC4yNSAtLT4KICAgICAgPGcgc3R5bGU9ImZpbGw6ICMxZDI0MjAiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ3LjkzMjY5NCAxODQuNjk0Mjc3KSBzY2FsZSgwLjA3IC0wLjA3KSI+CiAgICAgICA8ZGVmcz4KICAgICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtMTMiIGQ9Ik0gMjAzNCAyMTkKUSAyNTEzIDIxOSAyNzUwIDc0NApRIDI5ODggMTI2OSAyOTg4IDIzMjgKUSAyOTg4IDMzOTEgMjc1MCAzOTE2ClEgMjUxMyA0NDQxIDIwMzQgNDQ0MQpRIDE1NTYgNDQ0MSAxMzE4IDM5MTYKUSAxMDgxIDMzOTEgMTA4MSAyMzI4ClEgMTA4MSAxMjY5IDEzMTggNzQ0ClEgMTU1NiAyMTkgMjAzNCAyMTkKegpNIDIwMzQgLTkxClEgMTI3NSAtOTEgODQ4IDU0NgpRIDQyMiAxMTg0IDQyMiAyMzI4ClEgNDIyIDM0NzUgODQ4IDQxMTIKUSAxMjc1IDQ3NTAgMjAzNCA0NzUwClEgMjc5NyA0NzUwIDMyMjIgNDExMgpRIDM2NDcgMzQ3NSAzNjQ3IDIzMjgKUSAzNjQ3IDExODQgMzIyMiA1NDYKUSAyNzk3IC05MSAyMDM0IC05MQp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtMTEiIGQ9Ik0gNjAzIDMyNQpRIDYwMyA1MDAgNzIyIDYyMgpRIDg0MSA3NDQgMTAxOSA3NDQKUSAxMTkxIDc0NCAxMzEyIDYyMgpRIDE0MzQgNTAwIDE0MzQgMzI1ClEgMTQzNCAxNTMgMTMxMiAzMQpRIDExOTEgLTkxIDEwMTkgLTkxClEgODQxIC05MSA3MjIgMjkKUSA2MDMgMTUwIDYwMyAzMjUKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgICAgPHBhdGggaWQ9IkRlamFWdVNlcmlmLTFhIiBkPSJNIDM2MDkgNDM0NwpMIDE3ODQgMApMIDEzMTkgMApMIDMwNTkgNDE1MwpMIDkwMyA0MTUzCkwgOTAzIDM1NzgKTCA1MzggMzU3OApMIDUzOCA0NjY2CkwgMzYwOSA0NjY2CkwgMzYwOSA0MzQ3CnoKIiB0cmFuc2Zvcm09InNjYWxlKDAuMDE1NjI1KSIvPgogICAgICAgIDxwYXRoIGlkPSJEZWphVnVTZXJpZi0xOCIgZD0iTSAzMjE5IDQ2NjYKTCAzMjE5IDQxNTMKTCAxMDgxIDQxNTMKTCAxMDgxIDI4MTYKUSAxMjQ0IDI5MjggMTQ2MSAyOTg0ClEgMTY3OCAzMDQxIDE5NDcgMzA0MQpRIDI3MDMgMzA0MSAzMTQwIDI2MjIKUSAzNTc4IDIyMDMgMzU3OCAxNDc4ClEgMzU3OCA3MzggMzEzNiAzMjMKUSAyNjk0IC05MSAxODk0IC05MQpRIDE1NzIgLTkxIDEyMzQgLTEyClEgODk3IDY2IDU0NCAyMjUKTCA1NDQgMTEzMQpMIDg5NyAxMTMxClEgOTI1IDY4OCAxMTc5IDQ1MwpRIDE0MzQgMjE5IDE4OTQgMjE5ClEgMjM4OCAyMTkgMjY1MyA1NDQKUSAyOTE5IDg2OSAyOTE5IDE0NzgKUSAyOTE5IDIwODQgMjY1NSAyNDA3ClEgMjM5MSAyNzMxIDE4OTQgMjczMQpRIDE2MTMgMjczMSAxMzk4IDI2MzEKUSAxMTg0IDI1MzEgMTAxOSAyMzIyCkwgNzUwIDIzMjIKTCA3NTAgNDY2NgpMIDMyMTkgNDY2Ngp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtMyIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtMTUiIGQ9Ik0gODE5IDM1NTMKTCA0NjkgMzU1MwpMIDQ2OSA0Mzg0ClEgODAzIDQ1NjMgMTE0MiA0NjU2ClEgMTQ4MSA0NzUwIDE4MDYgNDc1MApRIDI1MzQgNDc1MCAyOTU2IDQzOTcKUSAzMzc4IDQwNDQgMzM3OCAzNDM4ClEgMzM3OCAyNzUzIDI0MjIgMTgwMApRIDIzNDcgMTcyOCAyMzA5IDE2OTEKTCAxMTMxIDUxMwpMIDMwNzggNTEzCkwgMzA3OCAxMDg4CkwgMzQ0NCAxMDg4CkwgMzQ0NCAwCkwgNDM0IDAKTCA0MzQgMzQxCkwgMTg1MCAxNzUzClEgMjMxOSAyMjIyIDI1MTkgMjYxNApRIDI3MTkgMzAwNiAyNzE5IDM0MzgKUSAyNzE5IDM5MDkgMjQ3MyA0MTc1ClEgMjIyOCA0NDQxIDE3OTcgNDQ0MQpRIDEzNTAgNDQ0MSAxMTA2IDQyMTkKUSA4NjMgMzk5NyA4MTkgMzU1Mwp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgIDwvZGVmcz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTEzIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjMuNjI1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xYSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTUuNDA2MjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTE4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNTkuMDMxMjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIyMi42NTYyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTciIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI1NC40Mzc1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjk0LjYyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzU0LjgyODEyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDM4Ni42MDkzNzUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTExIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0NTAuMjM0Mzc1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xNSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDgyLjAxNTYyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDU0NS42NDA2MjUgMCkiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ4dGlja18yIj4KICAgICA8ZyBpZD0ibGluZTJkXzMiPgogICAgICA8cGF0aCBkPSJNIDEzMS4xOTQxOTUgMTYzLjI3Mzg2NwpMIDEzMS4xOTQxOTUgMjIuOTIKIiBjbGlwLXBhdGg9InVybCgjcGEzZGJiNjM5MmQpIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjZTNlNmUxOyBzdHJva2Utd2lkdGg6IDAuNjsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICAgIDwvZz4KICAgICA8ZyBpZD0ibGluZTJkXzQiPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI20zY2U0M2U1N2Q1IiB4PSIxMzEuMTk0MTk1IiB5PSIxNjMuMjczODY3IiBzdHlsZT0iZmlsbDogIzFkMjQyMDsgc3Ryb2tlOiAjMWQyNDIwOyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzIiPgogICAgICA8IS0tIHJlZHVjZWQgLS0+CiAgICAgIDxnIHN0eWxlPSJmaWxsOiAjMWQyNDIwIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMTYuNjgyODY2IDE3Ni4yOTM0NTcpIHNjYWxlKDAuMDcgLTAuMDcpIj4KICAgICAgIDxkZWZzPgogICAgICAgIDxwYXRoIGlkPSJEZWphVnVTZXJpZi00OCIgZD0iTSAzNDY5IDE2MDAKTCA5OTEgMTYwMApMIDk5MSAxNTc1ClEgOTkxIDkwMyAxMjQ0IDU2MQpRIDE0OTcgMjE5IDE5OTEgMjE5ClEgMjM2OSAyMTkgMjYxMSA0MTcKUSAyODUzIDYxNiAyOTUwIDEwMDYKTCAzNDEzIDEwMDYKUSAzMjc1IDQ1OSAyOTA0IDE4NApRIDI1MzQgLTkxIDE5MzEgLTkxClEgMTIwMyAtOTEgNzYxIDM4OQpRIDMxOSA4NjkgMzE5IDE2NjMKUSAzMTkgMjQ1MCA3NTMgMjkzMQpRIDExODggMzQxMyAxODk0IDM0MTMKUSAyNjQ3IDM0MTMgMzA1MCAyOTQ4ClEgMzQ1MyAyNDg0IDM0NjkgMTYwMAp6Ck0gMjc5MSAxOTMxClEgMjc3MiAyNTEzIDI1NDUgMjgwOApRIDIzMTkgMzEwMyAxODk0IDMxMDMKUSAxNDk3IDMxMDMgMTI2OSAyODA2ClEgMTA0MSAyNTA5IDk5MSAxOTMxCkwgMjc5MSAxOTMxCnoKIiB0cmFuc2Zvcm09InNjYWxlKDAuMDE1NjI1KSIvPgogICAgICAgIDxwYXRoIGlkPSJEZWphVnVTZXJpZi00NyIgZD0iTSAzMzU5IDMzMQpMIDM5MDkgMzMxCkwgMzkwOSAwCkwgMjc4NCAwCkwgMjc4NCA1MTkKUSAyNjE2IDIwNiAyMzU1IDU3ClEgMjA5NCAtOTEgMTcwOSAtOTEKUSAxMDk3IC05MSA3MDggMzk1ClEgMzE5IDg4MSAzMTkgMTY2MwpRIDMxOSAyNDQ0IDcwNiAyOTI4ClEgMTA5NCAzNDEzIDE3MDkgMzQxMwpRIDIwOTQgMzQxMyAyMzU1IDMyNjQKUSAyNjE2IDMxMTYgMjc4NCAyODAzCkwgMjc4NCA0NTMxCkwgMjI0MSA0NTMxCkwgMjI0MSA0ODYzCkwgMzM1OSA0ODYzCkwgMzM1OSAzMzEKegpNIDI3ODQgMTQ5NwpMIDI3ODQgMTgyNQpRIDI3ODQgMjQyMiAyNTU0IDI3MzcKUSAyMzI1IDMwNTMgMTg4OCAzMDUzClEgMTQ0NCAzMDUzIDEyMTcgMjcwMwpRIDk5MSAyMzUzIDk5MSAxNjYzClEgOTkxIDk3NSAxMjE3IDYyMgpRIDE0NDQgMjY5IDE4ODggMjY5ClEgMjMyNSAyNjkgMjU1NCA1ODMKUSAyNzg0IDg5NyAyNzg0IDE0OTcKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgICAgPHBhdGggaWQ9IkRlamFWdVNlcmlmLTU4IiBkPSJNIDIyNjYgMzMyMgpMIDMzNDEgMzMyMgpMIDMzNDEgMzMxCkwgMzg4NCAzMzEKTCAzODg0IDAKTCAyNzY2IDAKTCAyNzY2IDU4OApRIDI2MDYgMjU2IDIzNTMgODIKUSAyMTAwIC05MSAxNzY2IC05MQpRIDEyMTMgLTkxIDk1MiAyMjMKUSA2OTEgNTM4IDY5MSAxMjA5CkwgNjkxIDI5ODgKTCAxNzIgMjk4OApMIDE3MiAzMzIyCkwgMTI2OSAzMzIyCkwgMTI2OSAxMzg4ClEgMTI2OSA3ODEgMTQxNyA1NTYKUSAxNTY2IDMzMSAxOTQ3IDMzMQpRIDIzNDcgMzMxIDI1NTYgNjI1ClEgMjc2NiA5MTkgMjc2NiAxNDc4CkwgMjc2NiAyOTg4CkwgMjI2NiAyOTg4CkwgMjI2NiAzMzIyCnoKIiB0cmFuc2Zvcm09InNjYWxlKDAuMDE1NjI1KSIvPgogICAgICAgIDxwYXRoIGlkPSJEZWphVnVTZXJpZi00NiIgZD0iTSAzMjkxIDk5NwpRIDMxNjkgNDY2IDI4MjIgMTg3ClEgMjQ3NSAtOTEgMTkyNSAtOTEKUSAxMjAwIC05MSA3NTkgMzg5ClEgMzE5IDg2OSAzMTkgMTY2MwpRIDMxOSAyNDU5IDc1OSAyOTM2ClEgMTIwMCAzNDEzIDE5MjUgMzQxMwpRIDIyNDEgMzQxMyAyNTUzIDMzMzkKUSAyODY2IDMyNjYgMzE4MSAzMTE2CkwgMzE4MSAyMjY2CkwgMjg0NyAyMjY2ClEgMjc4MSAyNzAzIDI1NjEgMjkwMwpRIDIzNDEgMzEwMyAxOTMxIDMxMDMKUSAxNDY2IDMxMDMgMTIyOCAyNzQyClEgOTkxIDIzODEgOTkxIDE2NjMKUSA5OTEgOTQ0IDEyMjcgNTgxClEgMTQ2MyAyMTkgMTkzMSAyMTkKUSAyMzAzIDIxOSAyNTI1IDQxMgpRIDI3NDcgNjA2IDI4MjggOTk3CkwgMzI5MSA5OTcKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgICA8L2RlZnM+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ3Ljc5Njg3NSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDciIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwNi45ODQzNzUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNzEgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ2IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyMzUuNDA2MjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyOTEuNDA2MjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ3IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzNTAuNTkzNzUgMCkiLz4KICAgICAgPC9nPgogICAgICA8IS0tIDAuMzAgdG8gMC4wNSAtLT4KICAgICAgPGcgc3R5bGU9ImZpbGw6ICMxZDI0MjAiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwOS44Njk4OTggMTg0LjY5NDgyNCkgc2NhbGUoMC4wNyAtMC4wNykiPgogICAgICAgPGRlZnM+CiAgICAgICAgPHBhdGggaWQ9IkRlamFWdVNlcmlmLTE2IiBkPSJNIDYyMiA0NDY5ClEgOTg4IDQ2MDYgMTMyMyA0Njc4ClEgMTY1OSA0NzUwIDE5NTMgNDc1MApRIDI2MzggNDc1MCAzMDIyIDQ0NTQKUSAzNDA2IDQxNTkgMzQwNiAzNjM0ClEgMzQwNiAzMjEzIDMxNDAgMjkzMApRIDI4NzUgMjY0NyAyMzg4IDI1NDcKUSAyOTYzIDI0NjYgMzI4MCAyMTMwClEgMzU5NyAxNzk0IDM1OTcgMTI1OQpRIDM1OTcgNjA2IDMxNTggMjU3ClEgMjcxOSAtOTEgMTg5NCAtOTEKUSAxNTI4IC05MSAxMTc5IC0xMgpRIDgzMSA2NiA0ODggMjI1CkwgNDg4IDExMzEKTCA4MzggMTEzMQpRIDg2OSA2ODEgMTE0MSA0NTAKUSAxNDEzIDIxOSAxOTA2IDIxOQpRIDIzODQgMjE5IDI2NjEgNDk1ClEgMjkzOCA3NzIgMjkzOCAxMjUzClEgMjkzOCAxODAzIDI2NTMgMjA4NgpRIDIzNjkgMjM2OSAxODE5IDIzNjkKTCAxNTIyIDIzNjkKTCAxNTIyIDI2ODgKTCAxNjc4IDI2ODgKUSAyMjI1IDI2ODggMjQ5OCAyOTE0ClEgMjc3MiAzMTQxIDI3NzIgMzU5NwpRIDI3NzIgNDAwNiAyNTQ3IDQyMjMKUSAyMzIyIDQ0NDEgMTkwMCA0NDQxClEgMTQ3OCA0NDQxIDEyNDUgNDI0MQpRIDEwMTMgNDA0MSA5NzIgMzY0NwpMIDYyMiAzNjQ3CkwgNjIyIDQ0NjkKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgICA8L2RlZnM+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xMyIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYzLjYyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDk1LjQwNjI1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTU5LjAzMTI1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyMjIuNjU2MjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU3IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNTQuNDM3NSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI5NC42MjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDM1NC44MjgxMjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTEzIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzODYuNjA5Mzc1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDUwLjIzNDM3NSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ4Mi4wMTU2MjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTE4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NDUuNjQwNjI1IDApIi8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ieHRpY2tfMyI+CiAgICAgPGcgaWQ9ImxpbmUyZF81Ij4KICAgICAgPHBhdGggZD0iTSAxOTMuMTMxMzk4IDE2My4yNzM4NjcKTCAxOTMuMTMxMzk4IDIyLjkyCiIgY2xpcC1wYXRoPSJ1cmwoI3BhM2RiYjYzOTJkKSIgc3R5bGU9ImZpbGw6IG5vbmU7IHN0cm9rZTogI2UzZTZlMTsgc3Ryb2tlLXdpZHRoOiAwLjY7IHN0cm9rZS1saW5lY2FwOiBzcXVhcmUiLz4KICAgICA8L2c+CiAgICAgPGcgaWQ9ImxpbmUyZF82Ij4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtM2NlNDNlNTdkNSIgeD0iMTkzLjEzMTM5OCIgeT0iMTYzLjI3Mzg2NyIgc3R5bGU9ImZpbGw6ICMxZDI0MjA7IHN0cm9rZTogIzFkMjQyMDsgc3Ryb2tlLXdpZHRoOiAwLjgiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgICA8ZyBpZD0idGV4dF8zIj4KICAgICAgPCEtLSBub25lIC0tPgogICAgICA8ZyBzdHlsZT0iZmlsbDogIzFkMjQyMCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTg0LjQ0NDI4OSAxNzUuNTkyMjI3KSBzY2FsZSgwLjA3IC0wLjA3KSI+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY0LjQwNjI1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTI0LjYwOTM3NSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE4OS4wMTU2MjUgMCkiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ0ZXh0XzQiPgogICAgIDwhLS0gY29uZGl0aW9uaW5nIGNvcnJ1cHRpb24gKGhpZ2ggdG8gbG93KSAtLT4KICAgICA8ZyBzdHlsZT0iZmlsbDogIzFkMjQyMCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjMuODMwODk4IDE5Ni43NzU5NzcpIHNjYWxlKDAuMDc1IC0wLjA3NSkiPgogICAgICA8ZGVmcz4KICAgICAgIDxwYXRoIGlkPSJEZWphVnVTZXJpZi00YyIgZD0iTSA2MjIgNDM1MwpRIDYyMiA0NDk3IDcyNiA0NjAzClEgODMxIDQ3MDkgOTc4IDQ3MDkKUSAxMTIyIDQ3MDkgMTIyNiA0NjAzClEgMTMzMSA0NDk3IDEzMzEgNDM1MwpRIDEzMzEgNDIwNiAxMjI4IDQxMDMKUSAxMTI1IDQwMDAgOTc4IDQwMDAKUSA4MzEgNDAwMCA3MjYgNDEwMwpRIDYyMiA0MjA2IDYyMiA0MzUzCnoKTSAxMzU2IDMzMQpMIDE5MDAgMzMxCkwgMTkwMCAwCkwgMjMxIDAKTCAyMzEgMzMxCkwgNzgxIDMzMQpMIDc4MSAyOTg4CkwgMjMxIDI5ODgKTCAyMzEgMzMyMgpMIDEzNTYgMzMyMgpMIDEzNTYgMzMxCnoKIiB0cmFuc2Zvcm09InNjYWxlKDAuMDE1NjI1KSIvPgogICAgICAgPHBhdGggaWQ9IkRlamFWdVNlcmlmLTUzIiBkPSJNIDEzMTMgMTgyNQpMIDEzMTMgMTQ5NwpRIDEzMTMgODk3IDE1NDIgNTgzClEgMTc3MiAyNjkgMjIwOSAyNjkKUSAyNjUwIDI2OSAyODc2IDYyMgpRIDMxMDMgOTc1IDMxMDMgMTY2MwpRIDMxMDMgMjM1MyAyODc2IDI3MDMKUSAyNjUwIDMwNTMgMjIwOSAzMDUzClEgMTc3MiAzMDUzIDE1NDIgMjczNwpRIDEzMTMgMjQyMiAxMzEzIDE4MjUKegpNIDczOCAyOTg4CkwgMTg0IDI5ODgKTCAxODQgMzMyMgpMIDEzMTMgMzMyMgpMIDEzMTMgMjgwMwpRIDE0ODEgMzExNiAxNzQyIDMyNjQKUSAyMDAzIDM0MTMgMjM4OCAzNDEzClEgMzAwMCAzNDEzIDMzODcgMjkyOApRIDM3NzUgMjQ0NCAzNzc1IDE2NjMKUSAzNzc1IDg4MSAzMzg3IDM5NQpRIDMwMDAgLTkxIDIzODggLTkxClEgMjAwMyAtOTEgMTc0MiA1NwpRIDE0ODEgMjA2IDEzMTMgNTE5CkwgMTMxMyAtOTk3CkwgMTg1NiAtOTk3CkwgMTg1NiAtMTMzMQpMIDE4NCAtMTMzMQpMIDE4NCAtOTk3CkwgNzM4IC05OTcKTCA3MzggMjk4OAp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgIDxwYXRoIGlkPSJEZWphVnVTZXJpZi1iIiBkPSJNIDIwNDEgLTk5NwpRIDEyODEgLTY1NiA4OTMgODMKUSA1MDYgODIyIDUwNiAxOTMxClEgNTA2IDMwNDQgODkzIDM3ODMKUSAxMjgxIDQ1MjIgMjA0MSA0ODYzCkwgMjA0MSA0NTU2ClEgMTU1OSA0MjI1IDEzNTAgMzYyMwpRIDExNDEgMzAyMiAxMTQxIDE5MzEKUSAxMTQxIDg0NCAxMzUwIDI0MgpRIDE1NTkgLTM1OSAyMDQxIC02OTEKTCAyMDQxIC05OTcKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtNGIiIGQ9Ik0gMjYzIDAKTCAyNjMgMzMxCkwgNzgxIDMzMQpMIDc4MSA0NTMxCkwgMjMxIDQ1MzEKTCAyMzEgNDg2MwpMIDEzNTYgNDg2MwpMIDEzNTYgMjczMQpRIDE1MTYgMzA2OSAxNzcwIDMyNDEKUSAyMDI1IDM0MTMgMjM2MyAzNDEzClEgMjkxMyAzNDEzIDMxNzIgMzA5NwpRIDM0MzEgMjc4MSAzNDMxIDIxMTMKTCAzNDMxIDMzMQpMIDM5NDQgMzMxCkwgMzk0NCAwCkwgMjM1NiAwCkwgMjM1NiAzMzEKTCAyODUzIDMzMQpMIDI4NTMgMTkzMQpRIDI4NTMgMjU0MSAyNzA0IDI3NjQKUSAyNTU2IDI5ODggMjE3NSAyOTg4ClEgMTc3NSAyOTg4IDE1NjUgMjY5NwpRIDEzNTYgMjQwNiAxMzU2IDE4NTAKTCAxMzU2IDMzMQpMIDE4NTYgMzMxCkwgMTg1NiAwCkwgMjYzIDAKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtNGYiIGQ9Ik0gMTMxMyAzMzEKTCAxODU2IDMzMQpMIDE4NTYgMApMIDE4NCAwCkwgMTg0IDMzMQpMIDczOCAzMzEKTCA3MzggNDUzMQpMIDE4NCA0NTMxCkwgMTg0IDQ4NjMKTCAxMzEzIDQ4NjMKTCAxMzEzIDMzMQp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgIDxwYXRoIGlkPSJEZWphVnVTZXJpZi01YSIgZD0iTSAzMDcyIDMzMjIKTCAzOTIyIDcyOApMIDQ2NzIgMjk4OApMIDQxOTEgMjk4OApMIDQxOTEgMzMyMgpMIDUzOTQgMzMyMgpMIDUzOTQgMjk4OApMIDUwMjUgMjk4OApMIDQwMzggMApMIDM1NTkgMApMIDI3NDEgMjQ4NApMIDE5MTkgMApMIDE0NTkgMApMIDQ3NSAyOTg4CkwgMTAzIDI5ODgKTCAxMDMgMzMyMgpMIDE2MDYgMzMyMgpMIDE2MDYgMjk4OApMIDEwNjkgMjk4OApMIDE4MTMgNzI4CkwgMjY2OSAzMzIyCkwgMzA3MiAzMzIyCnoKIiB0cmFuc2Zvcm09InNjYWxlKDAuMDE1NjI1KSIvPgogICAgICAgPHBhdGggaWQ9IkRlamFWdVNlcmlmLWMiIGQ9Ik0gNDUzIC05OTcKTCA0NTMgLTY5MQpRIDkzNCAtMzU5IDExNDUgMjQyClEgMTM1NiA4NDQgMTM1NiAxOTMxClEgMTM1NiAzMDIyIDExNDUgMzYyMwpRIDkzNCA0MjI1IDQ1MyA0NTU2CkwgNDUzIDQ4NjMKUSAxMjE2IDQ1MjIgMTYwMyAzNzgzClEgMTk5MSAzMDQ0IDE5OTEgMTkzMQpRIDE5OTEgODIyIDE2MDMgODMKUSAxMjE2IC02NTYgNDUzIC05OTcKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgIDwvZGVmcz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDYiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDU2IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTUxIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMTYuMjAzMTI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ3IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxODAuNjA5Mzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTRjIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNDQuNjI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU3IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNzYuNjA5Mzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTRjIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzMTYuNzk2ODc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTUyIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzNDguNzgxMjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQwOC45ODQzNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ3My4zOTA2MjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDUwNS4zNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDU2OS43ODEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2MzMuNzk2ODc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ2IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2NjUuNTc4MTI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTUyIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg3MjEuNTc4MTI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU1IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg3ODEuNzgxMjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDgyOS41NzgxMjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDg3Ny4zNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDk0MS43ODEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTAwNS43OTY4NzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwNDUuOTg0Mzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTUyIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMDc3Ljk2ODc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTUxIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMTM4LjE3MTg3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMjAyLjU3ODEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi1iIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMjM0LjM1OTM3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00YiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTI3My4zNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEzMzcuNzgxMjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEzNjkuNzY1NjI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTRiIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNDMzLjc4MTI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE0OTguMTg3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTUyOS45Njg3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTU3MC4xNTYyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNjMwLjM1OTM3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00ZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTY2Mi4xNDA2MjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE2OTQuMTI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTVhIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNzU0LjMyODEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi1jIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxODM5LjkyMTg3NSAwKSIvPgogICAgIDwvZz4KICAgIDwvZz4KICAgPC9nPgogICA8ZyBpZD0ibWF0cGxvdGxpYi5heGlzXzIiPgogICAgPGcgaWQ9Inl0aWNrXzEiPgogICAgIDxnIGlkPSJsaW5lMmRfNyI+CiAgICAgIDxwYXRoIGQ9Ik0gNDQuNDgyMTA5IDE2My4yNzM4NjcKTCAyMjQuMSAxNjMuMjczODY3CiIgY2xpcC1wYXRoPSJ1cmwoI3BhM2RiYjYzOTJkKSIgc3R5bGU9ImZpbGw6IG5vbmU7IHN0cm9rZTogI2UzZTZlMTsgc3Ryb2tlLXdpZHRoOiAwLjY7IHN0cm9rZS1saW5lY2FwOiBzcXVhcmUiLz4KICAgICA8L2c+CiAgICAgPGcgaWQ9ImxpbmUyZF84Ij4KICAgICAgPGRlZnM+CiAgICAgICA8cGF0aCBpZD0ibTUzM2U4ZDQ4ZTQiIGQ9Ik0gMCAwCkwgLTMuNSAwCiIgc3R5bGU9InN0cm9rZTogIzFkMjQyMDsgc3Ryb2tlLXdpZHRoOiAwLjgiLz4KICAgICAgPC9kZWZzPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI201MzNlOGQ0OGU0IiB4PSI0NC40ODIxMDkiIHk9IjE2My4yNzM4NjciIHN0eWxlPSJmaWxsOiAjMWQyNDIwOyBzdHJva2U6ICMxZDI0MjA7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICAgPGcgaWQ9InRleHRfNSI+CiAgICAgIDwhLS0gMS4yIC0tPgogICAgICA8ZyBzdHlsZT0iZmlsbDogIzFkMjQyMCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjMuMTY5Mjk3IDE2Ni42OTI4MTIpIHNjYWxlKDAuMDkgLTAuMDkpIj4KICAgICAgIDxkZWZzPgogICAgICAgIDxwYXRoIGlkPSJEZWphVnVTZXJpZi0xNCIgZD0iTSA5MDkgMApMIDkwOSAzMzEKTCAxNzIyIDMzMQpMIDE3MjIgNDIxMwpMIDc4MSAzNjAzCkwgNzgxIDQwMTMKTCAxOTE5IDQ3NTAKTCAyMzUwIDQ3NTAKTCAyMzUwIDMzMQpMIDMxNjMgMzMxCkwgMzE2MyAwCkwgOTA5IDAKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgICA8L2RlZnM+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xNCIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYzLjYyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDk1LjQwNjI1IDApIi8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ieXRpY2tfMiI+CiAgICAgPGcgaWQ9ImxpbmUyZF85Ij4KICAgICAgPHBhdGggZD0iTSA0NC40ODIxMDkgMTQwLjgxNzI0OApMIDIyNC4xIDE0MC44MTcyNDgKIiBjbGlwLXBhdGg9InVybCgjcGEzZGJiNjM5MmQpIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjZTNlNmUxOyBzdHJva2Utd2lkdGg6IDAuNjsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICAgIDwvZz4KICAgICA8ZyBpZD0ibGluZTJkXzEwIj4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtNTMzZThkNDhlNCIgeD0iNDQuNDgyMTA5IiB5PSIxNDAuODE3MjQ4IiBzdHlsZT0iZmlsbDogIzFkMjQyMDsgc3Ryb2tlOiAjMWQyNDIwOyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzYiPgogICAgICA8IS0tIDEuNCAtLT4KICAgICAgPGcgc3R5bGU9ImZpbGw6ICMxZDI0MjAiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIzLjE2OTI5NyAxNDQuMjM2MTk0KSBzY2FsZSgwLjA5IC0wLjA5KSI+CiAgICAgICA8ZGVmcz4KICAgICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtMTciIGQ9Ik0gMjIzNCAxNTgxCkwgMjIzNCA0MDYzCkwgNjQxIDE1ODEKTCAyMjM0IDE1ODEKegpNIDM2MDkgMApMIDE0ODQgMApMIDE0ODQgMzMxCkwgMjIzNCAzMzEKTCAyMjM0IDEyNDcKTCAxOTcgMTI0NwpMIDE5NyAxNTg4CkwgMjI0MSA0NzUwCkwgMjg1OSA0NzUwCkwgMjg1OSAxNTgxCkwgMzc1MCAxNTgxCkwgMzc1MCAxMjQ3CkwgMjg1OSAxMjQ3CkwgMjg1OSAzMzEKTCAzNjA5IDMzMQpMIDM2MDkgMAp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgIDwvZGVmcz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTE0Ii8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjMuNjI1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xNyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTUuNDA2MjUgMCkiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ5dGlja18zIj4KICAgICA8ZyBpZD0ibGluZTJkXzExIj4KICAgICAgPHBhdGggZD0iTSA0NC40ODIxMDkgMTE4LjM2MDYzCkwgMjI0LjEgMTE4LjM2MDYzCiIgY2xpcC1wYXRoPSJ1cmwoI3BhM2RiYjYzOTJkKSIgc3R5bGU9ImZpbGw6IG5vbmU7IHN0cm9rZTogI2UzZTZlMTsgc3Ryb2tlLXdpZHRoOiAwLjY7IHN0cm9rZS1saW5lY2FwOiBzcXVhcmUiLz4KICAgICA8L2c+CiAgICAgPGcgaWQ9ImxpbmUyZF8xMiI+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTUzM2U4ZDQ4ZTQiIHg9IjQ0LjQ4MjEwOSIgeT0iMTE4LjM2MDYzIiBzdHlsZT0iZmlsbDogIzFkMjQyMDsgc3Ryb2tlOiAjMWQyNDIwOyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzciPgogICAgICA8IS0tIDEuNiAtLT4KICAgICAgPGcgc3R5bGU9ImZpbGw6ICMxZDI0MjAiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIzLjE2OTI5NyAxMjEuNzc5NTc1KSBzY2FsZSgwLjA5IC0wLjA5KSI+CiAgICAgICA8ZGVmcz4KICAgICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtMTkiIGQ9Ik0gMjA5NCAyMTkKUSAyNTM0IDIxOSAyNzcxIDU0MgpRIDMwMDkgODY2IDMwMDkgMTQ3MgpRIDMwMDkgMjA3OCAyNzcxIDI0MDEKUSAyNTM0IDI3MjUgMjA5NCAyNzI1ClEgMTY0NyAyNzI1IDE0MTIgMjQxMgpRIDExNzggMjEwMCAxMTc4IDE1MDkKUSAxMTc4IDg4OCAxNDE1IDU1MwpRIDE2NTMgMjE5IDIwOTQgMjE5CnoKTSAxMDc1IDI1NjkKUSAxMjg4IDI4MDMgMTU1NiAyOTE4ClEgMTgyNSAzMDM0IDIxNjMgMzAzNApRIDI4NTkgMzAzNCAzMjY0IDI2MTUKUSAzNjY5IDIxOTcgMzY2OSAxNDcyClEgMzY2OSA3NjMgMzIzMyAzMzYKUSAyNzk3IC05MSAyMDY5IC05MQpRIDEyNzggLTkxIDg1MyA0OTgKUSA0MjggMTA4OCA0MjggMjE4MQpRIDQyOCAzNDA2IDkzMSA0MDc4ClEgMTQzNCA0NzUwIDIzNTAgNDc1MApRIDI1OTcgNDc1MCAyODY5IDQ3MDMKUSAzMTQxIDQ2NTYgMzQyNSA0NTYzCkwgMzQyNSAzNzk0CkwgMzA3MiAzNzk0ClEgMzAzNCA0MTA5IDI4MzEgNDI3NQpRIDI2MjggNDQ0MSAyMjg0IDQ0NDEKUSAxNjc4IDQ0NDEgMTM4MSAzOTgxClEgMTA4NCAzNTIyIDEwNzUgMjU2OQp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgIDwvZGVmcz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTE0Ii8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjMuNjI1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xOSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTUuNDA2MjUgMCkiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ5dGlja180Ij4KICAgICA8ZyBpZD0ibGluZTJkXzEzIj4KICAgICAgPHBhdGggZD0iTSA0NC40ODIxMDkgOTUuOTA0MDExCkwgMjI0LjEgOTUuOTA0MDExCiIgY2xpcC1wYXRoPSJ1cmwoI3BhM2RiYjYzOTJkKSIgc3R5bGU9ImZpbGw6IG5vbmU7IHN0cm9rZTogI2UzZTZlMTsgc3Ryb2tlLXdpZHRoOiAwLjY7IHN0cm9rZS1saW5lY2FwOiBzcXVhcmUiLz4KICAgICA8L2c+CiAgICAgPGcgaWQ9ImxpbmUyZF8xNCI+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTUzM2U4ZDQ4ZTQiIHg9IjQ0LjQ4MjEwOSIgeT0iOTUuOTA0MDExIiBzdHlsZT0iZmlsbDogIzFkMjQyMDsgc3Ryb2tlOiAjMWQyNDIwOyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzgiPgogICAgICA8IS0tIDEuOCAtLT4KICAgICAgPGcgc3R5bGU9ImZpbGw6ICMxZDI0MjAiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIzLjE2OTI5NyA5OS4zMjI5NTYpIHNjYWxlKDAuMDkgLTAuMDkpIj4KICAgICAgIDxkZWZzPgogICAgICAgIDxwYXRoIGlkPSJEZWphVnVTZXJpZi0xYiIgZD0iTSAyOTgxIDEyNzUKUSAyOTgxIDE3NzUgMjczMiAyMDUxClEgMjQ4NCAyMzI4IDIwMzQgMjMyOApRIDE1ODQgMjMyOCAxMzM2IDIwNTEKUSAxMDg4IDE3NzUgMTA4OCAxMjc1ClEgMTA4OCA3NzIgMTMzNiA0OTUKUSAxNTg0IDIxOSAyMDM0IDIxOQpRIDI0ODQgMjE5IDI3MzIgNDk1ClEgMjk4MSA3NzIgMjk4MSAxMjc1CnoKTSAyODUzIDM1NDEKUSAyODUzIDM5NjYgMjYzNyA0MjAzClEgMjQyMiA0NDQxIDIwMzQgNDQ0MQpRIDE2NTAgNDQ0MSAxNDMzIDQyMDMKUSAxMjE2IDM5NjYgMTIxNiAzNTQxClEgMTIxNiAzMTEzIDE0MzMgMjg3NQpRIDE2NTAgMjYzOCAyMDM0IDI2MzgKUSAyNDIyIDI2MzggMjYzNyAyODc1ClEgMjg1MyAzMTEzIDI4NTMgMzU0MQp6Ck0gMjUxNiAyNDg0ClEgMzA0NyAyNDEzIDMzNDQgMjA5MgpRIDM2NDEgMTc3MiAzNjQxIDEyNzUKUSAzNjQxIDYxOSAzMjI1IDI2NApRIDI4MDkgLTkxIDIwMzQgLTkxClEgMTI2MyAtOTEgODQ1IDI2NApRIDQyOCA2MTkgNDI4IDEyNzUKUSA0MjggMTc3MiA3MjUgMjA5MgpRIDEwMjIgMjQxMyAxNTU2IDI0ODQKUSAxMDg0IDI1NjkgODMyIDI4NDIKUSA1ODEgMzExNiA1ODEgMzU0MQpRIDU4MSA0MTAzIDk2OCA0NDI2ClEgMTM1NiA0NzUwIDIwMzQgNDc1MApRIDI3MTMgNDc1MCAzMTAwIDQ0MjYKUSAzNDg4IDQxMDMgMzQ4OCAzNTQxClEgMzQ4OCAzMTE2IDMyMzYgMjg0MgpRIDI5ODQgMjU2OSAyNTE2IDI0ODQKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgICA8L2RlZnM+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xNCIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYzLjYyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMWIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDk1LjQwNjI1IDApIi8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ieXRpY2tfNSI+CiAgICAgPGcgaWQ9ImxpbmUyZF8xNSI+CiAgICAgIDxwYXRoIGQ9Ik0gNDQuNDgyMTA5IDczLjQ0NzM5MgpMIDIyNC4xIDczLjQ0NzM5MgoiIGNsaXAtcGF0aD0idXJsKCNwYTNkYmI2MzkyZCkiIHN0eWxlPSJmaWxsOiBub25lOyBzdHJva2U6ICNlM2U2ZTE7IHN0cm9rZS13aWR0aDogMC42OyBzdHJva2UtbGluZWNhcDogc3F1YXJlIi8+CiAgICAgPC9nPgogICAgIDxnIGlkPSJsaW5lMmRfMTYiPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI201MzNlOGQ0OGU0IiB4PSI0NC40ODIxMDkiIHk9IjczLjQ0NzM5MiIgc3R5bGU9ImZpbGw6ICMxZDI0MjA7IHN0cm9rZTogIzFkMjQyMDsgc3Ryb2tlLXdpZHRoOiAwLjgiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgICA8ZyBpZD0idGV4dF85Ij4KICAgICAgPCEtLSAyLjAgLS0+CiAgICAgIDxnIHN0eWxlPSJmaWxsOiAjMWQyNDIwIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyMy4xNjkyOTcgNzYuODY2MzM3KSBzY2FsZSgwLjA5IC0wLjA5KSI+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xNSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYzLjYyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDk1LjQwNjI1IDApIi8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ieXRpY2tfNiI+CiAgICAgPGcgaWQ9ImxpbmUyZF8xNyI+CiAgICAgIDxwYXRoIGQ9Ik0gNDQuNDgyMTA5IDUwLjk5MDc3MwpMIDIyNC4xIDUwLjk5MDc3MwoiIGNsaXAtcGF0aD0idXJsKCNwYTNkYmI2MzkyZCkiIHN0eWxlPSJmaWxsOiBub25lOyBzdHJva2U6ICNlM2U2ZTE7IHN0cm9rZS13aWR0aDogMC42OyBzdHJva2UtbGluZWNhcDogc3F1YXJlIi8+CiAgICAgPC9nPgogICAgIDxnIGlkPSJsaW5lMmRfMTgiPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI201MzNlOGQ0OGU0IiB4PSI0NC40ODIxMDkiIHk9IjUwLjk5MDc3MyIgc3R5bGU9ImZpbGw6ICMxZDI0MjA7IHN0cm9rZTogIzFkMjQyMDsgc3Ryb2tlLXdpZHRoOiAwLjgiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgICA8ZyBpZD0idGV4dF8xMCI+CiAgICAgIDwhLS0gMi4yIC0tPgogICAgICA8ZyBzdHlsZT0iZmlsbDogIzFkMjQyMCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjMuMTY5Mjk3IDU0LjQwOTcxOSkgc2NhbGUoMC4wOSAtMC4wOSkiPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTUiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTExIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2My42MjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTE1IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg5NS40MDYyNSAwKSIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9Inl0aWNrXzciPgogICAgIDxnIGlkPSJsaW5lMmRfMTkiPgogICAgICA8cGF0aCBkPSJNIDQ0LjQ4MjEwOSAyOC41MzQxNTUKTCAyMjQuMSAyOC41MzQxNTUKIiBjbGlwLXBhdGg9InVybCgjcGEzZGJiNjM5MmQpIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjZTNlNmUxOyBzdHJva2Utd2lkdGg6IDAuNjsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICAgIDwvZz4KICAgICA8ZyBpZD0ibGluZTJkXzIwIj4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtNTMzZThkNDhlNCIgeD0iNDQuNDgyMTA5IiB5PSIyOC41MzQxNTUiIHN0eWxlPSJmaWxsOiAjMWQyNDIwOyBzdHJva2U6ICMxZDI0MjA7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICAgPGcgaWQ9InRleHRfMTEiPgogICAgICA8IS0tIDIuNCAtLT4KICAgICAgPGcgc3R5bGU9ImZpbGw6ICMxZDI0MjAiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIzLjE2OTI5NyAzMS45NTMxKSBzY2FsZSgwLjA5IC0wLjA5KSI+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xNSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYzLjYyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTciIHRyYW5zZm9ybT0idHJhbnNsYXRlKDk1LjQwNjI1IDApIi8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0idGV4dF8xMiI+CiAgICAgPCEtLSBjb2RlIENFIChuYXRzIHBlciBjb2RlKSAtLT4KICAgICA8ZyBzdHlsZT0iZmlsbDogIzFkMjQyMCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTcuMDA3MTg4IDE0Ny45OTc2MzcpIHJvdGF0ZSgtOTApIHNjYWxlKDAuMDkgLTAuMDkpIj4KICAgICAgPGRlZnM+CiAgICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtMjYiIGQ9Ik0gNDUxMyAxMjM0ClEgNDMwNiA1ODEgMzgyMCAyNDUKUSAzMzM0IC05MSAyNTkxIC05MQpRIDIxMzQgLTkxIDE3NDMgNjUKUSAxMzUzIDIyMiAxMDUwIDUyNQpRIDcwMCA4NzUgNTI5IDEzMjAKUSAzNTkgMTc2NiAzNTkgMjMyOApRIDM1OSAzNDE2IDk4NyA0MDgzClEgMTYxNiA0NzUwIDI2NDQgNDc1MApRIDMwMjUgNDc1MCAzNDU2IDQ2NTAKUSAzODg4IDQ1NTAgNDM4NCA0MzQ3CkwgNDM4NCAzMjcyCkwgNDAzMSAzMjcyClEgMzkxNiAzODU5IDM1NjcgNDEzNwpRIDMyMTkgNDQxNiAyNTkxIDQ0MTYKUSAxODQ0IDQ0MTYgMTQ1OSAzODg2ClEgMTA3NSAzMzU2IDEwNzUgMjMyOApRIDEwNzUgMTMwMyAxNDU5IDc3MwpRIDE4NDQgMjQ0IDI1OTEgMjQ0ClEgMzExMyAyNDQgMzQ1MCA0OTIKUSAzNzg4IDc0MSAzOTM4IDEyMzQKTCA0NTEzIDEyMzQKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtMjgiIGQ9Ik0gMzUzIDAKTCAzNTMgMzMxCkwgOTQ3IDMzMQpMIDk0NyA0MzMxCkwgMzUzIDQzMzEKTCAzNTMgNDY2NgpMIDQxMDkgNDY2NgpMIDQxMDkgMzYyOApMIDM3MjUgMzYyOApMIDM3MjUgNDI4MQpMIDE1ODEgNDI4MQpMIDE1ODEgMjcxOQpMIDMxMDkgMjcxOQpMIDMxMDkgMzMwMwpMIDM0OTQgMzMwMwpMIDM0OTQgMTc1MwpMIDMxMDkgMTc1MwpMIDMxMDkgMjMzOApMIDE1ODEgMjMzOApMIDE1ODEgMzg0CkwgMzc3NSAzODQKTCAzNzc1IDEwMzgKTCA0MTU5IDEwMzgKTCA0MTU5IDAKTCAzNTMgMAp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgIDxwYXRoIGlkPSJEZWphVnVTZXJpZi00NCIgZD0iTSAyNTQ3IDEwNDQKTCAyNTQ3IDE3NDcKTCAxODA2IDE3NDcKUSAxMzc4IDE3NDcgMTE2OCAxNTYyClEgOTU5IDEzNzggOTU5IDk5NwpRIDk1OSA2NTAgMTE3MSA0NDcKUSAxMzg0IDI0NCAxNzQ3IDI0NApRIDIxMDYgMjQ0IDIzMjYgNDY2ClEgMjU0NyA2ODggMjU0NyAxMDQ0CnoKTSAzMTIyIDIwNzUKTCAzMTIyIDMzMQpMIDM2MzQgMzMxCkwgMzYzNCAwCkwgMjU0NyAwCkwgMjU0NyAzNTkKUSAyMzU2IDEyOCAyMTA2IDE4ClEgMTg1NiAtOTEgMTUyMiAtOTEKUSA5NjkgLTkxIDY0NCAyMDMKUSAzMTkgNDk3IDMxOSA5OTcKUSAzMTkgMTUxMyA2OTEgMTc5NwpRIDEwNjMgMjA4MSAxNzQxIDIwODEKTCAyNTQ3IDIwODEKTCAyNTQ3IDIzMDkKUSAyNTQ3IDI2ODggMjMxNyAyODk1ClEgMjA4OCAzMTAzIDE2NzIgMzEwMwpRIDEzMjggMzEwMyAxMTI1IDI5NDcKUSA5MjIgMjc5MSA4NzIgMjQ4NApMIDU3NSAyNDg0CkwgNTc1IDMxNTYKUSA4NzUgMzI4NCAxMTU4IDMzNDgKUSAxNDQxIDM0MTMgMTcwOSAzNDEzClEgMjQwMCAzNDEzIDI3NjEgMzA3MApRIDMxMjIgMjcyOCAzMTIyIDIwNzUKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgIDwvZGVmcz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDYiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDU2IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ3IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMTYuMjAzMTI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxODAuMjE4NzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjM5LjQwNjI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTI2IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNzEuMTg3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0yOCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzQ3LjcwMzEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0MjAuNzAzMTI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLWIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ1Mi40ODQzNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ5MS41IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ0IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NTUuOTA2MjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTciIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYxNS41MzEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjU1LjcxODc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDcwNy4wMzEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNzM4LjgxMjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDgwMi44MjgxMjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDg2Mi4wMTU2MjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTA5LjgxMjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDk0MS41OTM3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTk3LjU5Mzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ3IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMDU3Ljc5Njg3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00OCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTEyMS44MTI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLWMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDExODEgMCkiLz4KICAgICA8L2c+CiAgICA8L2c+CiAgIDwvZz4KICAgPGcgaWQ9ImxpbmUyZF8yMSI+CiAgICA8cGF0aCBkPSJNIDY1LjU0MDc1OSA0NS41MTY5NzMKTCAxMjcuNDc3OTYyIDExMS4wNDUzODYKTCAxODkuNDE1MTY2IDE0MS45NDU2OTQKIiBjbGlwLXBhdGg9InVybCgjcGEzZGJiNjM5MmQpIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjMmY2YjRmOyBzdHJva2Utb3BhY2l0eTogMC42OyBzdHJva2Utd2lkdGg6IDAuODsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICA8L2c+CiAgIDxnIGlkPSJsaW5lMmRfMjIiPgogICAgPGRlZnM+CiAgICAgPHBhdGggaWQ9Im0yOWJlMGUyZjU0IiBkPSJNIDAgMi41CkMgMC42NjMwMDggMi41IDEuMjk4OTUgMi4yMzY1ODQgMS43Njc3NjcgMS43Njc3NjcKQyAyLjIzNjU4NCAxLjI5ODk1IDIuNSAwLjY2MzAwOCAyLjUgMApDIDIuNSAtMC42NjMwMDggMi4yMzY1ODQgLTEuMjk4OTUgMS43Njc3NjcgLTEuNzY3NzY3CkMgMS4yOTg5NSAtMi4yMzY1ODQgMC42NjMwMDggLTIuNSAwIC0yLjUKQyAtMC42NjMwMDggLTIuNSAtMS4yOTg5NSAtMi4yMzY1ODQgLTEuNzY3NzY3IC0xLjc2Nzc2NwpDIC0yLjIzNjU4NCAtMS4yOTg5NSAtMi41IC0wLjY2MzAwOCAtMi41IDAKQyAtMi41IDAuNjYzMDA4IC0yLjIzNjU4NCAxLjI5ODk1IC0xLjc2Nzc2NyAxLjc2Nzc2NwpDIC0xLjI5ODk1IDIuMjM2NTg0IC0wLjY2MzAwOCAyLjUgMCAyLjUKegoiIHN0eWxlPSJzdHJva2U6ICMyZjZiNGYiLz4KICAgIDwvZGVmcz4KICAgIDxnIGNsaXAtcGF0aD0idXJsKCNwYTNkYmI2MzkyZCkiPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI20yOWJlMGUyZjU0IiB4PSI2NS41NDA3NTkiIHk9IjQ1LjUxNjk3MyIgc3R5bGU9ImZpbGw6ICMyZjZiNGY7IHN0cm9rZTogIzJmNmI0ZiIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI20yOWJlMGUyZjU0IiB4PSIxMjcuNDc3OTYyIiB5PSIxMTEuMDQ1Mzg2IiBzdHlsZT0iZmlsbDogIzJmNmI0Zjsgc3Ryb2tlOiAjMmY2YjRmIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjbTI5YmUwZTJmNTQiIHg9IjE4OS40MTUxNjYiIHk9IjE0MS45NDU2OTQiIHN0eWxlPSJmaWxsOiAjMmY2YjRmOyBzdHJva2U6ICMyZjZiNGYiLz4KICAgIDwvZz4KICAgPC9nPgogICA8ZyBpZD0ibGluZTJkXzIzIj4KICAgIDxwYXRoIGQ9Ik0gNzIuOTczMjIzIDQ1LjQ3ODc5NgpMIDEzNC45MTA0MjcgMTExLjUwNDYyNApMIDE5Ni44NDc2MyAxNDIuMzQ2NTQ0CiIgY2xpcC1wYXRoPSJ1cmwoI3BhM2RiYjYzOTJkKSIgc3R5bGU9ImZpbGw6IG5vbmU7IHN0cm9rZTogI2I1NTUyZjsgc3Ryb2tlLW9wYWNpdHk6IDAuNjsgc3Ryb2tlLXdpZHRoOiAwLjg7IHN0cm9rZS1saW5lY2FwOiBzcXVhcmUiLz4KICAgPC9nPgogICA8ZyBpZD0ibGluZTJkXzI0Ij4KICAgIDxkZWZzPgogICAgIDxwYXRoIGlkPSJtNmIzYmRiOTE1MSIgZD0iTSAtMi41IDIuNQpMIDIuNSAyLjUKTCAyLjUgLTIuNQpMIC0yLjUgLTIuNQp6CiIgc3R5bGU9InN0cm9rZTogI2I1NTUyZjsgc3Ryb2tlLWxpbmVqb2luOiBtaXRlciIvPgogICAgPC9kZWZzPgogICAgPGcgY2xpcC1wYXRoPSJ1cmwoI3BhM2RiYjYzOTJkKSI+CiAgICAgPHVzZSB4bGluazpocmVmPSIjbTZiM2JkYjkxNTEiIHg9IjcyLjk3MzIyMyIgeT0iNDUuNDc4Nzk2IiBzdHlsZT0iZmlsbDogI2I1NTUyZjsgc3Ryb2tlOiAjYjU1NTJmOyBzdHJva2UtbGluZWpvaW46IG1pdGVyIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjbTZiM2JkYjkxNTEiIHg9IjEzNC45MTA0MjciIHk9IjExMS41MDQ2MjQiIHN0eWxlPSJmaWxsOiAjYjU1NTJmOyBzdHJva2U6ICNiNTU1MmY7IHN0cm9rZS1saW5lam9pbjogbWl0ZXIiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtNmIzYmRiOTE1MSIgeD0iMTk2Ljg0NzYzIiB5PSIxNDIuMzQ2NTQ0IiBzdHlsZT0iZmlsbDogI2I1NTUyZjsgc3Ryb2tlOiAjYjU1NTJmOyBzdHJva2UtbGluZWpvaW46IG1pdGVyIi8+CiAgICA8L2c+CiAgIDwvZz4KICAgPGcgaWQ9ImxpbmUyZF8yNSI+CiAgICA8cGF0aCBkPSJNIDQ0LjQ4MjEwOSAxNDQuMTQ5ODExCkwgMjI0LjEgMTQ0LjE0OTgxMQoiIGNsaXAtcGF0aD0idXJsKCNwYTNkYmI2MzkyZCkiIHN0eWxlPSJmaWxsOiBub25lOyBzdHJva2UtZGFzaGFycmF5OiAwLjksMS40ODU7IHN0cm9rZS1kYXNob2Zmc2V0OiAwOyBzdHJva2U6ICM3YTg1N2Y7IHN0cm9rZS13aWR0aDogMC45Ii8+CiAgIDwvZz4KICAgPGcgaWQ9InBhdGNoXzMiPgogICAgPHBhdGggZD0iTSA0NC40ODIxMDkgMTYzLjI3Mzg2NwpMIDQ0LjQ4MjEwOSAyMi45MgoiIHN0eWxlPSJmaWxsOiBub25lOyBzdHJva2U6ICM3YTg1N2Y7IHN0cm9rZS13aWR0aDogMC44OyBzdHJva2UtbGluZWpvaW46IG1pdGVyOyBzdHJva2UtbGluZWNhcDogc3F1YXJlIi8+CiAgIDwvZz4KICAgPGcgaWQ9InBhdGNoXzQiPgogICAgPHBhdGggZD0iTSA0NC40ODIxMDkgMTYzLjI3Mzg2NwpMIDIyNC4xIDE2My4yNzM4NjcKIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjN2E4NTdmOyBzdHJva2Utd2lkdGg6IDAuODsgc3Ryb2tlLWxpbmVqb2luOiBtaXRlcjsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICA8L2c+CiAgIDxnIGlkPSJ0ZXh0XzEzIj4KICAgIDwhLS0gUmVsZWFzZWQgY2hlY2twb2ludCwgZGlmZmVyZW50IGNvZGVjIC0tPgogICAgPGcgc3R5bGU9ImZpbGw6ICM3YTg1N2YiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ3LjU3ODk3IDE1My40MjgxNSkgc2NhbGUoMC4wNjMgLTAuMDYzKSI+CiAgICAgPGRlZnM+CiAgICAgIDxwYXRoIGlkPSJEZWphVnVTZXJpZi0zNSIgZD0iTSAzMDY2IDIzMTYKUSAzMjg0IDIyNTYgMzQ0MiAyMTE0ClEgMzYwMCAxOTcyIDM3MjUgMTcxNgpMIDQ0MDMgMzMxCkwgNDk3MiAzMzEKTCA0OTcyIDAKTCAzODcyIDAKTCAzMTQ0IDE0ODQKUSAyOTM0IDE5MTYgMjc1OSAyMDQyClEgMjU4NCAyMTY5IDIyNzggMjE2OQpMIDE1ODEgMjE2OQpMIDE1ODEgMzMxCkwgMjI0MSAzMzEKTCAyMjQxIDAKTCAzNTMgMApMIDM1MyAzMzEKTCA5NDcgMzMxCkwgOTQ3IDQzMzEKTCAzNTMgNDMzMQpMIDM1MyA0NjY2CkwgMjcxOSA0NjY2ClEgMzQwMCA0NjY2IDM3NzAgNDM0MQpRIDQxNDEgNDAxNiA0MTQxIDM0MTkKUSA0MTQxIDI5MzggMzg3MCAyNjYxClEgMzYwMCAyMzg0IDMwNjYgMjMxNgp6Ck0gMTU4MSAyNTAzCkwgMjUwMyAyNTAzClEgMjk3NSAyNTAzIDMyMDAgMjcyNgpRIDM0MjUgMjk1MCAzNDI1IDM0MTkKUSAzNDI1IDM4ODggMzIwMCA0MTA5ClEgMjk3NSA0MzMxIDI1MDMgNDMzMQpMIDE1ODEgNDMzMQpMIDE1ODEgMjUwMwp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgPHBhdGggaWQ9IkRlamFWdVNlcmlmLTRlIiBkPSJNIDE4MzEgMApMIDIxOSAwCkwgMjE5IDMzMQpMIDczOCAzMzEKTCA3MzggNDUzMQpMIDE4NCA0NTMxCkwgMTg0IDQ4NjMKTCAxMzEzIDQ4NjMKTCAxMzEzIDE2OTcKTCAyNzEzIDI5ODgKTCAyMjM0IDI5ODgKTCAyMjM0IDMzMjIKTCAzNzM4IDMzMjIKTCAzNzM4IDI5ODgKTCAzMTY5IDI5ODgKTCAyMTgxIDIwNzUKTCAzNDQ0IDMzMQpMIDM5MjIgMzMxCkwgMzkyMiAwCkwgMjI4NCAwCkwgMjI4NCAzMzEKTCAyNzU5IDMzMQpMIDE3NjYgMTY5NwpMIDEzMTMgMTI3NQpMIDEzMTMgMzMxCkwgMTgzMSAzMzEKTCAxODMxIDAKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgIDxwYXRoIGlkPSJEZWphVnVTZXJpZi1mIiBkPSJNIDIzMSAtNjIyClEgNTI1IC00MDYgNjYyIC0xMTQKUSA4MDAgMTc4IDgwMCA1OTQKTCA4MDAgNzA5CkwgMTQxNiA3MDkKUSAxMzkxIDE3NSAxMTY0IC0yMDgKUSA5MzggLTU5MSA0ODEgLTg3MgpMIDIzMSAtNjIyCnoKIiB0cmFuc2Zvcm09InNjYWxlKDAuMDE1NjI1KSIvPgogICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtY2VmIiBkPSJNIDI5NjMgMjk4NApMIDEzNTYgMjk4OApMIDEzNTYgMzMxCkwgMjA5NCAzMzEKTCAyMDk0IDAKTCAyMzEgMApMIDIzMSAzMzEKTCA3ODEgMzMxCkwgNzgxIDI5ODgKTCAyMzEgMjk4OApMIDIzMSAzMzIyCkwgNzgxIDMzMjIKTCA3ODEgMzczOApRIDc4MSA0Mjk0IDEwNjggNDU3OApRIDEzNTYgNDg2MyAxOTE5IDQ4NjMKUSAyMTI1IDQ4NjMgMjMzNCA0ODI1ClEgMjU0NCA0Nzg4IDI3NTAgNDcwOQpMIDI3NTAgNDA3OApMIDI0NTAgNDA3OApRIDI0NDQgNDMxMyAyMzE2IDQ0MzQKUSAyMTg4IDQ1NTYgMTkzOCA0NTU2ClEgMTYxOSA0NTU2IDE0ODcgNDM3OQpRIDEzNTYgNDIwMyAxMzU2IDM3NTAKTCAxMzU2IDMzMjIKTCAyOTYzIDMzMjIKTCAyOTYzIDM3MzQKUSAyOTYzIDQyOTEgMzI1MCA0NTc1ClEgMzUzOCA0ODU5IDQxMDAgNDg1OQpRIDQzMDYgNDg1OSA0NTE1IDQ4MjEKUSA0NzI1IDQ3ODQgNDkzMSA0NzA2CkwgNDkzMSA0MDc1CkwgNDYzMSA0MDc1ClEgNDYyNSA0MzA5IDQ0OTcgNDQzMQpRIDQzNjkgNDU1MyA0MTE5IDQ1NTMKUSAzODAwIDQ1NTMgMzY2OSA0Mzc2ClEgMzUzOCA0MjAwIDM1MzggMzc0NwpMIDM1MzggMzMxOQpMIDQ0NjMgMzMxOQpMIDQ0NjMgMjk4NApMIDM1MzggMjk4NApMIDM1MzggMzI4CkwgNDI3NSAzMjgKTCA0Mjc1IC0zCkwgMjQxMyAtMwpMIDI0MTMgMzI4CkwgMjk2MyAzMjgKTCAyOTYzIDI5ODQKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgPC9kZWZzPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTM1Ii8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDc1LjI5Njg3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTRmIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMzQuNDg0Mzc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE2Ni40Njg3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ0IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyMjUuNjU2MjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjg1LjI4MTI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDMzNi41OTM3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ3IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzOTUuNzgxMjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0NTkuNzk2ODc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ5MS41NzgxMjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00YiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTQ3LjU3ODEyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2MTEuOTg0Mzc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY3MS4xNzE4NzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00ZSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNzI3LjE3MTg3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTUzIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg3ODcuNzY1NjI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDg1MS43ODEyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTRjIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg5MTEuOTg0Mzc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDk0My45Njg3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU3IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMDA4LjM3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLWYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwNDguNTYyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwODAuMzQzNzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTExMi4xMjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00YyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTE3Ni4xNDA2MjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi1jZWYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEyMDguMTI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEyNzkuMTcxODc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEzMzguMzU5Mzc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEzODYuMTU2MjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTQ0NS4zNDM3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU3IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNTA5Ljc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTU0OS45Mzc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE1ODEuNzE4NzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTYzNy43MTg3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ3IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNjk3LjkyMTg3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNzYxLjkzNzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTgyMS4xMjUgMCkiLz4KICAgIDwvZz4KICAgPC9nPgogICA8ZyBpZD0idGV4dF8xNCI+CiAgICA8IS0tIChhKSBDbGVhbiB0ZWFjaGVyLWZvcmNlZCBsb3NzIC0tPgogICAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNzIuMDczNzExIDE2LjkyKSBzY2FsZSgwLjA4NSAtMC4wODUpIj4KICAgICA8ZGVmcz4KICAgICAgPHBhdGggaWQ9IkRlamFWdVNlcmlmLTEwIiBkPSJNIDI4MSAxOTU5CkwgMTg4MSAxOTU5CkwgMTg4MSAxNDcyCkwgMjgxIDE0NzIKTCAyODEgMTk1OQp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgPHBhdGggaWQ9IkRlamFWdVNlcmlmLTQ5IiBkPSJNIDI3NTMgNDA3OApMIDI0NTAgNDA3OApRIDI0NDcgNDMxMyAyMzE3IDQ0MzQKUSAyMTg4IDQ1NTYgMTk0MSA0NTU2ClEgMTYxOSA0NTU2IDE0ODcgNDM3OQpRIDEzNTYgNDIwMyAxMzU2IDM3NTAKTCAxMzU2IDMzMjIKTCAyMjg0IDMzMjIKTCAyMjg0IDI5ODgKTCAxMzU2IDI5ODgKTCAxMzU2IDMzMQpMIDIwOTQgMzMxCkwgMjA5NCAwCkwgMjMxIDAKTCAyMzEgMzMxCkwgNzgxIDMzMQpMIDc4MSAyOTg4CkwgMjMxIDI5ODgKTCAyMzEgMzMyMgpMIDc4MSAzMzIyCkwgNzgxIDM3MzgKUSA3ODEgNDI5NCAxMDcwIDQ1NzgKUSAxMzU5IDQ4NjMgMTkxOSA0ODYzClEgMjEyOCA0ODYzIDIzMzcgNDgyNQpRIDI1NDcgNDc4OCAyNzUzIDQ3MDkKTCAyNzUzIDQwNzgKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgPC9kZWZzPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLWIiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzkuMDE1NjI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtYyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTguNjQwNjI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTM3LjY1NjI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMjYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE2OS40Mzc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI0NS45NTMxMjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00OCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjc3LjkzNzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzM3LjEyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTUxIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzOTYuNzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0NjEuMTU2MjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDkyLjkzNzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00OCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTMzLjEyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ0IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1OTIuMzEyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ2IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2NTEuOTM3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTRiIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg3MDcuOTM3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg3NzIuMzQzNzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoODMxLjUzMTI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTAiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDg3OS4zMjgxMjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00OSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTEzLjEyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTUyIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg5NTAuMTQwNjI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwMTAuMzQzNzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTA1OC4xNDA2MjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00OCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTExNC4xNDA2MjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTE3My4zMjgxMjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMjM3LjM0Mzc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEyNjkuMTI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEzMDEuMTA5Mzc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEzNjEuMzEyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU2IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNDEyLjYyNSAwKSIvPgogICAgPC9nPgogICA8L2c+CiAgIDxnIGlkPSJsZWdlbmRfMSI+CiAgICA8ZyBpZD0ibGluZTJkXzI2Ij4KICAgICA8Zz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjbTI5YmUwZTJmNTQiIHg9IjExNC43OTMwMzEiIHk9IjQwLjk5Njc4NiIgc3R5bGU9ImZpbGw6ICMyZjZiNGY7IHN0cm9rZTogIzJmNmI0ZiIvPgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ0ZXh0XzE1Ij4KICAgICA8IS0tIE1MWCBOQ00sIGdlbmVyYXRvciBzZWVkIDAgLS0+CiAgICAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTI2LjEzMzAzMSA0My4yMDE3ODYpIHNjYWxlKDAuMDYzIC0wLjA2MykiPgogICAgICA8ZGVmcz4KICAgICAgIDxwYXRoIGlkPSJEZWphVnVTZXJpZi0zMCIgZD0iTSAzNTMgMApMIDM1MyAzMzEKTCA5NDcgMzMxCkwgOTQ3IDQzMzEKTCAzMTkgNDMzMQpMIDMxOSA0NjY2CkwgMTY3OCA0NjY2CkwgMzMxNiAxMzQ0CkwgNDk1MyA0NjY2CkwgNjIyOCA0NjY2CkwgNjIyOCA0MzMxCkwgNTYwNiA0MzMxCkwgNTYwNiAzMzEKTCA2MjAzIDMzMQpMIDYyMDMgMApMIDQzNzggMApMIDQzNzggMzMxCkwgNDk3MiAzMzEKTCA0OTcyIDM5MzgKTCAzMzcyIDY4NApMIDI5MzEgNjg0CkwgMTMzMSAzOTM4CkwgMTMzMSAzMzEKTCAxOTI1IDMzMQpMIDE5MjUgMApMIDM1MyAwCnoKIiB0cmFuc2Zvcm09InNjYWxlKDAuMDE1NjI1KSIvPgogICAgICAgPHBhdGggaWQ9IkRlamFWdVNlcmlmLTJmIiBkPSJNIDM1MyAwCkwgMzUzIDMzMQpMIDk0NyAzMzEKTCA5NDcgNDMzMQpMIDM1MyA0MzMxCkwgMzUzIDQ2NjYKTCAyMTc1IDQ2NjYKTCAyMTc1IDQzMzEKTCAxNTgxIDQzMzEKTCAxNTgxIDM4NApMIDM3MTMgMzg0CkwgMzcxMyAxMTY2CkwgNDA5NyAxMTY2CkwgNDA5NyAwCkwgMzUzIDAKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtM2IiIGQ9Ik0gMjExOSAxOTk3CkwgOTc4IDMzMQpMIDE1ODEgMzMxCkwgMTU4MSAwCkwgMzggMApMIDM4IDMzMQpMIDU3NSAzMzEKTCAxOTE5IDIyOTEKTCA1NTYgNDMzMQpMIDU2IDQzMzEKTCA1NiA0NjY2CkwgMTkwNiA0NjY2CkwgMTkwNiA0MzMxCkwgMTM1NiA0MzMxCkwgMjM1NiAyODI4CkwgMzM4NCA0MzMxCkwgMjc4NCA0MzMxCkwgMjc4NCA0NjY2CkwgNDMxMyA0NjY2CkwgNDMxMyA0MzMxCkwgMzc4OCA0MzMxCkwgMjU1MyAyNTM0CkwgNDAyNSAzMzEKTCA0NTI1IDMzMQpMIDQ1MjUgMApMIDI2NzUgMApMIDI2NzUgMzMxCkwgMzIzMSAzMzEKTCAyMTE5IDE5OTcKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtMzEiIGQ9Ik0gMzEzIDAKTCAzMTMgMzMxCkwgOTQxIDMzMQpMIDk0MSA0MzMxCkwgMzEzIDQzMzEKTCAzMTMgNDY2NgpMIDE1MDkgNDY2NgpMIDQzMDYgOTg0CkwgNDMwNiA0MzMxCkwgMzY4MSA0MzMxCkwgMzY4MSA0NjY2CkwgNTMxOSA0NjY2CkwgNTMxOSA0MzMxCkwgNDY5MSA0MzMxCkwgNDY5MSAtOTEKTCA0MzEzIC05MQpMIDEzMjUgMzg0MQpMIDEzMjUgMzMxCkwgMTk1MyAzMzEKTCAxOTUzIDAKTCAzMTMgMAp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgPC9kZWZzPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zMCIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0yZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTAyLjM5MDYyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zYiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTY4Ljc5Njg3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyMzkuOTg0Mzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMxIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNzEuNzY1NjI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTI2IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzNTkuMjY1NjI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMwIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0MzUuNzgxMjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTM4LjE3MTg3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NjkuOTUzMTI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTRhIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2MDEuNzM0Mzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2NjUuNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDcyNC45Mzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg3ODkuMzQzNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDg0OC41MzEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoODk2LjMyODEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTU1Ljk1MzEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTk2LjE0MDYyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTA1Ni4zNDM3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMTA0LjE0MDYyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTEzNS45MjE4NzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDExODcuMjM0Mzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMjQ2LjQyMTg3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTMwNS42MDkzNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTM2OS42MjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE0MDEuNDA2MjUgMCkiLz4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ibGluZTJkXzI3Ij4KICAgICA8Zz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjbTZiM2JkYjkxNTEiIHg9IjExNC43OTMwMzEiIHk9IjUwLjQ0NzI3OSIgc3R5bGU9ImZpbGw6ICNiNTU1MmY7IHN0cm9rZTogI2I1NTUyZjsgc3Ryb2tlLWxpbmVqb2luOiBtaXRlciIvPgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ0ZXh0XzE2Ij4KICAgICA8IS0tIE1MWCBOQ00sIGdlbmVyYXRvciBzZWVkIDEgLS0+CiAgICAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTI2LjEzMzAzMSA1Mi42NTIyNzkpIHNjYWxlKDAuMDYzIC0wLjA2MykiPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zMCIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0yZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTAyLjM5MDYyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zYiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTY4Ljc5Njg3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyMzkuOTg0Mzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMxIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNzEuNzY1NjI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTI2IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzNTkuMjY1NjI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMwIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0MzUuNzgxMjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTM4LjE3MTg3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NjkuOTUzMTI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTRhIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2MDEuNzM0Mzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2NjUuNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDcyNC45Mzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg3ODkuMzQzNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDg0OC41MzEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoODk2LjMyODEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTU1Ljk1MzEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTk2LjE0MDYyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTA1Ni4zNDM3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMTA0LjE0MDYyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTEzNS45MjE4NzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDExODcuMjM0Mzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMjQ2LjQyMTg3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTMwNS42MDkzNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTM2OS42MjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTQiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE0MDEuNDA2MjUgMCkiLz4KICAgICA8L2c+CiAgICA8L2c+CiAgIDwvZz4KICA8L2c+CiAgPGcgaWQ9ImF4ZXNfMiI+CiAgIDxnIGlkPSJwYXRjaF81Ij4KICAgIDxwYXRoIGQ9Ik0gMjcxLjQ2MjEwOSAxNjMuMjczODY3CkwgNDUxLjA4IDE2My4yNzM4NjcKTCA0NTEuMDggMjIuOTIKTCAyNzEuNDYyMTA5IDIyLjkyCnoKIiBzdHlsZT0iZmlsbDogI2ZmZmZmZiIvPgogICA8L2c+CiAgIDxnIGlkPSJQYXRoQ29sbGVjdGlvbl8xIj4KICAgIDxkZWZzPgogICAgIDxwYXRoIGlkPSJtYTIyMmUyYWNlYSIgZD0iTSAwIDEuMzIyODc2CkMgMC4zNTA4MzEgMS4zMjI4NzYgMC42ODczNCAxLjE4MzQ4OSAwLjkzNTQxNCAwLjkzNTQxNApDIDEuMTgzNDg5IDAuNjg3MzQgMS4zMjI4NzYgMC4zNTA4MzEgMS4zMjI4NzYgMApDIDEuMzIyODc2IC0wLjM1MDgzMSAxLjE4MzQ4OSAtMC42ODczNCAwLjkzNTQxNCAtMC45MzU0MTQKQyAwLjY4NzM0IC0xLjE4MzQ4OSAwLjM1MDgzMSAtMS4zMjI4NzYgMCAtMS4zMjI4NzYKQyAtMC4zNTA4MzEgLTEuMzIyODc2IC0wLjY4NzM0IC0xLjE4MzQ4OSAtMC45MzU0MTQgLTAuOTM1NDE0CkMgLTEuMTgzNDg5IC0wLjY4NzM0IC0xLjMyMjg3NiAtMC4zNTA4MzEgLTEuMzIyODc2IDAKQyAtMS4zMjI4NzYgMC4zNTA4MzEgLTEuMTgzNDg5IDAuNjg3MzQgLTAuOTM1NDE0IDAuOTM1NDE0CkMgLTAuNjg3MzQgMS4xODM0ODkgLTAuMzUwODMxIDEuMzIyODc2IDAgMS4zMjI4NzYKegoiLz4KICAgIDwvZGVmcz4KICAgIDxnIGNsaXAtcGF0aD0idXJsKCNwYTdmZjY2ODM1OCkiPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI21hMjIyZTJhY2VhIiB4PSIyOTAuNjYyNjQzIiB5PSI3MC4xMDEyNzYiIHN0eWxlPSJmaWxsOiAjMmY2YjRmOyBmaWxsLW9wYWNpdHk6IDAuNDUiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtYTIyMmUyYWNlYSIgeD0iMjkwLjY2MjY0MyIgeT0iNzEuNTc5OTYxIiBzdHlsZT0iZmlsbDogIzJmNmI0ZjsgZmlsbC1vcGFjaXR5OiAwLjQ1Ii8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjbWEyMjJlMmFjZWEiIHg9IjI5MC42NjI2NDMiIHk9IjcwLjE5MjIxMyIgc3R5bGU9ImZpbGw6ICMyZjZiNGY7IGZpbGwtb3BhY2l0eTogMC40NSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI21hMjIyZTJhY2VhIiB4PSIyOTAuNjYyNjQzIiB5PSI3MC4yMzYzNyIgc3R5bGU9ImZpbGw6ICMyZjZiNGY7IGZpbGwtb3BhY2l0eTogMC40NSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI21hMjIyZTJhY2VhIiB4PSIyOTAuNjYyNjQzIiB5PSI3MS40Nzk1MjYiIHN0eWxlPSJmaWxsOiAjMmY2YjRmOyBmaWxsLW9wYWNpdHk6IDAuNDUiLz4KICAgIDwvZz4KICAgPC9nPgogICA8ZyBpZD0iUGF0aENvbGxlY3Rpb25fMiI+CiAgICA8ZyBjbGlwLXBhdGg9InVybCgjcGE3ZmY2NjgzNTgpIj4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtYTIyMmUyYWNlYSIgeD0iMzUyLjU5OTg0NiIgeT0iNjIuOTEyOTQiIHN0eWxlPSJmaWxsOiAjMmY2YjRmOyBmaWxsLW9wYWNpdHk6IDAuNDUiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtYTIyMmUyYWNlYSIgeD0iMzUyLjU5OTg0NiIgeT0iNjQuNTQ4OTMxIiBzdHlsZT0iZmlsbDogIzJmNmI0ZjsgZmlsbC1vcGFjaXR5OiAwLjQ1Ii8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjbWEyMjJlMmFjZWEiIHg9IjM1Mi41OTk4NDYiIHk9IjY0LjM4NTU4OCIgc3R5bGU9ImZpbGw6ICMyZjZiNGY7IGZpbGwtb3BhY2l0eTogMC40NSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI21hMjIyZTJhY2VhIiB4PSIzNTIuNTk5ODQ2IiB5PSI2NC44NTUzOTMiIHN0eWxlPSJmaWxsOiAjMmY2YjRmOyBmaWxsLW9wYWNpdHk6IDAuNDUiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtYTIyMmUyYWNlYSIgeD0iMzUyLjU5OTg0NiIgeT0iNjYuNDM3MDQ0IiBzdHlsZT0iZmlsbDogIzJmNmI0ZjsgZmlsbC1vcGFjaXR5OiAwLjQ1Ii8+CiAgICA8L2c+CiAgIDwvZz4KICAgPGcgaWQ9IlBhdGhDb2xsZWN0aW9uXzMiPgogICAgPGcgY2xpcC1wYXRoPSJ1cmwoI3BhN2ZmNjY4MzU4KSI+CiAgICAgPHVzZSB4bGluazpocmVmPSIjbWEyMjJlMmFjZWEiIHg9IjQxNC41MzcwNSIgeT0iMzcuNzA4NjIyIiBzdHlsZT0iZmlsbDogIzJmNmI0ZjsgZmlsbC1vcGFjaXR5OiAwLjQ1Ii8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjbWEyMjJlMmFjZWEiIHg9IjQxNC41MzcwNSIgeT0iMzkuOTI3OTQ1IiBzdHlsZT0iZmlsbDogIzJmNmI0ZjsgZmlsbC1vcGFjaXR5OiAwLjQ1Ii8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjbWEyMjJlMmFjZWEiIHg9IjQxNC41MzcwNSIgeT0iMzkuODgzMjEyIiBzdHlsZT0iZmlsbDogIzJmNmI0ZjsgZmlsbC1vcGFjaXR5OiAwLjQ1Ii8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjbWEyMjJlMmFjZWEiIHg9IjQxNC41MzcwNSIgeT0iMzguNTU0MDExIiBzdHlsZT0iZmlsbDogIzJmNmI0ZjsgZmlsbC1vcGFjaXR5OiAwLjQ1Ii8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjbWEyMjJlMmFjZWEiIHg9IjQxNC41MzcwNSIgeT0iMzguNTQxMzU2IiBzdHlsZT0iZmlsbDogIzJmNmI0ZjsgZmlsbC1vcGFjaXR5OiAwLjQ1Ii8+CiAgICA8L2c+CiAgIDwvZz4KICAgPGcgaWQ9IlBhdGhDb2xsZWN0aW9uXzQiPgogICAgPGRlZnM+CiAgICAgPHBhdGggaWQ9Im05OWRhNDVlYmYxIiBkPSJNIDAgMS4zMjI4NzYKQyAwLjM1MDgzMSAxLjMyMjg3NiAwLjY4NzM0IDEuMTgzNDg5IDAuOTM1NDE0IDAuOTM1NDE0CkMgMS4xODM0ODkgMC42ODczNCAxLjMyMjg3NiAwLjM1MDgzMSAxLjMyMjg3NiAwCkMgMS4zMjI4NzYgLTAuMzUwODMxIDEuMTgzNDg5IC0wLjY4NzM0IDAuOTM1NDE0IC0wLjkzNTQxNApDIDAuNjg3MzQgLTEuMTgzNDg5IDAuMzUwODMxIC0xLjMyMjg3NiAwIC0xLjMyMjg3NgpDIC0wLjM1MDgzMSAtMS4zMjI4NzYgLTAuNjg3MzQgLTEuMTgzNDg5IC0wLjkzNTQxNCAtMC45MzU0MTQKQyAtMS4xODM0ODkgLTAuNjg3MzQgLTEuMzIyODc2IC0wLjM1MDgzMSAtMS4zMjI4NzYgMApDIC0xLjMyMjg3NiAwLjM1MDgzMSAtMS4xODM0ODkgMC42ODczNCAtMC45MzU0MTQgMC45MzU0MTQKQyAtMC42ODczNCAxLjE4MzQ4OSAtMC4zNTA4MzEgMS4zMjI4NzYgMCAxLjMyMjg3Ngp6CiIvPgogICAgPC9kZWZzPgogICAgPGcgY2xpcC1wYXRoPSJ1cmwoI3BhN2ZmNjY4MzU4KSI+CiAgICAgPHVzZSB4bGluazpocmVmPSIjbTk5ZGE0NWViZjEiIHg9IjMwMS44MTEzMzkiIHk9IjcyLjc2OTA3NyIgc3R5bGU9ImZpbGw6ICNiNTU1MmY7IGZpbGwtb3BhY2l0eTogMC40NSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI205OWRhNDVlYmYxIiB4PSIzMDEuODExMzM5IiB5PSI3NC4wODIwMTIiIHN0eWxlPSJmaWxsOiAjYjU1NTJmOyBmaWxsLW9wYWNpdHk6IDAuNDUiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtOTlkYTQ1ZWJmMSIgeD0iMzAxLjgxMTMzOSIgeT0iNzMuMzkyMDQ5IiBzdHlsZT0iZmlsbDogI2I1NTUyZjsgZmlsbC1vcGFjaXR5OiAwLjQ1Ii8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjbTk5ZGE0NWViZjEiIHg9IjMwMS44MTEzMzkiIHk9IjcxLjY3ODcyMyIgc3R5bGU9ImZpbGw6ICNiNTU1MmY7IGZpbGwtb3BhY2l0eTogMC40NSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI205OWRhNDVlYmYxIiB4PSIzMDEuODExMzM5IiB5PSI3Mi43ODM2OTMiIHN0eWxlPSJmaWxsOiAjYjU1NTJmOyBmaWxsLW9wYWNpdHk6IDAuNDUiLz4KICAgIDwvZz4KICAgPC9nPgogICA8ZyBpZD0iUGF0aENvbGxlY3Rpb25fNSI+CiAgICA8ZyBjbGlwLXBhdGg9InVybCgjcGE3ZmY2NjgzNTgpIj4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtOTlkYTQ1ZWJmMSIgeD0iMzYzLjc0ODU0MyIgeT0iNjQuNTc2NDgzIiBzdHlsZT0iZmlsbDogI2I1NTUyZjsgZmlsbC1vcGFjaXR5OiAwLjQ1Ii8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjbTk5ZGE0NWViZjEiIHg9IjM2My43NDg1NDMiIHk9IjY0LjM5NjA4MyIgc3R5bGU9ImZpbGw6ICNiNTU1MmY7IGZpbGwtb3BhY2l0eTogMC40NSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI205OWRhNDVlYmYxIiB4PSIzNjMuNzQ4NTQzIiB5PSI2Mi45ODU2MjQiIHN0eWxlPSJmaWxsOiAjYjU1NTJmOyBmaWxsLW9wYWNpdHk6IDAuNDUiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtOTlkYTQ1ZWJmMSIgeD0iMzYzLjc0ODU0MyIgeT0iNjMuOTMzNDY3IiBzdHlsZT0iZmlsbDogI2I1NTUyZjsgZmlsbC1vcGFjaXR5OiAwLjQ1Ii8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjbTk5ZGE0NWViZjEiIHg9IjM2My43NDg1NDMiIHk9IjY2LjQ3NTkzOSIgc3R5bGU9ImZpbGw6ICNiNTU1MmY7IGZpbGwtb3BhY2l0eTogMC40NSIvPgogICAgPC9nPgogICA8L2c+CiAgIDxnIGlkPSJQYXRoQ29sbGVjdGlvbl82Ij4KICAgIDxnIGNsaXAtcGF0aD0idXJsKCNwYTdmZjY2ODM1OCkiPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI205OWRhNDVlYmYxIiB4PSI0MjUuNjg1NzQ2IiB5PSI0MC42Mzc1MjciIHN0eWxlPSJmaWxsOiAjYjU1NTJmOyBmaWxsLW9wYWNpdHk6IDAuNDUiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtOTlkYTQ1ZWJmMSIgeD0iNDI1LjY4NTc0NiIgeT0iNDEuNjM1NzgyIiBzdHlsZT0iZmlsbDogI2I1NTUyZjsgZmlsbC1vcGFjaXR5OiAwLjQ1Ii8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjbTk5ZGE0NWViZjEiIHg9IjQyNS42ODU3NDYiIHk9IjQxLjEwNjU2NSIgc3R5bGU9ImZpbGw6ICNiNTU1MmY7IGZpbGwtb3BhY2l0eTogMC40NSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI205OWRhNDVlYmYxIiB4PSI0MjUuNjg1NzQ2IiB5PSIzOS44MTcxMjgiIHN0eWxlPSJmaWxsOiAjYjU1NTJmOyBmaWxsLW9wYWNpdHk6IDAuNDUiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtOTlkYTQ1ZWJmMSIgeD0iNDI1LjY4NTc0NiIgeT0iNDAuNTY4ODk2IiBzdHlsZT0iZmlsbDogI2I1NTUyZjsgZmlsbC1vcGFjaXR5OiAwLjQ1Ii8+CiAgICA8L2c+CiAgIDwvZz4KICAgPGcgaWQ9Im1hdHBsb3RsaWIuYXhpc18zIj4KICAgIDxnIGlkPSJ4dGlja180Ij4KICAgICA8ZyBpZD0ibGluZTJkXzI4Ij4KICAgICAgPHBhdGggZD0iTSAyOTYuMjM2OTkxIDE2My4yNzM4NjcKTCAyOTYuMjM2OTkxIDIyLjkyCiIgY2xpcC1wYXRoPSJ1cmwoI3BhN2ZmNjY4MzU4KSIgc3R5bGU9ImZpbGw6IG5vbmU7IHN0cm9rZTogI2UzZTZlMTsgc3Ryb2tlLXdpZHRoOiAwLjY7IHN0cm9rZS1saW5lY2FwOiBzcXVhcmUiLz4KICAgICA8L2c+CiAgICAgPGcgaWQ9ImxpbmUyZF8yOSI+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTNjZTQzZTU3ZDUiIHg9IjI5Ni4yMzY5OTEiIHk9IjE2My4yNzM4NjciIHN0eWxlPSJmaWxsOiAjMWQyNDIwOyBzdHJva2U6ICMxZDI0MjA7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICAgPGcgaWQ9InRleHRfMTciPgogICAgICA8IS0tIHN0cm9uZyAtLT4KICAgICAgPGcgc3R5bGU9ImZpbGw6ICMxZDI0MjAiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI4NC43NTk3MjUgMTc2LjI5MjkxKSBzY2FsZSgwLjA3IC0wLjA3KSI+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NiIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTciIHRyYW5zZm9ybT0idHJhbnNsYXRlKDUxLjMxMjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU1IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg5MS41IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTM5LjI5Njg3NSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE5OS41IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00YSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjYzLjkwNjI1IDApIi8+CiAgICAgIDwvZz4KICAgICAgPCEtLSAwLjc1IHRvIDAuMjUgLS0+CiAgICAgIDxnIHN0eWxlPSJmaWxsOiAjMWQyNDIwIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNzQuOTEyNjk0IDE4NC42OTQyNzcpIHNjYWxlKDAuMDcgLTAuMDcpIj4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTEzIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjMuNjI1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xYSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTUuNDA2MjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTE4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNTkuMDMxMjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIyMi42NTYyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTciIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI1NC40Mzc1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjk0LjYyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzU0LjgyODEyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDM4Ni42MDkzNzUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTExIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0NTAuMjM0Mzc1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xNSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDgyLjAxNTYyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDU0NS42NDA2MjUgMCkiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ4dGlja181Ij4KICAgICA8ZyBpZD0ibGluZTJkXzMwIj4KICAgICAgPHBhdGggZD0iTSAzNTguMTc0MTk1IDE2My4yNzM4NjcKTCAzNTguMTc0MTk1IDIyLjkyCiIgY2xpcC1wYXRoPSJ1cmwoI3BhN2ZmNjY4MzU4KSIgc3R5bGU9ImZpbGw6IG5vbmU7IHN0cm9rZTogI2UzZTZlMTsgc3Ryb2tlLXdpZHRoOiAwLjY7IHN0cm9rZS1saW5lY2FwOiBzcXVhcmUiLz4KICAgICA8L2c+CiAgICAgPGcgaWQ9ImxpbmUyZF8zMSI+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTNjZTQzZTU3ZDUiIHg9IjM1OC4xNzQxOTUiIHk9IjE2My4yNzM4NjciIHN0eWxlPSJmaWxsOiAjMWQyNDIwOyBzdHJva2U6ICMxZDI0MjA7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICAgPGcgaWQ9InRleHRfMTgiPgogICAgICA8IS0tIHJlZHVjZWQgLS0+CiAgICAgIDxnIHN0eWxlPSJmaWxsOiAjMWQyNDIwIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzNDMuNjYyODY2IDE3Ni4yOTM0NTcpIHNjYWxlKDAuMDcgLTAuMDcpIj4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU1Ii8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00OCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDcuNzk2ODc1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTA2Ljk4NDM3NSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE3MSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIzNS40MDYyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI5MS40MDYyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDciIHRyYW5zZm9ybT0idHJhbnNsYXRlKDM1MC41OTM3NSAwKSIvPgogICAgICA8L2c+CiAgICAgIDwhLS0gMC4zMCB0byAwLjA1IC0tPgogICAgICA8ZyBzdHlsZT0iZmlsbDogIzFkMjQyMCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzM2Ljg0OTg5OCAxODQuNjk0ODI0KSBzY2FsZSgwLjA3IC0wLjA3KSI+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xMyIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYzLjYyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDk1LjQwNjI1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTU5LjAzMTI1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyMjIuNjU2MjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU3IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNTQuNDM3NSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI5NC42MjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDM1NC44MjgxMjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTEzIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzODYuNjA5Mzc1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDUwLjIzNDM3NSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ4Mi4wMTU2MjUgMCkiLz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTE4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NDUuNjQwNjI1IDApIi8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ieHRpY2tfNiI+CiAgICAgPGcgaWQ9ImxpbmUyZF8zMiI+CiAgICAgIDxwYXRoIGQ9Ik0gNDIwLjExMTM5OCAxNjMuMjczODY3CkwgNDIwLjExMTM5OCAyMi45MgoiIGNsaXAtcGF0aD0idXJsKCNwYTdmZjY2ODM1OCkiIHN0eWxlPSJmaWxsOiBub25lOyBzdHJva2U6ICNlM2U2ZTE7IHN0cm9rZS13aWR0aDogMC42OyBzdHJva2UtbGluZWNhcDogc3F1YXJlIi8+CiAgICAgPC9nPgogICAgIDxnIGlkPSJsaW5lMmRfMzMiPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI20zY2U0M2U1N2Q1IiB4PSI0MjAuMTExMzk4IiB5PSIxNjMuMjczODY3IiBzdHlsZT0iZmlsbDogIzFkMjQyMDsgc3Ryb2tlOiAjMWQyNDIwOyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzE5Ij4KICAgICAgPCEtLSBub25lIC0tPgogICAgICA8ZyBzdHlsZT0iZmlsbDogIzFkMjQyMCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDExLjQyNDI4OSAxNzUuNTkyMjI3KSBzY2FsZSgwLjA3IC0wLjA3KSI+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY0LjQwNjI1IDApIi8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTI0LjYwOTM3NSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE4OS4wMTU2MjUgMCkiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ0ZXh0XzIwIj4KICAgICA8IS0tIGNvbmRpdGlvbmluZyBjb3JydXB0aW9uIChoaWdoIHRvIGxvdykgLS0+CiAgICAgPGcgc3R5bGU9ImZpbGw6ICMxZDI0MjAiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI5MC44MTA4OTggMTk2Ljc3NTk3Nykgc2NhbGUoMC4wNzUgLTAuMDc1KSI+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ2Ii8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTUyIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NiAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTE2LjIwMzEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTgwLjYwOTM3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00YyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjQ0LjYyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjc2LjYwOTM3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00YyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzE2Ljc5Njg3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzQ4Ljc4MTI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTUxIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0MDguOTg0Mzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTRjIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0NzMuMzkwNjI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTUxIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1MDUuMzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTRhIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NjkuNzgxMjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjMzLjc5Njg3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjY1LjU3ODEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNzIxLjU3ODEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNzgxLjc4MTI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU1IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg4MjkuNTc4MTI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg4NzcuMzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTUzIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg5NDEuNzgxMjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTciIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwMDUuNzk2ODc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTRjIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMDQ1Ljk4NDM3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTA3Ny45Njg3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTEzOC4xNzE4NzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTIwMi41NzgxMjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtYiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTIzNC4zNTkzNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEyNzMuMzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTRjIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMzM3Ljc4MTI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTRhIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMzY5Ljc2NTYyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00YiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTQzMy43ODEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNDk4LjE4NzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTciIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE1MjkuOTY4NzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE1NzAuMTU2MjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTYzMC4zNTkzNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE2NjIuMTQwNjI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTUyIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNjk0LjEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01YSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTc1NC4zMjgxMjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtYyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTgzOS45MjE4NzUgMCkiLz4KICAgICA8L2c+CiAgICA8L2c+CiAgIDwvZz4KICAgPGcgaWQ9Im1hdHBsb3RsaWIuYXhpc180Ij4KICAgIDxnIGlkPSJ5dGlja184Ij4KICAgICA8ZyBpZD0ibGluZTJkXzM0Ij4KICAgICAgPHBhdGggZD0iTSAyNzEuNDYyMTA5IDE1MC40NTUyMDMKTCA0NTEuMDggMTUwLjQ1NTIwMwoiIGNsaXAtcGF0aD0idXJsKCNwYTdmZjY2ODM1OCkiIHN0eWxlPSJmaWxsOiBub25lOyBzdHJva2U6ICNlM2U2ZTE7IHN0cm9rZS13aWR0aDogMC42OyBzdHJva2UtbGluZWNhcDogc3F1YXJlIi8+CiAgICAgPC9nPgogICAgIDxnIGlkPSJsaW5lMmRfMzUiPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI201MzNlOGQ0OGU0IiB4PSIyNzEuNDYyMTA5IiB5PSIxNTAuNDU1MjAzIiBzdHlsZT0iZmlsbDogIzFkMjQyMDsgc3Ryb2tlOiAjMWQyNDIwOyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzIxIj4KICAgICAgPCEtLSA4IC0tPgogICAgICA8ZyBzdHlsZT0iZmlsbDogIzFkMjQyMCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjU4LjczNTg1OSAxNTMuODc0MTQ4KSBzY2FsZSgwLjA5IC0wLjA5KSI+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xYiIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9Inl0aWNrXzkiPgogICAgIDxnIGlkPSJsaW5lMmRfMzYiPgogICAgICA8cGF0aCBkPSJNIDI3MS40NjIxMDkgMTE5LjU2OTY0NwpMIDQ1MS4wOCAxMTkuNTY5NjQ3CiIgY2xpcC1wYXRoPSJ1cmwoI3BhN2ZmNjY4MzU4KSIgc3R5bGU9ImZpbGw6IG5vbmU7IHN0cm9rZTogI2UzZTZlMTsgc3Ryb2tlLXdpZHRoOiAwLjY7IHN0cm9rZS1saW5lY2FwOiBzcXVhcmUiLz4KICAgICA8L2c+CiAgICAgPGcgaWQ9ImxpbmUyZF8zNyI+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTUzM2U4ZDQ4ZTQiIHg9IjI3MS40NjIxMDkiIHk9IjExOS41Njk2NDciIHN0eWxlPSJmaWxsOiAjMWQyNDIwOyBzdHJva2U6ICMxZDI0MjA7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICAgPGcgaWQ9InRleHRfMjIiPgogICAgICA8IS0tIDE2IC0tPgogICAgICA8ZyBzdHlsZT0iZmlsbDogIzFkMjQyMCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjUzLjAwOTYwOSAxMjIuOTg4NTkyKSBzY2FsZSgwLjA5IC0wLjA5KSI+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xNCIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTkiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYzLjYyNSAwKSIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9Inl0aWNrXzEwIj4KICAgICA8ZyBpZD0ibGluZTJkXzM4Ij4KICAgICAgPHBhdGggZD0iTSAyNzEuNDYyMTA5IDg4LjY4NDA5MQpMIDQ1MS4wOCA4OC42ODQwOTEKIiBjbGlwLXBhdGg9InVybCgjcGE3ZmY2NjgzNTgpIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjZTNlNmUxOyBzdHJva2Utd2lkdGg6IDAuNjsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICAgIDwvZz4KICAgICA8ZyBpZD0ibGluZTJkXzM5Ij4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtNTMzZThkNDhlNCIgeD0iMjcxLjQ2MjEwOSIgeT0iODguNjg0MDkxIiBzdHlsZT0iZmlsbDogIzFkMjQyMDsgc3Ryb2tlOiAjMWQyNDIwOyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzIzIj4KICAgICAgPCEtLSAzMiAtLT4KICAgICAgPGcgc3R5bGU9ImZpbGw6ICMxZDI0MjAiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI1My4wMDk2MDkgOTIuMTAzMDM2KSBzY2FsZSgwLjA5IC0wLjA5KSI+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xNiIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYzLjYyNSAwKSIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9Inl0aWNrXzExIj4KICAgICA8ZyBpZD0ibGluZTJkXzQwIj4KICAgICAgPHBhdGggZD0iTSAyNzEuNDYyMTA5IDU3Ljc5ODUzNApMIDQ1MS4wOCA1Ny43OTg1MzQKIiBjbGlwLXBhdGg9InVybCgjcGE3ZmY2NjgzNTgpIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlOiAjZTNlNmUxOyBzdHJva2Utd2lkdGg6IDAuNjsgc3Ryb2tlLWxpbmVjYXA6IHNxdWFyZSIvPgogICAgIDwvZz4KICAgICA8ZyBpZD0ibGluZTJkXzQxIj4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtNTMzZThkNDhlNCIgeD0iMjcxLjQ2MjEwOSIgeT0iNTcuNzk4NTM0IiBzdHlsZT0iZmlsbDogIzFkMjQyMDsgc3Ryb2tlOiAjMWQyNDIwOyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgIDxnIGlkPSJ0ZXh0XzI0Ij4KICAgICAgPCEtLSA2NCAtLT4KICAgICAgPGcgc3R5bGU9ImZpbGw6ICMxZDI0MjAiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI1My4wMDk2MDkgNjEuMjE3NDgpIHNjYWxlKDAuMDkgLTAuMDkpIj4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTE5Ii8+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xNyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjMuNjI1IDApIi8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ieXRpY2tfMTIiPgogICAgIDxnIGlkPSJsaW5lMmRfNDIiPgogICAgICA8cGF0aCBkPSJNIDI3MS40NjIxMDkgMjYuOTEyOTc4CkwgNDUxLjA4IDI2LjkxMjk3OAoiIGNsaXAtcGF0aD0idXJsKCNwYTdmZjY2ODM1OCkiIHN0eWxlPSJmaWxsOiBub25lOyBzdHJva2U6ICNlM2U2ZTE7IHN0cm9rZS13aWR0aDogMC42OyBzdHJva2UtbGluZWNhcDogc3F1YXJlIi8+CiAgICAgPC9nPgogICAgIDxnIGlkPSJsaW5lMmRfNDMiPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI201MzNlOGQ0OGU0IiB4PSIyNzEuNDYyMTA5IiB5PSIyNi45MTI5NzgiIHN0eWxlPSJmaWxsOiAjMWQyNDIwOyBzdHJva2U6ICMxZDI0MjA7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICAgPGcgaWQ9InRleHRfMjUiPgogICAgICA8IS0tIDEyOCAtLT4KICAgICAgPGcgc3R5bGU9ImZpbGw6ICMxZDI0MjAiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI0Ny4yODMzNTkgMzAuMzMxOTIzKSBzY2FsZSgwLjA5IC0wLjA5KSI+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xNCIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYzLjYyNSAwKSIvPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMWIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEyNy4yNSAwKSIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9Inl0aWNrXzEzIj4KICAgICA8ZyBpZD0ibGluZTJkXzQ0Ij4KICAgICAgPGRlZnM+CiAgICAgICA8cGF0aCBpZD0ibTU3NDY0OGU0YjYiIGQ9Ik0gMCAwCkwgLTIgMAoiIHN0eWxlPSJzdHJva2U6ICMxZDI0MjA7IHN0cm9rZS13aWR0aDogMC42Ii8+CiAgICAgIDwvZGVmcz4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtNTc0NjQ4ZTRiNiIgeD0iMjcxLjQ2MjEwOSIgeT0iMTYzLjI3Mzg2NyIgc3R5bGU9ImZpbGw6ICMxZDI0MjA7IHN0cm9rZTogIzFkMjQyMDsgc3Ryb2tlLXdpZHRoOiAwLjYiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ5dGlja18xNCI+CiAgICAgPGcgaWQ9ImxpbmUyZF80NSI+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTU3NDY0OGU0YjYiIHg9IjI3MS40NjIxMDkiIHk9IjE1Ni40MDUxNTQiIHN0eWxlPSJmaWxsOiAjMWQyNDIwOyBzdHJva2U6ICMxZDI0MjA7IHN0cm9rZS13aWR0aDogMC42Ii8+CiAgICAgIDwvZz4KICAgICA8L2c+CiAgICA8L2c+CiAgICA8ZyBpZD0ieXRpY2tfMTUiPgogICAgIDxnIGlkPSJsaW5lMmRfNDYiPgogICAgICA8Zz4KICAgICAgIDx1c2UgeGxpbms6aHJlZj0iI201NzQ2NDhlNGI2IiB4PSIyNzEuNDYyMTA5IiB5PSIxNDUuMjA2OTc1IiBzdHlsZT0iZmlsbDogIzFkMjQyMDsgc3Ryb2tlOiAjMWQyNDIwOyBzdHJva2Utd2lkdGg6IDAuNiIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9Inl0aWNrXzE2Ij4KICAgICA8ZyBpZD0ibGluZTJkXzQ3Ij4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtNTc0NjQ4ZTRiNiIgeD0iMjcxLjQ2MjEwOSIgeT0iMTA5LjYyNjcxOSIgc3R5bGU9ImZpbGw6ICMxZDI0MjA7IHN0cm9rZTogIzFkMjQyMDsgc3Ryb2tlLXdpZHRoOiAwLjYiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ5dGlja18xNyI+CiAgICAgPGcgaWQ9ImxpbmUyZF80OCI+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTU3NDY0OGU0YjYiIHg9IjI3MS40NjIxMDkiIHk9IjkxLjU1OTgyNiIgc3R5bGU9ImZpbGw6ICMxZDI0MjA7IHN0cm9rZTogIzFkMjQyMDsgc3Ryb2tlLXdpZHRoOiAwLjYiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ5dGlja18xOCI+CiAgICAgPGcgaWQ9ImxpbmUyZF80OSI+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTU3NDY0OGU0YjYiIHg9IjI3MS40NjIxMDkiIHk9Ijc4Ljc0MTE2MiIgc3R5bGU9ImZpbGw6ICMxZDI0MjA7IHN0cm9rZTogIzFkMjQyMDsgc3Ryb2tlLXdpZHRoOiAwLjYiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ5dGlja18xOSI+CiAgICAgPGcgaWQ9ImxpbmUyZF81MCI+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTU3NDY0OGU0YjYiIHg9IjI3MS40NjIxMDkiIHk9IjY4Ljc5ODIzNCIgc3R5bGU9ImZpbGw6ICMxZDI0MjA7IHN0cm9rZTogIzFkMjQyMDsgc3Ryb2tlLXdpZHRoOiAwLjYiLz4KICAgICAgPC9nPgogICAgIDwvZz4KICAgIDwvZz4KICAgIDxnIGlkPSJ5dGlja18yMCI+CiAgICAgPGcgaWQ9ImxpbmUyZF81MSI+CiAgICAgIDxnPgogICAgICAgPHVzZSB4bGluazpocmVmPSIjbTU3NDY0OGU0YjYiIHg9IjI3MS40NjIxMDkiIHk9IjYwLjY3NDI3IiBzdHlsZT0iZmlsbDogIzFkMjQyMDsgc3Ryb2tlOiAjMWQyNDIwOyBzdHJva2Utd2lkdGg6IDAuNiIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9Inl0aWNrXzIxIj4KICAgICA8ZyBpZD0ibGluZTJkXzUyIj4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtNTc0NjQ4ZTRiNiIgeD0iMjcxLjQ2MjEwOSIgeT0iNTMuODA1NTU2IiBzdHlsZT0iZmlsbDogIzFkMjQyMDsgc3Ryb2tlOiAjMWQyNDIwOyBzdHJva2Utd2lkdGg6IDAuNiIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9Inl0aWNrXzIyIj4KICAgICA8ZyBpZD0ibGluZTJkXzUzIj4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtNTc0NjQ4ZTRiNiIgeD0iMjcxLjQ2MjEwOSIgeT0iNDcuODU1NjA2IiBzdHlsZT0iZmlsbDogIzFkMjQyMDsgc3Ryb2tlOiAjMWQyNDIwOyBzdHJva2Utd2lkdGg6IDAuNiIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9Inl0aWNrXzIzIj4KICAgICA8ZyBpZD0ibGluZTJkXzU0Ij4KICAgICAgPGc+CiAgICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtNTc0NjQ4ZTRiNiIgeD0iMjcxLjQ2MjEwOSIgeT0iNDIuNjA3Mzc4IiBzdHlsZT0iZmlsbDogIzFkMjQyMDsgc3Ryb2tlOiAjMWQyNDIwOyBzdHJva2Utd2lkdGg6IDAuNiIvPgogICAgICA8L2c+CiAgICAgPC9nPgogICAgPC9nPgogICAgPGcgaWQ9InRleHRfMjYiPgogICAgIDwhLS0gR1BULTIgbGFyZ2UgcGVycGxleGl0eSAobG9nIHNjYWxlKSAtLT4KICAgICA8ZyBzdHlsZT0iZmlsbDogIzFkMjQyMCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjQxLjEyMTI1IDE2OS4yMjQ5OCkgcm90YXRlKC05MCkgc2NhbGUoMC4wOSAtMC4wOSkiPgogICAgICA8ZGVmcz4KICAgICAgIDxwYXRoIGlkPSJEZWphVnVTZXJpZi0yYSIgZD0iTSA0MDk3IDMyNzIKUSAzOTg4IDM4NTYgMzY0MSA0MTM2ClEgMzI5NCA0NDE2IDI2NzUgNDQxNgpRIDE4NjkgNDQxNiAxNDcyIDM4OTcKUSAxMDc1IDMzNzggMTA3NSAyMzI4ClEgMTA3NSAxMzAwIDE0ODQgNzcyClEgMTg5NCAyNDQgMjY4OCAyNDQKUSAzMDQxIDI0NCAzMzYyIDMzMQpRIDM2ODQgNDE5IDM5NzUgNTk0CkwgMzk3NSAxNzk3CkwgMzA5NyAxNzk3CkwgMzA5NyAyMTMxCkwgNDYwOSAyMTMxCkwgNDYwOSAzOTEKUSA0MTk0IDE1MCAzNzE0IDI5ClEgMzIzNCAtOTEgMjY4OCAtOTEKUSAxNjMxIC05MSA5OTUgNTcwClEgMzU5IDEyMzEgMzU5IDIzMjgKUSAzNTkgMzQzNCA5OTYgNDA5MgpRIDE2MzQgNDc1MCAyNzEzIDQ3NTAKUSAzMTEzIDQ3NTAgMzUzOSA0NjU4ClEgMzk2NiA0NTY2IDQ0NDcgNDM3OApMIDQ0NDcgMzI3MgpMIDQwOTcgMzI3Mgp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgIDxwYXRoIGlkPSJEZWphVnVTZXJpZi0zMyIgZD0iTSAxNTgxIDIzNzUKTCAyNDA2IDIzNzUKUSAyODcyIDIzNzUgMzExNSAyNjI2ClEgMzM1OSAyODc4IDMzNTkgMzM1MwpRIDMzNTkgMzgzMSAzMTE1IDQwODEKUSAyODcyIDQzMzEgMjQwNiA0MzMxCkwgMTU4MSA0MzMxCkwgMTU4MSAyMzc1CnoKTSAzNTMgMApMIDM1MyAzMzEKTCA5NDcgMzMxCkwgOTQ3IDQzMzEKTCAzNTMgNDMzMQpMIDM1MyA0NjY2CkwgMjU1OSA0NjY2ClEgMzI1OSA0NjY2IDM2NjggNDMxMQpRIDQwNzggMzk1NiA0MDc4IDMzNTMKUSA0MDc4IDI3NTMgMzY2OCAyMzk3ClEgMzI1OSAyMDQxIDI1NTkgMjA0MQpMIDE1ODEgMjA0MQpMIDE1ODEgMzMxCkwgMjMwMyAzMzEKTCAyMzAzIDAKTCAzNTMgMAp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgIDxwYXRoIGlkPSJEZWphVnVTZXJpZi0zNyIgZD0iTSAxMjIyIDAKTCAxMjIyIDMzMQpMIDE4MTkgMzMxCkwgMTgxOSA0Mjk0CkwgNDQ3IDQyOTQKTCA0NDcgMzU2NgpMIDYzIDM1NjYKTCA2MyA0NjY2CkwgNDIwNiA0NjY2CkwgNDIwNiAzNTY2CkwgMzgyMiAzNTY2CkwgMzgyMiA0Mjk0CkwgMjQ1MCA0Mjk0CkwgMjQ1MCAzMzEKTCAzMDQ3IDMzMQpMIDMwNDcgMApMIDEyMjIgMAp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgIDxwYXRoIGlkPSJEZWphVnVTZXJpZi01YiIgZD0iTSAxODYzIDIwMjgKTCAyNTU5IDI5ODgKTCAyMTEzIDI5ODgKTCAyMTEzIDMzMjIKTCAzMzkxIDMzMjIKTCAzMzkxIDI5ODgKTCAyOTUwIDI5ODgKTCAyMDU5IDE3NTkKTCAzMDk3IDMzMQpMIDM1MzEgMzMxCkwgMzUzMSAwCkwgMTk5NyAwCkwgMTk5NyAzMzEKTCAyNDE5IDMzMQpMIDE2OTcgMTMyNQpMIDk3MiAzMzEKTCAxNDAzIDMzMQpMIDE0MDMgMApMIDE0MSAwCkwgMTQxIDMzMQpMIDU4MSAzMzEKTCAxNDk3IDE1OTQKTCA0ODggMjk4OApMIDc4IDI5ODgKTCA3OCAzMzIyCkwgMTU2MyAzMzIyCkwgMTU2MyAyOTg4CkwgMTE2NiAyOTg4CkwgMTg2MyAyMDI4CnoKIiB0cmFuc2Zvcm09InNjYWxlKDAuMDE1NjI1KSIvPgogICAgICAgPHBhdGggaWQ9IkRlamFWdVNlcmlmLTVjIiBkPSJNIDEzODEgLTYwOQpMIDE2MDAgLTU2CkwgMzU5IDI5ODgKTCAtMTkgMjk4OApMIC0xOSAzMzIyCkwgMTUwOSAzMzIyCkwgMTUwOSAyOTg4CkwgOTc4IDI5ODgKTCAxOTEzIDcwMwpMIDI4NDcgMjk4OApMIDIzNTAgMjk4OApMIDIzNTAgMzMyMgpMIDM1OTcgMzMyMgpMIDM1OTcgMjk4OApMIDMyMjUgMjk4OApMIDE3MDMgLTc1MApRIDE1NDcgLTExMzggMTM1NiAtMTI4MApRIDExNjYgLTE0MjIgODE5IC0xNDIyClEgNjcyIC0xNDIyIDUxNyAtMTM5NwpRIDM2MyAtMTM3MiAyMDYgLTEzMjUKTCAyMDYgLTY5MQpMIDUwMCAtNjkxClEgNTE5IC05MDMgNjA4IC05OTUKUSA2OTcgLTEwODggODg0IC0xMDg4ClEgMTA1NiAtMTA4OCAxMTYxIC05OTIKUSAxMjY2IC04OTcgMTM4MSAtNjA5CnoKIiB0cmFuc2Zvcm09InNjYWxlKDAuMDE1NjI1KSIvPgogICAgICA8L2RlZnM+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTJhIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMzIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg3OS44OTA2MjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMzciIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE0Ny4xNzE4NzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTAiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIwMC45ODQzNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIzNC43ODEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyOTguNDA2MjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDMzMC4xODc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ0IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzNjIuMTcxODc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU1IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0MjEuNzk2ODc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTRhIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0NjkuNTkzNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDUzMy42MDkzNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTkyLjc5Njg3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjI0LjU3ODEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00OCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjg4LjU5Mzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU1IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg3NDcuNzgxMjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDc5NS41NzgxMjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDg1OS41OTM3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00OCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoODkxLjU3ODEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01YiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTUwLjc2NTYyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00YyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTAwNy4xNTYyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTAzOS4xNDA2MjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNWMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwNzkuMzI4MTI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDExMzUuODI4MTI1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLWIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDExNjcuNjA5Mzc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTRmIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMjA2LjYyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTIzOC42MDkzNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEyOTguODEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMzYyLjgyODEyNSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTM5NC42MDkzNzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE0NDUuOTIxODc1IDApIi8+CiAgICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ0IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNTAxLjkyMTg3NSAwKSIvPgogICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00ZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTU2MS41NDY4NzUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE1OTMuNTMxMjUgMCkiLz4KICAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtYyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTY1Mi43MTg3NSAwKSIvPgogICAgIDwvZz4KICAgIDwvZz4KICAgPC9nPgogICA8ZyBpZD0ibGluZTJkXzU1Ij4KICAgIDxnIGNsaXAtcGF0aD0idXJsKCNwYTdmZjY2ODM1OCkiPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI20yOWJlMGUyZjU0IiB4PSIyOTAuNjYyNjQzIiB5PSI3MC43MTI5MTYiIHN0eWxlPSJmaWxsOiAjMmY2YjRmOyBzdHJva2U6ICMyZjZiNGYiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtMjliZTBlMmY1NCIgeD0iMzUyLjU5OTg0NiIgeT0iNjQuNjEzNzg3IiBzdHlsZT0iZmlsbDogIzJmNmI0Zjsgc3Ryb2tlOiAjMmY2YjRmIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjbTI5YmUwZTJmNTQiIHg9IjQxNC41MzcwNSIgeT0iMzguOTE0ODQzIiBzdHlsZT0iZmlsbDogIzJmNmI0Zjsgc3Ryb2tlOiAjMmY2YjRmIi8+CiAgICA8L2c+CiAgIDwvZz4KICAgPGcgaWQ9ImxpbmUyZF81NiI+CiAgICA8ZyBjbGlwLXBhdGg9InVybCgjcGE3ZmY2NjgzNTgpIj4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNtNmIzYmRiOTE1MSIgeD0iMzAxLjgxMTMzOSIgeT0iNzIuOTM0MDI3IiBzdHlsZT0iZmlsbDogI2I1NTUyZjsgc3Ryb2tlOiAjYjU1NTJmOyBzdHJva2UtbGluZWpvaW46IG1pdGVyIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjbTZiM2JkYjkxNTEiIHg9IjM2My43NDg1NDMiIHk9IjY0LjQ1OTA5OSIgc3R5bGU9ImZpbGw6ICNiNTU1MmY7IHN0cm9rZTogI2I1NTUyZjsgc3Ryb2tlLWxpbmVqb2luOiBtaXRlciIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI202YjNiZGI5MTUxIiB4PSI0MjUuNjg1NzQ2IiB5PSI0MC43NDg5ODIiIHN0eWxlPSJmaWxsOiAjYjU1NTJmOyBzdHJva2U6ICNiNTU1MmY7IHN0cm9rZS1saW5lam9pbjogbWl0ZXIiLz4KICAgIDwvZz4KICAgPC9nPgogICA8ZyBpZD0ibGluZTJkXzU3Ij4KICAgIDxwYXRoIGQ9Ik0gMjcxLjQ2MjEwOSAxMjMuNDE4MzkyCkwgNDUxLjA4IDEyMy40MTgzOTIKIiBjbGlwLXBhdGg9InVybCgjcGE3ZmY2NjgzNTgpIiBzdHlsZT0iZmlsbDogbm9uZTsgc3Ryb2tlLWRhc2hhcnJheTogMi45NiwxLjI4OyBzdHJva2UtZGFzaG9mZnNldDogMDsgc3Ryb2tlOiAjMWQyNDIwOyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICA8L2c+CiAgIDxnIGlkPSJsaW5lMmRfNTgiPgogICAgPHBhdGggZD0iTSAyNzEuNDYyMTA5IDEyNC41NDA1OTcKTCA0NTEuMDggMTI0LjU0MDU5NwoiIGNsaXAtcGF0aD0idXJsKCNwYTdmZjY2ODM1OCkiIHN0eWxlPSJmaWxsOiBub25lOyBzdHJva2UtZGFzaGFycmF5OiA1LjEyLDEuMjgsMC44LDEuMjg7IHN0cm9rZS1kYXNob2Zmc2V0OiAwOyBzdHJva2U6ICMxZDI0MjA7IHN0cm9rZS13aWR0aDogMC44Ii8+CiAgIDwvZz4KICAgPGcgaWQ9ImxpbmUyZF81OSI+CiAgICA8cGF0aCBkPSJNIDI3MS40NjIxMDkgMTE4Ljg1NDEzMwpMIDQ1MS4wOCAxMTguODU0MTMzCiIgY2xpcC1wYXRoPSJ1cmwoI3BhN2ZmNjY4MzU4KSIgc3R5bGU9ImZpbGw6IG5vbmU7IHN0cm9rZS1kYXNoYXJyYXk6IDAuOCwxLjMyOyBzdHJva2UtZGFzaG9mZnNldDogMDsgc3Ryb2tlOiAjN2E4NTdmOyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICA8L2c+CiAgIDxnIGlkPSJsaW5lMmRfNjAiPgogICAgPHBhdGggZD0iTSAyNzEuNDYyMTA5IDE0Ny42MDIxCkwgNDUxLjA4IDE0Ny42MDIxCiIgY2xpcC1wYXRoPSJ1cmwoI3BhN2ZmNjY4MzU4KSIgc3R5bGU9ImZpbGw6IG5vbmU7IHN0cm9rZS1kYXNoYXJyYXk6IDAuOCwxLjMyOyBzdHJva2UtZGFzaG9mZnNldDogMDsgc3Ryb2tlOiAjN2E4NTdmOyBzdHJva2Utd2lkdGg6IDAuOCIvPgogICA8L2c+CiAgIDxnIGlkPSJwYXRjaF82Ij4KICAgIDxwYXRoIGQ9Ik0gMjcxLjQ2MjEwOSAxNjMuMjczODY3CkwgMjcxLjQ2MjEwOSAyMi45MgoiIHN0eWxlPSJmaWxsOiBub25lOyBzdHJva2U6ICM3YTg1N2Y7IHN0cm9rZS13aWR0aDogMC44OyBzdHJva2UtbGluZWpvaW46IG1pdGVyOyBzdHJva2UtbGluZWNhcDogc3F1YXJlIi8+CiAgIDwvZz4KICAgPGcgaWQ9InBhdGNoXzciPgogICAgPHBhdGggZD0iTSAyNzEuNDYyMTA5IDE2My4yNzM4NjcKTCA0NTEuMDggMTYzLjI3Mzg2NwoiIHN0eWxlPSJmaWxsOiBub25lOyBzdHJva2U6ICM3YTg1N2Y7IHN0cm9rZS13aWR0aDogMC44OyBzdHJva2UtbGluZWpvaW46IG1pdGVyOyBzdHJva2UtbGluZWNhcDogc3F1YXJlIi8+CiAgIDwvZz4KICAgPGcgaWQ9InRleHRfMjciPgogICAgPCEtLSBSZWxlYXNlZCBjaGVja3BvaW50IC0tPgogICAgPGcgc3R5bGU9ImZpbGw6ICM3YTg1N2YiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI3NC41NTg5NyAxMTcuMTA2NTE5KSBzY2FsZSgwLjA2MyAtMC4wNjMpIj4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zNSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg3NS4yOTY4NzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00ZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTM0LjQ4NDM3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNjYuNDY4NzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjI1LjY1NjI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI4NS4yODEyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzMzYuNTkzNzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzk1Ljc4MTI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDU5Ljc5Njg3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ2IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0OTEuNTc4MTI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDU0Ny41NzgxMjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00OCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjExLjk4NDM3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ2IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2NzEuMTcxODc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDcyNy4xNzE4NzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNzg3Ljc2NTYyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTUyIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg4NTEuNzgxMjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00YyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTExLjk4NDM3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTUxIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg5NDMuOTY4NzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTAwOC4zNzUgMCkiLz4KICAgIDwvZz4KICAgPC9nPgogICA8ZyBpZD0idGV4dF8yOCI+CiAgICA8IS0tIE1MWCBBUiBiYXNlbGluZSAoc2VlZHMgMCwgMSkgLS0+CiAgICA8ZyBzdHlsZT0iZmlsbDogIzFkMjQyMCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjc0LjU1ODk3IDEzNC4wMjIzMTMpIHNjYWxlKDAuMDYzIC0wLjA2MykiPgogICAgIDxkZWZzPgogICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtMjQiIGQ9Ik0gMTI4MSAxNjkxCkwgMjk5NCAxNjkxCkwgMjEzOCAzOTA5CkwgMTI4MSAxNjkxCnoKTSAtMzggMApMIC0zOCAzMzEKTCAzNzIgMzMxCkwgMjAzNCA0NjY2CkwgMjU1OSA0NjY2CkwgNDIyNSAzMzEKTCA0Njg0IDMzMQpMIDQ2ODQgMApMIDI5ODggMApMIDI5ODggMzMxCkwgMzUwNiAzMzEKTCAzMTE2IDEzNTYKTCAxMTUzIDEzNTYKTCA3NjMgMzMxCkwgMTI3NSAzMzEKTCAxMjc1IDAKTCAtMzggMAp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgPHBhdGggaWQ9IkRlamFWdVNlcmlmLTQ1IiBkPSJNIDczOCAzMzEKTCA3MzggNDUzMQpMIDE4NCA0NTMxCkwgMTg0IDQ4NjMKTCAxMzEzIDQ4NjMKTCAxMzEzIDI4MDMKUSAxNDgxIDMxMTYgMTc0MiAzMjY0ClEgMjAwMyAzNDEzIDIzODggMzQxMwpRIDMwMDAgMzQxMyAzMzg3IDI5MjgKUSAzNzc1IDI0NDQgMzc3NSAxNjYzClEgMzc3NSA4ODEgMzM4NyAzOTUKUSAzMDAwIC05MSAyMzg4IC05MQpRIDIwMDMgLTkxIDE3NDIgNTcKUSAxNDgxIDIwNiAxMzEzIDUxOQpMIDEzMTMgMApMIDE4NCAwCkwgMTg0IDMzMQpMIDczOCAzMzEKegpNIDEzMTMgMTQ5NwpRIDEzMTMgODk3IDE1NDIgNTgzClEgMTc3MiAyNjkgMjIwOSAyNjkKUSAyNjUwIDI2OSAyODc2IDYyMgpRIDMxMDMgOTc1IDMxMDMgMTY2MwpRIDMxMDMgMjM1MyAyODc2IDI3MDMKUSAyNjUwIDMwNTMgMjIwOSAzMDUzClEgMTc3MiAzMDUzIDE1NDIgMjczNwpRIDEzMTMgMjQyMiAxMzEzIDE4MjUKTCAxMzEzIDE0OTcKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgPC9kZWZzPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMwIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMmYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwMi4zOTA2MjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zYiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTY4Ljc5Njg3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIzOS45ODQzNzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0yNCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjcxLjc2NTYyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTM1IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzNDMuOTg0Mzc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDE5LjI4MTI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ1MS4wNjI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDQiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDUxNS4wNzgxMjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTc0LjcwMzEyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2MjYuMDE1NjI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY4NS4yMDMxMjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00YyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNzE3LjE4NzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNzQ5LjE3MTg3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg4MTMuNTc4MTI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoODcyLjc2NTYyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLWIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDkwNC41NDY4NzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTQzLjU2MjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00OCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTk0Ljg3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMDU0LjA2MjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTExMy4yNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU2IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMTc3LjI2NTYyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEyMjguNTc4MTI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEyNjAuMzU5Mzc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtZiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTMyMy45ODQzNzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0zIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMzU1Ljc2NTYyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTE0IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMzg3LjU0Njg3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLWMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE0NTEuMTcxODc1IDApIi8+CiAgICA8L2c+CiAgIDwvZz4KICAgPGcgaWQ9InRleHRfMjkiPgogICAgPCEtLSBIZWxkLW91dCB0ZXh0IC0tPgogICAgPGcgc3R5bGU9ImZpbGw6ICM3YTg1N2YiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI3NC41NTg5NyAxNTQuNjc0NjY1KSBzY2FsZSgwLjA2MyAtMC4wNjMpIj4KICAgICA8ZGVmcz4KICAgICAgPHBhdGggaWQ9IkRlamFWdVNlcmlmLTJiIiBkPSJNIDM1MyAwCkwgMzUzIDMzMQpMIDk0NyAzMzEKTCA5NDcgNDMzMQpMIDM1MyA0MzMxCkwgMzUzIDQ2NjYKTCAyMTc1IDQ2NjYKTCAyMTc1IDQzMzEKTCAxNTgxIDQzMzEKTCAxNTgxIDI3MTkKTCA0MDAwIDI3MTkKTCA0MDAwIDQzMzEKTCAzNDA2IDQzMzEKTCAzNDA2IDQ2NjYKTCA1MjI4IDQ2NjYKTCA1MjI4IDQzMzEKTCA0NjM0IDQzMzEKTCA0NjM0IDMzMQpMIDUyMjggMzMxCkwgNTIyOCAwCkwgMzQwNiAwCkwgMzQwNiAzMzEKTCA0MDAwIDMzMQpMIDQwMDAgMjMzOApMIDE1ODEgMjMzOApMIDE1ODEgMzMxCkwgMjE3NSAzMzEKTCAyMTc1IDAKTCAzNTMgMAp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICA8L2RlZnM+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMmIiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00OCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoODcuMjAzMTI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE0Ni4zOTA2MjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTc4LjM3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTEwIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNDIuMzkwNjI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI3Ni4xODc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDMzNi4zOTA2MjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDAwLjc5Njg3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ0MC45ODQzNzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDcyLjc2NTYyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1MTIuOTUzMTI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNWIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDU3Mi4xNDA2MjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjI4LjUzMTI1IDApIi8+CiAgICA8L2c+CiAgIDwvZz4KICAgPGcgaWQ9InRleHRfMzAiPgogICAgPCEtLSAoYikgRnJlZS1ydW5uaW5nIGdlbmVyYXRpdmUgcGVycGxleGl0eSAtLT4KICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI3Ny45MDczMDUgMTYuOTIpIHNjYWxlKDAuMDg1IC0wLjA4NSkiPgogICAgIDxkZWZzPgogICAgICA8cGF0aCBpZD0iRGVqYVZ1U2VyaWYtMjkiIGQ9Ik0gMzUzIDAKTCAzNTMgMzMxCkwgOTQ3IDMzMQpMIDk0NyA0MzMxCkwgMzUzIDQzMzEKTCAzNTMgNDY2NgpMIDQxNzIgNDY2NgpMIDQxNzIgMzYyOApMIDM3ODggMzYyOApMIDM3ODggNDI4MQpMIDE1ODEgNDI4MQpMIDE1ODEgMjcxOQpMIDMxNzUgMjcxOQpMIDMxNzUgMzMwMwpMIDM1NTkgMzMwMwpMIDM1NTkgMTc1MwpMIDMxNzUgMTc1MwpMIDMxNzUgMjMzOApMIDE1ODEgMjMzOApMIDE1ODEgMzMxCkwgMjMyOCAzMzEKTCAyMzI4IDAKTCAzNTMgMAp6CiIgdHJhbnNmb3JtPSJzY2FsZSgwLjAxNTYyNSkiLz4KICAgICAgPHBhdGggaWQ9IkRlamFWdVNlcmlmLTU5IiBkPSJNIDE1ODEgMApMIDM1OSAyOTg4CkwgLTE5IDI5ODgKTCAtMTkgMzMyMgpMIDE1MDkgMzMyMgpMIDE1MDkgMjk4OApMIDk3OCAyOTg4CkwgMTkxMyA3MDMKTCAyODQ3IDI5ODgKTCAyMzUwIDI5ODgKTCAyMzUwIDMzMjIKTCAzNTk3IDMzMjIKTCAzNTk3IDI5ODgKTCAzMjI1IDI5ODgKTCAyMDAzIDAKTCAxNTgxIDAKegoiIHRyYW5zZm9ybT0ic2NhbGUoMC4wMTU2MjUpIi8+CiAgICAgPC9kZWZzPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLWIiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00NSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzkuMDE1NjI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtYyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTAzLjAzMTI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtMyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTQyLjA0Njg3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTI5IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNzMuODI4MTI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI0My4yMTg3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyOTEuMDE1NjI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDM1MC4yMDMxMjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi0xMCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDA5LjM5MDYyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU1IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0NDMuMTg3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0OTAuOTg0Mzc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDU1NS4zOTA2MjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjE5Ljc5Njg3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTRjIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2ODQuMjAzMTI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDcxNi4xODc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGEiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDc4MC41OTM3NSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDg0NC42MDkzNzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00YSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoODc2LjM5MDYyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg5NDAuNDA2MjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTk5LjU5Mzc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwNjQgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01NSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTEyMy4xODc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDQiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDExNzAuOTg0Mzc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTciIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEyMzAuNjA5Mzc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEyNzAuNzk2ODc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTkiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEzMDIuNzgxMjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi00OCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTM1OS4yODEyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE0MTguNDY4NzUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01MyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTQ1MC4yNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTQ4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNTE0LjI2NTYyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTU1IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNTczLjQ1MzEyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTUzIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNjIxLjI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE2ODUuMjY1NjI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNDgiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE3MTcuMjUgMCkiLz4KICAgICA8dXNlIHhsaW5rOmhyZWY9IiNEZWphVnVTZXJpZi01YiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTc3Ni40Mzc1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNGMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE4MzIuODI4MTI1IDApIi8+CiAgICAgPHVzZSB4bGluazpocmVmPSIjRGVqYVZ1U2VyaWYtNTciIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE4NjQuODEyNSAwKSIvPgogICAgIDx1c2UgeGxpbms6aHJlZj0iI0RlamFWdVNlcmlmLTVjIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxOTA1IDApIi8+CiAgICA8L2c+CiAgIDwvZz4KICA8L2c+CiA8L2c+CiA8ZGVmcz4KICA8Y2xpcFBhdGggaWQ9InBhM2RiYjYzOTJkIj4KICAgPHJlY3QgeD0iNDQuNDgyMTA5IiB5PSIyMi45MiIgd2lkdGg9IjE3OS42MTc4OTEiIGhlaWdodD0iMTQwLjM1Mzg2NyIvPgogIDwvY2xpcFBhdGg+CiAgPGNsaXBQYXRoIGlkPSJwYTdmZjY2ODM1OCI+CiAgIDxyZWN0IHg9IjI3MS40NjIxMDkiIHk9IjIyLjkyIiB3aWR0aD0iMTc5LjYxNzg5MSIgaGVpZ2h0PSIxNDAuMzUzODY3Ii8+CiAgPC9jbGlwUGF0aD4KIDwvZGVmcz4KPC9zdmc+Cg==" style="width:100.0%" alt="Corruption ablation on TinyStories, both generator seeds (circles: seed 0, squares: seed 1), one frozen codec. (a) Clean teacher-forced code cross-entropy of the MLX NCM; the Released TinyStories checkpoint (Kumbong et al.) uses a different codec. (b) GPT-2 large generative perplexity on a logarithmic axis: the five sampling-seed values of each model as small points and their mean as the marker, with horizontal lines for the MLX AR baseline (seeds 0 and 1), the Released TinyStories checkpoint and held-out text. Lower clean loss goes with worse free-running text. The two panels use different measures and are not on a shared axis." />
+<figcaption aria-hidden="true">Corruption ablation on TinyStories, both
+generator seeds (circles: seed 0, squares: seed 1), one frozen codec.
+(a) Clean teacher-forced code cross-entropy of the MLX NCM; the Released
+TinyStories checkpoint (Kumbong et al.) uses a different codec. (b)
+GPT-2 large generative perplexity on a logarithmic axis: the five
+sampling-seed values of each model as small points and their mean as the
+marker, with horizontal lines for the MLX AR baseline (seeds 0 and 1),
+the Released TinyStories checkpoint and held-out text. Lower clean loss
+goes with worse free-running text. The two panels use different measures
+and are not on a shared axis.</figcaption>
+</figure>
+<h2 data-number="10.5" id="controls-and-diagnostics"><span class="header-section-number">10.5</span> Controls and diagnostics</h2>
+<p>Diagnostics on 1,280 outputs per model (the held-out-data row uses
+1,280 real windows) help to read the perplexities, with the caveat that
+none is a quality measure.</p>
+<table>
+<caption>Output diagnostics. Seed-pair entries read generator seed 0 /
+generator seed 1. Tokens are BPE tokens after cleanup. Distinct-3 is the
+fraction of distinct 3-grams. Repeated 4-grams is the percentage of
+4-grams repeated within an output. Opening copies are exact matches of
+the first 32 tokens to a training window.</caption>
+<colgroup>
+<col style="width: 13%" />
+<col style="width: 17%" />
+<col style="width: 17%" />
+<col style="width: 17%" />
+<col style="width: 17%" />
+<col style="width: 17%" />
+</colgroup>
+<thead>
+<tr>
+<th>Model</th>
+<th style="text-align: right;">Mean output tokens</th>
+<th style="text-align: right;">EOS inside window (%)</th>
+<th style="text-align: right;">Distinct-3</th>
+<th style="text-align: right;">Repeated 4-grams (%)</th>
+<th style="text-align: right;">Opening copies (%)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MLX NCM, strong</td>
+<td style="text-align: right;">127.36 / 127.27</td>
+<td style="text-align: right;">7.11 / 6.95</td>
+<td style="text-align: right;">0.4951 / 0.4787</td>
+<td style="text-align: right;">0.51 / 0.63</td>
+<td style="text-align: right;">0.00 / 0.00</td>
+</tr>
+<tr>
+<td>MLX NCM, reduced</td>
+<td style="text-align: right;">127.20 / 127.33</td>
+<td style="text-align: right;">8.05 / 6.64</td>
+<td style="text-align: right;">0.5374 / 0.5455</td>
+<td style="text-align: right;">0.40 / 0.37</td>
+<td style="text-align: right;">0.00 / 0.00</td>
+</tr>
+<tr>
+<td>MLX NCM, none</td>
+<td style="text-align: right;">127.14 / 127.21</td>
+<td style="text-align: right;">7.50 / 6.48</td>
+<td style="text-align: right;">0.6239 / 0.6151</td>
+<td style="text-align: right;">0.19 / 0.22</td>
+<td style="text-align: right;">0.00 / 0.08</td>
+</tr>
+<tr>
+<td>MLX AR baseline</td>
+<td style="text-align: right;">127.61 / 127.65</td>
+<td style="text-align: right;">3.12 / 4.14</td>
+<td style="text-align: right;">0.4910 / 0.4797</td>
+<td style="text-align: right;">0.84 / 0.89</td>
+<td style="text-align: right;">1.25 / 1.25</td>
+</tr>
+<tr>
+<td>Released TinyStories checkpoint</td>
+<td style="text-align: right;">128.00</td>
+<td style="text-align: right;">0.31</td>
+<td style="text-align: right;">0.4595</td>
+<td style="text-align: right;">0.58</td>
+<td style="text-align: right;">0.70</td>
+</tr>
+<tr>
+<td>Held-out data</td>
+<td style="text-align: right;">127.32</td>
+<td style="text-align: right;">5.94</td>
+<td style="text-align: right;">0.4850</td>
+<td style="text-align: right;">1.01</td>
+<td style="text-align: right;">4.61</td>
+</tr>
+</tbody>
+</table>
+<p>Lengths are similar across models, so length alone does not explain
+the perplexity ordering. Higher distinct-3 and lower repetition for
+less-corrupted generators coexist with much worse perplexity: diverse
+but ungrammatical text can look good on these diagnostics, so they must
+not be read as quality. Few or no exact opening matches (none in five of
+the six MLX NCM runs, one output in 1,280 for the seed-1 no-corruption
+run) do not rule out memorisation; only the first 32 tokens are
+compared, and about 4.7% of test windows share their opening with a
+training window, as do 4.61% of the sampled held-out-data windows.
+Substring copying and semantic near-duplicates are untested. The AR
+baseline’s own held-out non-padding token cross-entropy is 1.32042 (seed
+0) and 1.32396 (seed 1) nats per token; this is a third quantity, not
+comparable with code CE or with external perplexity. The Released
+TinyStories checkpoint reconstructs 99.981% of non-padding tokens and
+92.969% of windows exactly, against 99.816% and 84.937% for our codec,
+on the same windows.</p>
+<h2 data-number="10.6" id="sensitivity-of-the-seed-0-scores-to-aggregation"><span class="header-section-number">10.6</span> Sensitivity of the seed-0
+scores to aggregation</h2>
+<p>To test whether the seed-0 ranking depends on how perplexity is
+summarised, a CPU-only audit verified 7,680 saved output texts against
+their scorer-record hashes and reproduced every reported mean to three
+decimals. It then reaggregated the same per-output NLLs, with no new
+generation or scoring. <em>Pooled token perplexity</em> exponentiates
+total NLL divided by total scored tokens. <em>Equal-sample geometric
+perplexity</em> exponentiates the mean per-output NLL per token, giving
+every output equal weight. <em>Median sample perplexity</em> is the
+median output’s value.</p>
+<table>
+<caption>Seed-0 scores under four aggregations. These summarise one
+scorer and are not independent quality measurements.</caption>
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+</colgroup>
+<thead>
+<tr>
+<th>Model</th>
+<th style="text-align: right;">Reported mean of seed perplexities</th>
+<th style="text-align: right;">Pooled token</th>
+<th style="text-align: right;">Equal-sample geometric</th>
+<th style="text-align: right;">Median sample</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MLX NCM, strong</td>
+<td style="text-align: right;">47.897</td>
+<td style="text-align: right;">47.891</td>
+<td style="text-align: right;">47.862</td>
+<td style="text-align: right;">46.196</td>
+</tr>
+<tr>
+<td>MLX NCM, reduced</td>
+<td style="text-align: right;">54.923</td>
+<td style="text-align: right;">54.906</td>
+<td style="text-align: right;">54.868</td>
+<td style="text-align: right;">52.635</td>
+</tr>
+<tr>
+<td>MLX NCM, none</td>
+<td style="text-align: right;">97.776</td>
+<td style="text-align: right;">97.757</td>
+<td style="text-align: right;">97.680</td>
+<td style="text-align: right;">95.498</td>
+</tr>
+<tr>
+<td>MLX AR baseline</td>
+<td style="text-align: right;">14.676</td>
+<td style="text-align: right;">14.671</td>
+<td style="text-align: right;">14.708</td>
+<td style="text-align: right;">13.612</td>
+</tr>
+</tbody>
+</table>
+<p>The ordering strong &lt; reduced &lt; none, with the AR baseline
+lowest, holds under every aggregation. Mean scored lengths are similar
+(127.1, 127.1 and 127.5 GPT-2 tokens). Within outputs of 96–127 scorer
+tokens, pooled perplexity is 46.089, 53.804 and 94.413 for strong,
+reduced and none; within 128–159 tokens it is 50.807, 56.304 and
+100.457, with at least 494 outputs per NCM model in each group, and the
+AR baseline remains lower in both. These length groups are post hoc and
+do not control every difference between models. The audit was not
+repeated for seed 1.</p>
+<h2 data-number="10.7" id="generated-examples"><span class="header-section-number">10.7</span> Generated examples</h2>
+<p>The examples are the first output (sampling seed 42, index 0) of each
+seed-0 model, not selected for fluency, shown as opening excerpts. Their
+complete text and token identifiers are retained with the evidence.</p>
+<p><em>MLX NCM, strong corruption (E21):</em> Once there was a little
+boy called Jack. Joe was was three years old and discover. One One day,
+he wanted to go and look for exploring.</p>
+<p><em>MLX NCM, reduced corruption (E22):</em> He and his mum were
+walking by the beach beach. T Tise was very happy because he wanted to
+learn how to try it. He wanted to show his plane plane and take off his
+boat.</p>
+<p><em>MLX NCM, no corruption (E23):</em> Jack and his mum were walking
+by the beach at. T T gears. Tom loved to harbor because learn learned he
+wanted to travel beyond and was and excited, green trees and trees.</p>
+<p>An informal, unblinded reading of the first eight retained outputs of
+each run, performed with the assistance described under AI assistance,
+finds recognisable story vocabulary and short plausible phrases mixed
+with duplicated words, incomplete clauses, changing names and pronouns,
+implausible actions and unstable continuity. The first strong-corruption
+output switches between Jack, Joe and John, and the first no-corruption
+output shifts among a beach, trees, a park and several animals. This is
+a description of a small fixed sample, not a human rating, a blinded
+comparison or an error-rate estimate. Many outputs, including real
+held-out windows, end mid-story because outputs are capped at 128 BPE
+tokens. This revision shows seed-0 examples only.</p>
+<h2 data-number="10.8" id="latency-a-qualitylatency-tradeoff"><span class="header-section-number">10.8</span> Latency: a quality/latency
+tradeoff</h2>
+<table>
+<caption>Seed-0 recorded latency, median / 95th percentile in ms, batch
+1, 16 and 64. NCM is the eager MLX NCM with strong corruption; the AR
+baseline uses a key-value cache. Timings use three warmups and 20
+iterations and include a host copy of the decoded tokens.</caption>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 26%" />
+<col style="width: 26%" />
+<col style="width: 26%" />
+</colgroup>
+<thead>
+<tr>
+<th>Runner</th>
+<th style="text-align: right;">Batch 1</th>
+<th style="text-align: right;">Batch 16</th>
+<th style="text-align: right;">Batch 64</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MLX NCM, eager (11 generator forwards)</td>
+<td style="text-align: right;">12.791 / 13.005</td>
+<td style="text-align: right;">45.432 / 45.888</td>
+<td style="text-align: right;">223.878 / 227.090</td>
+</tr>
+<tr>
+<td>MLX AR baseline, KV cache (128 forwards)</td>
+<td style="text-align: right;">81.841 / 83.411</td>
+<td style="text-align: right;">142.712 / 144.585</td>
+<td style="text-align: right;">357.411 / 365.647</td>
+</tr>
+</tbody>
+</table>
+<p>In these recorded runs the NCM is faster than the AR baseline at all
+three batch sizes while generating much worse text under the external
+scorer, so this is a quality/latency tradeoff and not a matched-quality
+speedup. The timings come from a contended desktop: other services were
+active, and a zero reading of device utilisation before a benchmark
+cannot exclude load during it. The reduced- and no-corruption benchmarks
+show larger latency tails and nonzero utilisation at their boundaries,
+and their slower batch timings should not be read as an architectural
+effect of corruption. The NCM and AR timings use different sampler
+implementations, and the AR peak MLX allocation at batch 1 is about 62.6
+MiB against about 184.6 MiB for the NCM.</p>
+<p>Cached and cached-plus-compiled NCM modes have separate timings. In
+the tested cold runs, their sampled outputs differ from eager outputs at
+batches 16 and 64 for the strong-corruption model (changed-token
+fractions 0.049–0.317%) and for the no-corruption model (0.342–0.403%),
+and match for the reduced-corruption model; this is one seed per tested
+batch and mode. A cache-correctness result on fixed greedy fixtures does
+not remove this qualification, so the eager quality scores above are not
+attached to the optimised timings. Timings are reported for seed 0
+only.</p>
+<h2 data-number="10.9" id="what-these-experiments-establish-and-what-remains-open"><span class="header-section-number">10.9</span> What these experiments
+establish and what remains open</h2>
+<p>The experiments establish that independently trained short-prose
+reconstruction and unconditional generation run end to end in MLX, and
+that reconstruction (99.816% of non-padding tokens) far exceeds
+free-running quality (generative perplexity roughly 3.2 times the AR
+baseline’s or more). They show, in two generator seeds on one frozen
+codec, that lower clean teacher-forced code loss accompanied worse
+generated text under this scorer when conditioning corruption was
+reduced or removed.</p>
+<p>They do not establish quality on naturally occurring documents; any
+conditional task, long-form coherence or instruction following;
+human-rated quality; the effect of sampling temperature or truncation;
+independence of the result from the codec (only one codec seed was
+trained); equal-total-compute behaviour; the ceiling of the architecture
+at the released model’s far larger budget; or memorisation safety. No
+energy, monetary or independent-hardware measurement is available.</p>
+<h1 data-number="11" id="discussion"><span class="header-section-number">11</span> Discussion</h1>
 <p><strong>What carries over to a laptop.</strong> Measured Apple
 Silicon runs show lower small-batch NCM latency than an AR model of
 similar generator size on the tested synthetic task. The advantage
 shrinks with batch size and code count; historical 12-level Sudoku
 generation is slower than AR from batch 64 on. These observations do not
 establish natural-text speed or isolate dispatch, memory traffic and
-kernel costs. The completed E19/E20 training runs use CUDA, not the
-Mac.</p>
+kernel costs. The completed E19/E20 training runs use CUDA, not the Mac.
+On TinyStories, the eager MLX NCM has lower recorded latency than the
+cached MLX AR baseline at batch sizes 1, 16 and 64 in one seed-0 run,
+while generating text that scores far worse (Section 10.8). That is a
+quality/latency tradeoff on a contended desktop, not a matched-quality
+speed result.</p>
 <p><strong>Partial success at the tested scale.</strong> A 6.44M
 generator learns substantial puzzle-conditioned structure: both
 funded-recipe seeds solve more than 97% of easy boards and 79% of medium
@@ -1590,36 +2484,63 @@ propagation. Matched-data capacity and exposure ablations can test scale
 without conflating both. Checkpoint selection must use validation data
 rather than the external benchmark. These are proposed tests, not
 completed findings.</p>
-<p><strong>Decision for the next phase.</strong> The project can proceed
-to controlled text research without declaring the Sudoku reproduction
-complete. Keep the small generator as a reference while investigating
-independently converted Original NCM weights. Conversion parity would
-validate inference compatibility; it would not reproduce training or
-validate our smaller model. Begin text with a pinned permitted corpus,
-explicit tokenizer and padding boundaries, and document-separated
-splits. Report reconstruction and free-running generation separately,
-include readable failures and an autoregressive comparison with
-total-cost qualifications. Synthetic TinyStories would be an initial
-engineering benchmark; naturally occurring text and conditional tasks
-require further evidence. No instruction-following, summarization,
-translation or useful application integration follows from Sudoku
-scores.</p>
-<h1 data-number="10" id="limitations"><span class="header-section-number">10</span> Limitations</h1>
+<p><strong>What the text experiments show.</strong> Two things were
+previously proposed and are now observed within bounds. The released
+checkpoints can be converted and run independently, with agreement to
+upstream PyTorch in the tested computations (Section 9); this validates
+inference compatibility and nothing about training. And an independently
+trained small NCM on synthetic TinyStories prose reconstructs text
+accurately but generates it poorly relative to a token-by-token baseline
+of the same block stack and window exposure (Section 10). The corruption
+ablation is the informative part of that result: lower clean
+teacher-forced loss accompanied worse free-running text, in both
+generator seeds. This echoes the Sudoku observation that validation loss
+can move against generation quality (Section 8), and it argues for
+reporting reconstruction, teacher-forced loss and free-running quality
+as separate columns. Two generator seeds that share one codec cannot say
+how large the variation across full training runs is, and no experiment
+here separates corruption strength from the other differences between
+schedules.</p>
+<p><strong>How to challenge the text interpretation.</strong> A small
+blinded human comparison of the retained outputs, with recorded
+instructions and sample identities, would test what the external scorer
+cannot. Novelty checks beyond exact openings would address memorisation.
+Independent codec seeds would test whether the result depends on the
+single frozen codec. A per-level comparison of teacher-forced and
+self-generated error would probe the proposed explanation, and a
+sampling-sensitivity study would separate poor sampling calibration from
+poor learned generation. A comparison at matched total compute, a
+conditional task and naturally occurring text would be needed before any
+broader claim. These are proposed tests, not completed findings. Nothing
+in Sudoku or TinyStories scores implies instruction following,
+summarisation, translation or application value.</p>
+<h1 data-number="12" id="limitations"><span class="header-section-number">12</span> Limitations</h1>
 <p>Most generator recipes use at most 6.4M parameters; width-512
 ablations use about 25M. E19-funded and E20 provide only two training
 seeds of one recipe, not a reliable population variance estimate. The
 best hard score remains 45.80 points below Original NCM; the second seed
-remains 52.85 points below. No current-budget AR comparison, matched
-total-cost study or natural-text validation is available. Full-depth
-codec validation reconstruction does not prove useful coarse
-representations under generated errors. Historical aggregate-only
-scoring, missing remote manifests, repeated benchmark-guided development
-and unknown benchmark contention limit independent audit and
-generalization. The original training implementation is not released;
-unstated recipe details remain uncertain. Existing measurements
-establish neither production reliability nor a benefit in a user
-application.</p>
-<h1 data-number="11" id="related-work"><span class="header-section-number">11</span> Related work</h1>
+remains 52.85 points below. The TinyStories study uses one frozen codec
+shared by both generator seeds, so it measures generator variability
+only; total training compute and model size are not matched between the
+MLX NCM and the MLX AR baseline; the corpus is synthetic GPT-4 prose;
+generation is unconditional and no conditional task is tested; scoring
+relies on a single external model without human ratings, and
+sampling-policy sensitivity, full-training-seed variability and
+memorisation beyond exact openings are untested. The aggregation
+sensitivity audit and the latency measurements cover generator seed 0
+only. The Released TinyStories checkpoint is an upstream-trained
+reference at a far larger budget, not a reproduction target. For Sudoku,
+no AR comparison at the current 16.384M-presentation budget is
+available. No natural-text validation or matched total-cost study is
+available. Full-depth codec validation reconstruction does not prove
+useful coarse representations under generated errors. Historical
+aggregate-only scoring, missing remote manifests, repeated
+benchmark-guided development and unknown benchmark contention limit
+independent audit and generalization. The original training
+implementation is not released; unstated recipe details remain
+uncertain. Existing measurements establish neither production
+reliability nor a benefit in a user application.</p>
+<h1 data-number="13" id="related-work"><span class="header-section-number">13</span> Related work</h1>
 <p>Parallel and coarse-to-fine decoding for text includes discrete
 diffusion <span class="citation" data-cites="mdlm2024">(<a href="#ref-mdlm2024" role="doc-biblioref">Sahoo et al. 2024</a>)</span>
 and the methods compared in <span class="citation" data-cites="ncm2026">(<a href="#ref-ncm2026" role="doc-biblioref">Kumbong et al. 2026</a>)</span>. Residual
@@ -1630,8 +2551,50 @@ addresses the train–test mismatch that conditioning corruption targets.
 <a href="https://github.com/Bakhaow/ncm-forge">Bakhaow/ncm-forge</a>
 adds PyTorch training loops around upstream modules. The repository’s
 dated related-work comparison records other implementations; we make no
-priority claim for this MLX implementation.</p>
-<h1 data-number="12" id="conclusion"><span class="header-section-number">12</span> Conclusion</h1>
+priority claim for this MLX implementation. The released TinyStories and
+Sudoku checkpoints (Section 9) are the work of Kumbong et al. <span class="citation" data-cites="ncm2026">(<a href="#ref-ncm2026" role="doc-biblioref">Kumbong et al. 2026</a>)</span>; our port only runs
+them. TinyStories text comes from the dataset of Eldan and Li <span class="citation" data-cites="tinystories2023">(<a href="#ref-tinystories2023" role="doc-biblioref">Eldan and Li
+2023</a>)</span>, used here at the pinned revision of Section 10 and
+scored with GPT-2 large <span class="citation" data-cites="gpt2-2019">(<a href="#ref-gpt2-2019" role="doc-biblioref">Radford et al. 2019</a>)</span>.</p>
+<h1 data-number="14" id="roadmap"><span class="header-section-number">14</span> Roadmap</h1>
+<p>The project’s long-term aim is a text model of about one billion
+parameters whose generations are not worse than those of an
+autoregressive baseline trained with the same compute. Nothing in this
+paper shows that NCM can reach it. At the small scale tested, the best
+MLX NCM run has about three times the GPT-2 large generative perplexity
+of the MLX AR baseline (45.568 against 14.311, Section 10). The steps
+below are plans, ordered by dependency, with no delivery dates; each
+later step is conditional on the evidence from the earlier ones.</p>
+<p><strong>Completed.</strong> TinyWorld, a synthetic grammar with
+codec, generator and AR baseline (Section 7). Sudoku, from E6 to the
+two-seed E19 and E20 recipe (Sections 7 and 8). The inference-only port
+of the released checkpoints, with parity checks (Section 9). The
+TinyStories corruption ablation, E21 to E24, with two generator seeds
+(Section 10).</p>
+<p><strong>Planned, in order.</strong></p>
+<ol type="1">
+<li>Close the NCM/AR gap at small scale, through further corruption and
+loss-weighting ablations; the aim is a smaller gap under a fixed scorer,
+not a claim about larger models.</li>
+<li>Prompt-conditioned (prefix) training and the official XSum and WMT14
+codecs. Red-fuchs described an MLX port of both codecs and a
+prefix-conditioned training loop in issue 3 of the code repository
+(Red-fuchs/ncm-modular).</li>
+<li>Mixed-precision training throughput, measured before any larger run
+is sized.</li>
+<li>A natural-text corpus of several billion tokens, with its licence
+and splits recorded.</li>
+<li>A model of about 100M parameters trained on about 2B tokens, as the
+go/no-go comparison against an AR baseline.</li>
+<li>About 300M parameters, then about 1B, only if NCM is close to the AR
+baseline at matched compute.</li>
+</ol>
+<figure>
+<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDgwIDczNSIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsbGVkYnk9InRpdGxlIGRlc2NyaXB0aW9uIj4KPHRpdGxlIGlkPSJ0aXRsZSI+RnJvbSBhIGxhcHRvcCBzdHVkeSB0byBhIHRleHQgbW9kZWw6IGNvbXBsZXRlZCB3b3JrIGFuZCBwbGFubmVkIHN0ZXBzLjwvdGl0bGU+PGRlc2MgaWQ9ImRlc2NyaXB0aW9uIj5Gb3VyIGNvbXBsZXRlZCBtaWxlc3RvbmVzOiBUaW55V29ybGQsIFN1ZG9rdSwgdGhlIHJlbGVhc2VkLWNoZWNrcG9pbnQgcG9ydCBhbmQgdGhlIFRpbnlTdG9yaWVzIGFibGF0aW9uLiBTaXggcGxhbm5lZCBzdGVwcyBpbiBvcmRlcjogY2xvc2UgdGhlIGdhcCB0byB0aGUgYXV0b3JlZ3Jlc3NpdmUgYmFzZWxpbmUgYXQgc21hbGwgc2NhbGUsIHByb21wdC1jb25kaXRpb25lZCB0cmFpbmluZywgbWl4ZWQtcHJlY2lzaW9uIHRocm91Z2hwdXQsIGEgbmF0dXJhbC10ZXh0IGNvcnB1cywgYSAxMDBNIGdvL25vLWdvIHJ1biwgdGhlbiAzMDBNIGFuZCBhYm91dCAxQiBvbmx5IGlmIE5DTSBpcyBjbG9zZSB0byB0aGUgYmFzZWxpbmUuIFBsYW5uZWQgc3RlcHMgYXJlIHBsYW5zLCBub3QgcmVzdWx0cy48L2Rlc2M+CjxyZWN0IHdpZHRoPSIxMDgwIiBoZWlnaHQ9IjczNSIgcng9IjE2IiBmaWxsPSIjZmZmZmZmIi8+CjxnIGZvbnQtZmFtaWx5PSJJbnRlciwgSGVsdmV0aWNhIE5ldWUsIEFyaWFsLCBzYW5zLXNlcmlmIiBmaWxsPSIjMjAyNTJiIj4KPHRleHQgeD0iMzIiIHk9IjQ5IiBmb250LXNpemU9IjMyIiBmb250LXdlaWdodD0iNjUwIiBmaWxsPSIjMjAyNTJiIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPlJvYWRtYXA6IG1lYXN1cmVkIHNvIGZhciwgcGxhbm5lZCBuZXh0PC90ZXh0Pgo8dGV4dCB4PSIzMiIgeT0iODgiIGZvbnQtc2l6ZT0iMTkiIGZvbnQtd2VpZ2h0PSI0MDAiIGZpbGw9IiM1OTYzNmUiIHRleHQtYW5jaG9yPSJzdGFydCI+R29hbDogYWJvdXQgMUIgcGFyYW1ldGVycywgdGV4dCBub3Qgd29yc2UgdGhhbiBhIG1hdGNoZWQgYXV0b3JlZ3Jlc3NpdmUgYmFzZWxpbmUuPC90ZXh0Pgo8dGV4dCB4PSIzMiIgeT0iMTI4IiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iNDAwIiBmaWxsPSIjNTk2MzZlIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPkNPTVBMRVRFRDwvdGV4dD4KPHJlY3QgeD0iMzIiIHk9IjE0OCIgd2lkdGg9IjI0NiIgaGVpZ2h0PSIxNDYiIHJ4PSI0IiBmaWxsPSIjZjNmNWY3Ii8+Cjx0ZXh0IHg9IjUyIiB5PSIxODQiIGZvbnQtc2l6ZT0iMjQiIGZvbnQtd2VpZ2h0PSI2MDAiIGZpbGw9IiMyMDI1MmIiIHRleHQtYW5jaG9yPSJzdGFydCI+VGlueVdvcmxkPC90ZXh0Pgo8dGV4dCB4PSI1MiIgeT0iMjIwIiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iNDAwIiBmaWxsPSIjNTk2MzZlIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPlN5bnRoZXRpYyBncmFtbWFyPC90ZXh0Pgo8dGV4dCB4PSI1MiIgeT0iMjQ3IiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iNDAwIiBmaWxsPSIjNTk2MzZlIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPkNvZGVjLCBnZW5lcmF0b3IsIEFSPC90ZXh0Pgo8dGV4dCB4PSI1MiIgeT0iMjc0IiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iNDAwIiBmaWxsPSIjNTk2MzZlIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPkxhdGVuY3kgYW5kIHF1YWxpdHk8L3RleHQ+CjxyZWN0IHg9IjI4OCIgeT0iMTQ4IiB3aWR0aD0iMjQ2IiBoZWlnaHQ9IjE0NiIgcng9IjQiIGZpbGw9IiNmM2Y1ZjciLz4KPHRleHQgeD0iMzA4IiB5PSIxODQiIGZvbnQtc2l6ZT0iMjQiIGZvbnQtd2VpZ2h0PSI2MDAiIGZpbGw9IiMyMDI1MmIiIHRleHQtYW5jaG9yPSJzdGFydCI+U3Vkb2t1PC90ZXh0Pgo8dGV4dCB4PSIzMDgiIHk9IjIyMCIgZm9udC1zaXplPSIxNiIgZm9udC13ZWlnaHQ9IjQwMCIgZmlsbD0iIzU5NjM2ZSIgdGV4dC1hbmNob3I9InN0YXJ0Ij5FNiB0byBFMjAsIHR3byBzZWVkczwvdGV4dD4KPHRleHQgeD0iMzA4IiB5PSIyNDciIGZvbnQtc2l6ZT0iMTYiIGZvbnQtd2VpZ2h0PSI0MDAiIGZpbGw9IiM1OTYzNmUiIHRleHQtYW5jaG9yPSJzdGFydCI+RWFzeSA5OC4xJSwgbWVkaXVtIDgzLjQlPC90ZXh0Pgo8dGV4dCB4PSIzMDgiIHk9IjI3NCIgZm9udC1zaXplPSIxNiIgZm9udC13ZWlnaHQ9IjQwMCIgZmlsbD0iIzU5NjM2ZSIgdGV4dC1hbmNob3I9InN0YXJ0Ij5IYXJkIGJvYXJkcyBzdGlsbCBiZWhpbmQ8L3RleHQ+CjxyZWN0IHg9IjU0NCIgeT0iMTQ4IiB3aWR0aD0iMjQ2IiBoZWlnaHQ9IjE0NiIgcng9IjQiIGZpbGw9IiNmM2Y1ZjciLz4KPHRleHQgeD0iNTY0IiB5PSIxODQiIGZvbnQtc2l6ZT0iMjQiIGZvbnQtd2VpZ2h0PSI2MDAiIGZpbGw9IiMyMDI1MmIiIHRleHQtYW5jaG9yPSJzdGFydCI+Q2hlY2twb2ludCBwb3J0PC90ZXh0Pgo8dGV4dCB4PSI1NjQiIHk9IjIyMCIgZm9udC1zaXplPSIxNiIgZm9udC13ZWlnaHQ9IjQwMCIgZmlsbD0iIzU5NjM2ZSIgdGV4dC1hbmNob3I9InN0YXJ0Ij5SdW5zIEt1bWJvbmcgZXQgYWwuPC90ZXh0Pgo8dGV4dCB4PSI1NjQiIHk9IjI0NyIgZm9udC1zaXplPSIxNiIgZm9udC13ZWlnaHQ9IjQwMCIgZmlsbD0iIzU5NjM2ZSIgdGV4dC1hbmNob3I9InN0YXJ0Ij5UaW55U3RvcmllcyBhbmQgU3Vkb2t1PC90ZXh0Pgo8dGV4dCB4PSI1NjQiIHk9IjI3NCIgZm9udC1zaXplPSIxNiIgZm9udC13ZWlnaHQ9IjQwMCIgZmlsbD0iIzU5NjM2ZSIgdGV4dC1hbmNob3I9InN0YXJ0Ij5BZ3JlZXMgd2l0aCBQeVRvcmNoLCB0ZXN0ZWQ8L3RleHQ+CjxyZWN0IHg9IjgwMCIgeT0iMTQ4IiB3aWR0aD0iMjQ2IiBoZWlnaHQ9IjE0NiIgcng9IjQiIGZpbGw9IiNmM2Y1ZjciLz4KPHRleHQgeD0iODIwIiB5PSIxODQiIGZvbnQtc2l6ZT0iMjQiIGZvbnQtd2VpZ2h0PSI2MDAiIGZpbGw9IiMyMDI1MmIiIHRleHQtYW5jaG9yPSJzdGFydCI+VGlueVN0b3JpZXM8L3RleHQ+Cjx0ZXh0IHg9IjgyMCIgeT0iMjIwIiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iNDAwIiBmaWxsPSIjNTk2MzZlIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPkUyMSB0byBFMjQsIHR3byBzZWVkczwvdGV4dD4KPHRleHQgeD0iODIwIiB5PSIyNDciIGZvbnQtc2l6ZT0iMTYiIGZvbnQtd2VpZ2h0PSI0MDAiIGZpbGw9IiM1OTYzNmUiIHRleHQtYW5jaG9yPSJzdGFydCI+TG93ZXIgbG9zcywgd29yc2UgdGV4dDwvdGV4dD4KPHRleHQgeD0iODIwIiB5PSIyNzQiIGZvbnQtc2l6ZT0iMTYiIGZvbnQtd2VpZ2h0PSI0MDAiIGZpbGw9IiM1OTYzNmUiIHRleHQtYW5jaG9yPSJzdGFydCI+QmVzdCBOQ00gcGVycGxleGl0eSAzeCBBUjwvdGV4dD4KPHBhdGggZD0iTTMyIDMyNEgxMDQ4IiBzdHJva2U9IiNkNmRjZTIiLz4KPHRleHQgeD0iMzIiIHk9IjM2NCIgZm9udC1zaXplPSIxNiIgZm9udC13ZWlnaHQ9IjQwMCIgZmlsbD0iIzU5NjM2ZSIgdGV4dC1hbmNob3I9InN0YXJ0Ij5QTEFOTkVELCBJTiBPUkRFUjwvdGV4dD4KPHJlY3QgeD0iMzIiIHk9IjM4NCIgd2lkdGg9IjMyOCIgaGVpZ2h0PSIxMTIiIHJ4PSI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNkNmRjZTIiIHN0cm9rZS1kYXNoYXJyYXk9IjUgNSIvPgo8dGV4dCB4PSI1MiIgeT0iNDE4IiBmb250LXNpemU9IjE5IiBmb250LXdlaWdodD0iNjAwIiBmaWxsPSIjMjAyNTJiIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPjAxICBDbG9zZSB0aGUgZ2FwIGF0IHNtYWxsIHNjYWxlPC90ZXh0Pgo8dGV4dCB4PSI1MiIgeT0iNDQ2IiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iNDAwIiBmaWxsPSIjNTk2MzZlIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPkJlc3QgTkNNIHBlcnBsZXhpdHkgaXMgYWJvdXQgM3ggQVI7PC90ZXh0Pgo8dGV4dCB4PSI1MiIgeT0iNDcwIiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iNDAwIiBmaWxsPSIjNTk2MzZlIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPmNvcnJ1cHRpb24gYW5kIGxvc3Mtd2VpZ2h0aW5nIGFibGF0aW9uczwvdGV4dD4KPHJlY3QgeD0iMzc2IiB5PSIzODQiIHdpZHRoPSIzMjgiIGhlaWdodD0iMTEyIiByeD0iNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZDZkY2UyIiBzdHJva2UtZGFzaGFycmF5PSI1IDUiLz4KPHRleHQgeD0iMzk2IiB5PSI0MTgiIGZvbnQtc2l6ZT0iMTkiIGZvbnQtd2VpZ2h0PSI2MDAiIGZpbGw9IiMyMDI1MmIiIHRleHQtYW5jaG9yPSJzdGFydCI+MDIgIFByb21wdC1jb25kaXRpb25lZCB0cmFpbmluZzwvdGV4dD4KPHRleHQgeD0iMzk2IiB5PSI0NDYiIGZvbnQtc2l6ZT0iMTYiIGZvbnQtd2VpZ2h0PSI0MDAiIGZpbGw9IiM1OTYzNmUiIHRleHQtYW5jaG9yPSJzdGFydCI+T2ZmaWNpYWwgWFN1bSBhbmQgV01UMTQgY29kZWNzPC90ZXh0Pgo8dGV4dCB4PSIzOTYiIHk9IjQ3MCIgZm9udC1zaXplPSIxNiIgZm9udC13ZWlnaHQ9IjQwMCIgZmlsbD0iIzU5NjM2ZSIgdGV4dC1hbmNob3I9InN0YXJ0Ij5SZWQtZnVjaHMvbmNtLW1vZHVsYXIsIGlzc3VlICMzPC90ZXh0Pgo8cmVjdCB4PSI3MjAiIHk9IjM4NCIgd2lkdGg9IjMyOCIgaGVpZ2h0PSIxMTIiIHJ4PSI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNkNmRjZTIiIHN0cm9rZS1kYXNoYXJyYXk9IjUgNSIvPgo8dGV4dCB4PSI3NDAiIHk9IjQxOCIgZm9udC1zaXplPSIxOSIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iIzIwMjUyYiIgdGV4dC1hbmNob3I9InN0YXJ0Ij4wMyAgTWl4ZWQtcHJlY2lzaW9uIHRocm91Z2hwdXQ8L3RleHQ+Cjx0ZXh0IHg9Ijc0MCIgeT0iNDQ2IiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iNDAwIiBmaWxsPSIjNTk2MzZlIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPk1lYXN1cmUgc3BlZWQgYmVmb3JlIHNjYWxpbmcgdXA8L3RleHQ+CjxyZWN0IHg9IjMyIiB5PSI1MTAiIHdpZHRoPSIzMjgiIGhlaWdodD0iMTEyIiByeD0iNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZDZkY2UyIiBzdHJva2UtZGFzaGFycmF5PSI1IDUiLz4KPHRleHQgeD0iNTIiIHk9IjU0NCIgZm9udC1zaXplPSIxOSIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iIzIwMjUyYiIgdGV4dC1hbmNob3I9InN0YXJ0Ij4wNCAgTmF0dXJhbC10ZXh0IGNvcnB1czwvdGV4dD4KPHRleHQgeD0iNTIiIHk9IjU3MiIgZm9udC1zaXplPSIxNiIgZm9udC13ZWlnaHQ9IjQwMCIgZmlsbD0iIzU5NjM2ZSIgdGV4dC1hbmNob3I9InN0YXJ0Ij5TZXZlcmFsIGJpbGxpb24gdG9rZW5zPC90ZXh0Pgo8cmVjdCB4PSIzNzYiIHk9IjUxMCIgd2lkdGg9IjMyOCIgaGVpZ2h0PSIxMTIiIHJ4PSI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNkNmRjZTIiIHN0cm9rZS1kYXNoYXJyYXk9IjUgNSIvPgo8dGV4dCB4PSIzOTYiIHk9IjU0NCIgZm9udC1zaXplPSIxOSIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iIzIwMjUyYiIgdGV4dC1hbmNob3I9InN0YXJ0Ij4wNSAgMTAwTSBtb2RlbCwgYWJvdXQgMkIgdG9rZW5zPC90ZXh0Pgo8dGV4dCB4PSIzOTYiIHk9IjU3MiIgZm9udC1zaXplPSIxNiIgZm9udC13ZWlnaHQ9IjQwMCIgZmlsbD0iIzU5NjM2ZSIgdGV4dC1hbmNob3I9InN0YXJ0Ij5UaGUgZ28gLyBuby1nbyBhZ2FpbnN0IEFSPC90ZXh0Pgo8cmVjdCB4PSI3MjAiIHk9IjUxMCIgd2lkdGg9IjMyOCIgaGVpZ2h0PSIxMTIiIHJ4PSI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNkNmRjZTIiIHN0cm9rZS1kYXNoYXJyYXk9IjUgNSIvPgo8dGV4dCB4PSI3NDAiIHk9IjU0NCIgZm9udC1zaXplPSIxOSIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iIzIwMjUyYiIgdGV4dC1hbmNob3I9InN0YXJ0Ij4wNiAgMzAwTSwgdGhlbiBhYm91dCAxQjwvdGV4dD4KPHRleHQgeD0iNzQwIiB5PSI1NzIiIGZvbnQtc2l6ZT0iMTYiIGZvbnQtd2VpZ2h0PSI0MDAiIGZpbGw9IiM1OTYzNmUiIHRleHQtYW5jaG9yPSJzdGFydCI+T25seSBpZiBOQ00gaXMgY2xvc2UgdG8gQVI8L3RleHQ+Cjx0ZXh0IHg9Ijc0MCIgeT0iNTk2IiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iNDAwIiBmaWxsPSIjNTk2MzZlIiB0ZXh0LWFuY2hvcj0ic3RhcnQiPmF0IG1hdGNoZWQgY29tcHV0ZTwvdGV4dD4KPHBhdGggZD0iTTMyIDY1MEgxMDQ4IiBzdHJva2U9IiNkNmRjZTIiLz4KPHRleHQgeD0iMzIiIHk9IjY4OCIgZm9udC1zaXplPSIxOSIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iIzIwMjUyYiIgdGV4dC1hbmNob3I9InN0YXJ0Ij5QbGFubmVkIHN0ZXBzIGFyZSBwbGFucywgbm90IHJlc3VsdHMuPC90ZXh0Pgo8dGV4dCB4PSIxMDQ4IiB5PSI2ODgiIGZvbnQtc2l6ZT0iMTciIGZvbnQtd2VpZ2h0PSI0MDAiIGZpbGw9IiM1OTYzNmUiIHRleHQtYW5jaG9yPSJlbmQiPk5vIGRlbGl2ZXJ5IGRhdGVzLjwvdGV4dD4KPC9nPjwvc3ZnPgo=" style="width:100.0%" alt="Project roadmap: completed milestones and planned steps. Planned steps are plans, not results." />
+<figcaption aria-hidden="true">Project roadmap: completed milestones and
+planned steps. Planned steps are plans, not results.</figcaption>
+</figure>
+<h1 data-number="15" id="conclusion"><span class="header-section-number">15</span> Conclusion</h1>
 <p>This independent MLX implementation preserves exact CPU
 training/per-level inference equivalence and demonstrates coarse-to-fine
 generation on a finite synthetic language and Sudoku. The funded
@@ -1642,15 +2605,49 @@ substantial failures on hard boards and unresolved provenance and
 reproducibility limits. It does not reproduce Original NCM’s scores or
 establish matched-cost superiority. The observed seed difference
 warrants better diagnostics rather than attributing the deficit to a
-single component. The next research phase will test text generation and
-its quality/cost tradeoff; those capabilities remain unvalidated.</p>
+single component. An inference-only port runs the released checkpoints
+of Kumbong et al. and agrees with upstream PyTorch in the tested
+computations, up to stated precision effects. Small TinyStories models
+trained here reconstruct held-out windows accurately but generate text
+that an external scorer rates far worse than a similarly built
+autoregressive baseline (generative perplexity 45.568–97.776 against
+14.311–14.676). Across two generator seeds on one frozen codec, reducing
+conditioning corruption lowered clean teacher-forced code loss and
+worsened free-running text. These text results come from synthetic
+prose, unconditional generation and unmatched total compute, and they
+establish no conditional capability. The unresolved gaps are the
+hard-Sudoku deficit, the autoregressive quality gap on text, the
+single-codec dependence and the absence of human ratings and of
+naturally occurring text.</p>
 <h1 class="unnumbered" id="code-and-reproducibility">Code and
 reproducibility</h1>
 <p>Code, configurations and this paper: <a href="https://github.com/janmus1c/ncm-mlx">github.com/janmus1c/ncm-mlx</a>.
 Every configuration is in <code>configs/</code>; measured runs are
 logged in <code>docs/EXPERIMENTS.md</code>. The benchmark guide explains
-budget matching, parameter accounting, synchronization and
-uncertainty.</p>
+budget matching, parameter accounting, synchronization and uncertainty.
+The TinyStories training and evaluation source that produced Section 10
+is identified by per-file SHA-256 digests in
+<code>docs/research/e21-e23-evidence.json</code>, together with
+configuration, data, tokenizer and scorer identities, checkpoint hashes
+and per-seed scores. The development commit named there is not in the
+public history; 41 of its 44 digested training files are byte-identical
+in the public repository, and the other three, in the
+released-checkpoint port, also contain later prefix-cache, compilation
+and benchmark changes. The 44 digested training files, exactly as they
+were run, are attached to the paper release as the archive
+<code>ncm-mlx-text-training-source-d323f4f.tar.gz</code> (SHA-256
+<code>7c5f9d6e08f70eda075a4d35556bd46a3ef4cc622756f36545915040879a0c64</code>)
+(<a href="https://github.com/janmus1c/ncm-mlx/releases/download/paper-v0.12/ncm-mlx-text-training-source-d323f4f.tar.gz">download</a>);
+the digest of each file inside it matches the evidence extract. The
+aligned evaluation and benchmark driver is not part of the repository or
+the archive. A clean checkout does not yet reproduce those runs end to
+end, and the released package <code>ncm-mlx</code> 0.2.0 does not
+include the text-training commands; the commands below cover the Sudoku
+path. Audited reports, sample outputs and per-output scorer records for
+all six runs are attached to the paper release as
+<code>ncm-mlx-tinystories-evidence-e21-e24.tar.gz</code> (SHA-256
+<code>4a744f5306ebef3433abbab9647372d6ad00949f616c7befe9476fbccb0d20b8</code>,
+<a href="https://github.com/janmus1c/ncm-mlx/releases/download/paper-v0.12/ncm-mlx-tinystories-evidence-e21-e24.tar.gz">download</a>).</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/janmus1c/ncm-mlx <span class="kw">&amp;&amp;</span> <span class="bu">cd</span> ncm-mlx</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">mise</span> run setup                                     <span class="co"># Python 3.12, MLX, tests</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">scripts/run_experiment.sh</span> configs/sudoku-e6.json   <span class="co"># train, evaluate, benchmark</span></span>
@@ -1668,6 +2665,10 @@ Bengio, Samy, Oriol Vinyals, Navdeep Jaitly, and Noam Shazeer. 2015.
 <span>‘Scheduled Sampling for Sequence Prediction with Recurrent Neural
 Networks’</span>. <em>Advances in Neural Information Processing
 Systems</em>.
+</div>
+<div id="ref-tinystories2023" class="csl-entry" role="listitem">
+Eldan, Ronen, and Yuanzhi Li. 2023. <em>TinyStories: How Small Can
+Language Models Be and Still Speak Coherent English?</em> <a href="https://arxiv.org/abs/2305.07759">https://arxiv.org/abs/2305.07759</a>.
 </div>
 <div id="ref-mlx2023" class="csl-entry" role="listitem">
 Hannun, Awni, Jagrit Digani, Angelos Katharopoulos, and Ronan Collobert.
@@ -1690,6 +2691,11 @@ Oord, Aaron van den, Oriol Vinyals, and Koray Kavukcuoglu. 2017.
 <span>‘Neural Discrete Representation Learning’</span>. <em>Advances in
 Neural Information Processing Systems</em>.
 </div>
+<div id="ref-gpt2-2019" class="csl-entry" role="listitem">
+Radford, Alec, Jeffrey Wu, Rewon Child, David Luan, Dario Amodei, and
+Ilya Sutskever. 2019. <em>Language Models Are Unsupervised Multitask
+Learners</em>. OpenAI.
+</div>
 <div id="ref-nested2014" class="csl-entry" role="listitem">
 Rippel, Oren, Michael Gelbart, and Ryan Adams. 2014. <span>‘Learning
 Ordered Representations with Nested Dropout’</span>. <em>International
@@ -1709,7 +2715,7 @@ arXiv:2104.09864</em>.
 <div id="ref-var2024" class="csl-entry" role="listitem">
 Tian, Keyu, Yi Jiang, Zehuan Yuan, Bingyue Peng, and Liwei Wang. 2024.
 <span>‘Visual Autoregressive Modeling: Scalable Image Generation via
-Next-Scale Prediction’</span>. <em>Advances in Neural Information
+next-Scale Prediction’</span>. <em>Advances in Neural Information
 Processing Systems</em>.
 </div>
 <div id="ref-soundstream2021" class="csl-entry" role="listitem">
@@ -1727,14 +2733,14 @@ Hyperparameters</h1>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo>=</mo><mn>0.25</mn></mrow><annotation encoding="application/x-tex">\beta = 0.25</annotation></semantics></math>,
 fine-level dropout 0.5.</caption>
 <colgroup>
+<col style="width: 6%" />
+<col style="width: 15%" />
+<col style="width: 7%" />
+<col style="width: 18%" />
+<col style="width: 11%" />
 <col style="width: 12%" />
 <col style="width: 12%" />
-<col style="width: 12%" />
-<col style="width: 12%" />
-<col style="width: 12%" />
-<col style="width: 12%" />
-<col style="width: 12%" />
-<col style="width: 12%" />
+<col style="width: 14%" />
 </colgroup>
 <thead>
 <tr>
@@ -1947,13 +2953,30 @@ configuration remains unstarted and is not either reported result. Full
 settings and checkpoint prerequisites are in the corresponding
 <code>configs/sudoku-e*.json</code> files and
 <code>docs/EXPERIMENTS.md</code>.</p>
+<p><strong>TinyStories settings (Section 10).</strong> Codec: 12 levels
+of lengths 1, 8, 16, 24, 32, 40, 52, 64, 76, 92, 108, 128 with 2,048
+codes each, width 256, 4 heads, 14,000 updates at batch 256, learning
+rate 5e-4 with cosine decay to 5e-5, warmup 1,000, weight decay 0.01,
+dropout 0.3, fine-level dropout 0.5, commitment 0.25, EMA decay 0.95.
+Generator: 6 × 384, 6 heads, dropout 0.1, 15,000 updates at batch 64,
+warmup 500, weight decay 0.1, betas (0.9, 0.95), gradient clipping 1,
+loss
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>α</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\alpha = 0</annotation></semantics></math>.
+AR baseline: same stack, 7,500 updates at batch 128. Corruption
+endpoints: 0.75 → 0.25 (E21, E24), 0.30 → 0.05 (E22) and 0 → 0 (E23);
+E24 and the seed-1 repeats of E22 and E23 differ only in configured seed
+1 and reuse the seed-0 codec.</p>
 <h1 class="unnumbered" id="appendix-b-environment">Appendix B:
 Environment</h1>
 <p>Apple M5 Pro, 64 GB unified memory, macOS 26.5; MLX 0.32.3, NumPy,
 Python 3.12.14 managed with mise and uv. Figures: matplotlib. Paper:
 Pandoc and Typst. E18: RTX 3080, Python 3.12.15; both E19 runs and E20:
 NVIDIA A40, Python 3.12.3, MLX 0.32.3 CUDA. Preflight and contention
-qualifications accompany each run in the experiment log.</p>
+qualifications accompany each run in the experiment log. TinyStories
+experiments and parity checks: Apple M5 Pro, 64 GB, macOS 26.5, Python
+3.12.14, MLX 0.32.3, <code>mlx-lm</code> 0.32.2, NumPy 2.5.4, PyTorch
+2.15.0 for upstream parity only; Metal float32 with reduced-precision
+matrix products.</p>
 <h1 class="unnumbered" id="appendix-c-version-history">Appendix C:
 Version history</h1>
 <table>
@@ -2040,6 +3063,16 @@ uncertainty and explicit budget differences.</td>
 <td>Completed E20 seed replication; two-seed assessment, hard-board
 failure accounting, explicit provenance limits and a gated text-research
 direction.</td>
+</tr>
+<tr>
+<td>0.12</td>
+<td>2026-11-02</td>
+<td>Roadmap; inference parity for the released checkpoints; TinyStories
+training contract; corruption ablation (E21–E24) with two generator
+seeds on one frozen codec, AR, released and held-out controls,
+aggregation sensitivity and qualified latency; text future-work
+statements replaced by the observed bounded result. TinyWorld and Sudoku
+results unchanged.</td>
 </tr>
 </tbody>
 </table>

@@ -53,4 +53,4 @@ Update this comparison when a material implementation feature or compatibility c
 
 ## Inference optimization literature
 
-The [prefix-caching and speculative-drafting review](research/prefix-caching-and-speculative-drafting.md) examines primary literature on K/V reuse, speculative verification, drafter alignment and parallel proposals, with a versioned source ledger. Its [experiment protocol](research/inference-experiment-protocol.md) separates equivalent cache execution from changes to generation policy and future text-model training. These are research proposals rather than new measured capabilities.
+The [prefix-caching and speculative-drafting review](research/prefix-caching-and-speculative-drafting.md) examines primary literature on K/V reuse, speculative verification, drafter alignment and parallel proposals, with a versioned source ledger. It separates equivalent cache execution from changes to generation policy and future text-model training. These are research proposals rather than new measured capabilities.

@@ -21,6 +21,7 @@ Read this file, then `docs/STATUS.md` (what is true now) and `docs/NEXT.md` (wha
 | Latency benchmark | `mise run bench` |
 | AR baseline | `python -m ncm_mlx baseline --bench` |
 | Released checkpoints | `python -m ncm_mlx official fetch|convert|generate|sudoku|bench --task TASK` (see `docs/official-checkpoints.md`) |
+| TinyStories text training | `python -m ncm_mlx official prepare-data|train-codec|train-generator|train-ar|eval-text --config configs/tinystories-*.json` (see `docs/text-training.md`) |
 | Resume full training state | `python -m ncm_mlx train --config CONFIG --resume` (read `docs/RECOVERY.md`) |
 
 The `mise` tasks use the TinyWorld quickstart. Pass `--config configs/NAME.json` to CLI commands for other recipes. `demo` starts training when its checkpoint is absent; check artifacts before running it. Several Sudoku configs reuse a codec checkpoint, so they are not self-contained fresh-checkout commands. See the training guide and experiment log for prerequisites. Dependencies are pinned in `uv.lock`; accelerator MLX is 0.32.3.
@@ -36,7 +37,7 @@ The `mise` tasks use the TinyWorld quickstart. Pass `--config configs/NAME.json`
 | `ncm_mlx/training/` | Two-stage training, checkpoint I/O |
 | `ncm_mlx/eval/` | Codec / sample metrics, synchronized benchmark |
 | `ncm_mlx/baselines/` | Character-level autoregressive baseline |
-| `ncm_mlx/official/` | Inference port of released upstream checkpoints: torch-free reader, converter, BPE, model, sampler, CLI |
+| `ncm_mlx/official/` | Inference port of released upstream checkpoints: torch-free reader, converter, BPE, model, sampler, CLI; TinyStories data, two-stage training, AR baseline and text evaluation for the same architecture |
 | `configs/` | Run configs (JSON, validated on load) |
 | `docs/` | `STATUS`, `DECISIONS`, `EXPERIMENTS`, `NEXT`, `adr/`, `research/upstream-map.md` |
 | `artifacts/`, `runs/` | Weights and logs — gitignored |

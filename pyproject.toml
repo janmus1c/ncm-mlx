@@ -38,7 +38,7 @@ cuda = [
 
 [project.urls]
 Homepage = "https://janmus1c.github.io/ncm-mlx/"
-Paper = "https://doi.org/10.5281/zenodo.23686842"
+Paper = "https://doi.org/10.5281/zenodo.23897923"
 Repository = "https://github.com/janmus1c/ncm-mlx"
 Documentation = "https://janmus1c.github.io/ncm-mlx/"
 Issues = "https://github.com/janmus1c/ncm-mlx/issues"
@@ -55,6 +55,9 @@ cuda = [
 ]
 paper = [
     "matplotlib>=3.11.2",
+]
+text-eval = [
+    "mlx-lm==0.32.2",
 ]
 
 [build-system]

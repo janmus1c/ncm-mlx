@@ -1,13 +1,14 @@
 # Paper
 
-An unreviewed working paper on this independent implementation. Version 0.11 adds completed E20, a two-seed assessment, hard-board failure accounting, explicit historical provenance limits and a gated text-research direction. It retains E18/E19 results, negative outcomes, experimental limitations and the disclosure of OpenAI Codex assistance with implementation, experiments, analysis, figures, documentation and manuscript drafting and revision.
+An unreviewed working paper on this independent implementation. Version 0.12 adds an inference-parity study of the released checkpoints, the TinyStories corruption ablation with two generator seeds, and a roadmap. It retains the TinyWorld and Sudoku results, negative outcomes, experimental limitations and the disclosure of OpenAI Codex assistance with implementation, experiments, analysis, figures, documentation and manuscript drafting and revision.
 
 | File | What it is |
 |---|---|
 | `manuscript.md` | The paper: Pandoc Markdown with YAML metadata, LaTeX maths and `[@key]` citations. |
 | `references.bib` | BibTeX references. |
 | `make_figures.py` | Collects results from `runs/` into `data/results.json` and draws `figures/`. |
-| `data/results.json` | The numbers behind every figure, committed so figures rebuild without `runs/`. |
+| `data/results.json` | The numbers behind the Sudoku and latency figures, committed so figures rebuild without `runs/`. |
+| `data/tinystories-corruption.json` | The numbers behind the corruption-ablation figure, copied from the saved TinyStories evaluation reports. |
 | `figures/` | SVG, PDF and PNG figures. |
 | `style.typ`, `web.css`, `assets/` | PDF layout (NeurIPS conventions), HTML/EPUB style, logo and e-book cover. |
 | `dist/` | Built editions: PDF, HTML, EPUB, LaTeX, JATS XML, DOCX. Committed so they can be read without a toolchain; rebuild with `./build.sh` in the same commit as any manuscript change. |
@@ -27,6 +28,8 @@ uv sync --group paper
 .venv/bin/python paper/make_figures.py          # collect local measured runs (requires runs/)
 .venv/bin/python paper/make_figures.py --plot   # fresh checkout: committed data/results.json only
 ```
+
+`figures/project-roadmap.*` is the light edition of `docs/assets/project-roadmap-light.svg`, drawn by `scripts/render_research_visuals.py`.
 
 ## Build the editions
 

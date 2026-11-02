@@ -26,39 +26,61 @@ Study of Next-Concept Modeling</article-title>
 </permissions>
 <abstract>
 <p>Next-Concept Modeling (NCM) generates a sequence through successive
-levels of discrete latent codes, predicting each level in parallel. We
-independently implement the method in MLX and study synthetic language
-and Sudoku on Apple Silicon and NVIDIA GPUs. On a finite synthetic
-grammar, a 5M-parameter generator achieves lower small-batch latency
-than a similarly sized autoregressive generator, with lower sentence
-validity (89.8% versus 98.6%). Two Sudoku training seeds use the same
-6.44M-parameter generator recipe and 16.384M presentations each.
-Retained greedy evaluation aggregates report easy/medium/hard solve
-rates of 98.10/83.40/40.30% for seed 0 and 97.25/79.60/33.25% for seed
-1, with 2,000 boards per difficulty. The hard-set difference is 7.05
-percentage points; two seeds do not establish population training
-variability or its cause. Original NCM reports 99.50/96.50/86.10% with a
-25.46M generator, 51.2M presentations and a different task setup. Our
-generator is 3.95 times smaller, excluding its additional codec; the
+levels of discrete latent codes, predicting each level in parallel. The
+method is by Kumbong et al.; we implement it independently in MLX and
+study synthetic language, Sudoku and short synthetic stories on Apple
+Silicon and NVIDIA GPUs. On a finite synthetic grammar, a 5M-parameter
+generator achieves lower small-batch latency than a similarly sized
+autoregressive generator, with lower sentence validity (89.8% versus
+98.6%). Two Sudoku training seeds use the same 6.44M-parameter generator
+recipe and 16.384M presentations each. Retained greedy evaluation
+aggregates report easy/medium/hard solve rates of 98.10/83.40/40.30% for
+seed 0 and 97.25/79.60/33.25% for seed 1, with 2,000 boards per
+difficulty; two seeds do not establish population training variability
+or its cause. Original NCM reports 99.50/96.50/86.10% with a 25.46M
+generator, 51.2M presentations and a different task setup, so the
 comparison establishes neither task parity nor matched-cost efficiency.
-E20 completes its schedule without a recorded reset or truncation, but
-missing per-board predictions and remote provenance manifests limit
-independent audit. We characterize this phase as a partial
-implementation and small-model success, retain the substantial
-hard-Sudoku deficit, and define controlled text evaluation as the next
-research direction rather than a demonstrated capability.</p>
+Missing per-board predictions and remote provenance manifests limit
+independent audit of the Sudoku runs. This version adds two bounded
+results. First, an inference-only MLX port of the released TinyStories
+and Sudoku checkpoints agrees with upstream PyTorch on CPU in the tested
+computations: the largest compared fp32 TinyStories logit difference is
+0.100 at logit magnitudes up to 853, and 3.2e-10 in a composed fp64
+diagnostic. The converted Sudoku checkpoints solve 99.40/96.30/86.20% of
+2,000 boards per difficulty. This concerns upstream-trained weights, not
+their training. Second, we train small TinyStories models (an
+11.8M-value generator on a frozen 15.5M-value codec) and ablate
+conditioning corruption with two generator seeds that share one codec.
+The codec reconstructs held-out windows accurately (99.816% of
+non-padding tokens). Clean teacher-forced code cross-entropy and
+free-running quality rank the three corruption schedules in opposite
+order in both seeds. Under a fixed external scorer (GPT-2 large),
+generative perplexity for strong, reduced and no corruption is
+47.897/54.923/97.776 for generator seed 0 and 45.568/55.114/93.833 for
+seed 1. An MLX autoregressive baseline with the same block stack scores
+14.676 and 14.311, the released TinyStories checkpoint 16.259 and
+held-out text 8.529. Total training compute is not matched, the corpus
+is synthetic, generation is unconditional and no conditional task is
+tested. We characterize the work as a partial implementation, a
+small-model Sudoku success and a documented failure of free-running text
+quality at pilot scale.</p>
 </abstract>
 </article-meta>
 </front>
 <body>
 <disp-quote>
-  <p><bold>Status.</bold> Working paper, version 0.11. Every number here
-  is copied from a run in the code repository
+  <p><bold>Status.</bold> Unreviewed working paper, version 0.12
+  (version DOI:
+  <ext-link ext-link-type="uri" xlink:href="https://doi.org/10.5281/zenodo.23897923">10.5281/zenodo.23897923</ext-link>).
+  Every number here is copied from a run in the code repository
   (<monospace>runs/</monospace>, summarised in
-  <monospace>paper/data/results.json</monospace>) or quoted from the
-  cited paper and marked as quoted. Experiments still running are marked
-  <italic>in progress</italic> and never estimated. Appendix C lists the
-  changes between versions.</p>
+  <monospace>paper/data/results.json</monospace>), from the retained
+  evidence extracts under <monospace>docs/research/</monospace>, or
+  quoted from the cited paper and marked as quoted. The TinyStories
+  evidence of Section 10 is retained as described there; its
+  sample-level records are not yet part of a clean public checkout.
+  Experiments still running are marked <italic>in progress</italic> and
+  never estimated. Appendix C lists the changes between versions.</p>
 </disp-quote>
 <sec id="reading-guide">
   <title>Reading guide</title>
@@ -69,7 +91,10 @@ research direction rather than a demonstrated capability.</p>
   method with every formula explained, the Apple Silicon implementation
   and the experiments. Section 8 tells the story of the project run by
   run: what each experiment (E0, E1, …) asked, what changed and what we
-  learned.</p>
+  learned. Section 9 reports how the released checkpoints of the
+  original authors run in our MLX port, and Section 10 reports our own
+  TinyStories experiments, including the corruption ablation and its
+  seed repeat.</p>
 </sec>
 <sec id="the-idea-in-plain-language">
   <title>The idea in plain language</title>
@@ -154,8 +179,16 @@ research direction rather than a demonstrated capability.</p>
     33.25–40.30% of hard boards. Original NCM reports 99.5% and 86.1%,
     respectively, under a different setup. A historical comparison
     matches generator presentations against our AR baseline; Section 8
-    records the experiments. NCM is a generation method used here for
-    two tasks, not a Sudoku-specific expansion of the term or an
+    records the experiments.</p>
+    <p>Two later additions concern text. We wrote an inference-only port
+    that runs the original authors’ released checkpoints and checked it
+    against their PyTorch code (Section 9). We also trained small models
+    of our own on TinyStories, a corpus of short synthetic children’s
+    stories (Section 10). Those models reconstruct held-out story text
+    accurately but generate stories that an external language model
+    scores far worse than a word-by-word baseline built from the same
+    transformer blocks. NCM is a generation method used here for three
+    tasks, not a Sudoku-specific expansion of the term or an
     instruction-following language model.</p>
   </sec>
 </sec>
@@ -180,7 +213,8 @@ research direction rather than a demonstrated capability.</p>
         <tr>
           <td>Token</td>
           <td>The unit a model reads and writes. Here: one character
-          (TinyWorld) or one Sudoku cell.</td>
+          (TinyWorld), one Sudoku cell or one byte-pair piece of text
+          (TinyStories).</td>
         </tr>
         <tr>
           <td>Autoregressive (AR) model</td>
@@ -274,6 +308,24 @@ research direction rather than a demonstrated capability.</p>
           the effective number of choices. Code perplexity 1 means a
           level always uses the same code and carries no
           information.</td>
+        </tr>
+        <tr>
+          <td>BPE</td>
+          <td>Byte-pair encoding: a fixed vocabulary of frequent word
+          pieces (8,192 here) into which text is split.</td>
+        </tr>
+        <tr>
+          <td>Clean code CE</td>
+          <td>Generator cross-entropy per code when every coarser level
+          is supplied correctly (teacher forcing), on held-out windows.
+          It is not a measure of free-running generation.</td>
+        </tr>
+        <tr>
+          <td>Generative perplexity</td>
+          <td>Perplexity that an <italic>external</italic> language
+          model (GPT-2 large) assigns to text a model generated on its
+          own. Lower is better; it is not the generating model’s own
+          likelihood.</td>
         </tr>
         <tr>
           <td>Temperature, greedy</td>
@@ -740,7 +792,8 @@ research direction rather than a demonstrated capability.</p>
     et al. 2015</xref>). The paper notes that corruption “based on the
     model’s actual errors may better match inference conditions” but
     does not test it; experiment E9 tests it and finds no gain at our
-    scale (Section 8).</p>
+    scale (Section 8). Section 10 varies the corruption schedule itself
+    on TinyStories text.</p>
   </sec>
   <sec id="generation">
     <title>Generation</title>
@@ -956,7 +1009,8 @@ research direction rather than a demonstrated capability.</p>
   <p>Runs use an Apple M5 Pro (64 GB unified memory, macOS 26.5), an RTX
   3080 or a rented A40, as labelled for each experiment, with MLX
   0.32.3. Other GPU workloads often ran on the Mac; timings this affects
-  are marked.</p>
+  are marked. The TinyStories experiments of Section 10 and the parity
+  checks of Section 9 ran on the Mac.</p>
   <sec id="tinyworld-an-invented-language">
     <title>TinyWorld: an invented language</title>
     <p>TinyWorld has 15,360 sentences of the form <italic>name verb
@@ -1193,6 +1247,14 @@ research direction rather than a demonstrated capability.</p>
             <td>96.5%</td>
             <td>86.1%</td>
           </tr>
+          <tr>
+            <td>Released Sudoku checkpoints (Kumbong et al.), run in the
+            MLX port on the M5 Pro</td>
+            <td>25M</td>
+            <td>99.40%</td>
+            <td>96.30%</td>
+            <td>86.20%</td>
+          </tr>
         </tbody>
       </table>
     </table-wrap>
@@ -1205,7 +1267,10 @@ research direction rather than a demonstrated capability.</p>
     boards. E11 solves 55.2% of easy boards; at the same 2.048M
     generator presentations, the AR model solves 20.5%, 4.9% and 0.5%.
     This matches generator data exposure, not total training cost, FLOPs
-    or system size. Section 8 records the changes.</p>
+    or system size. Section 8 records the changes. The last row
+    evaluates the original authors’ released, upstream-trained weights
+    through our inference port (Section 9); it is separate from the E19
+    and E20 models trained here.</p>
     <p>The shared E6 codec contains 13,816,704 gradient-trained values,
     49,152 EMA-trained codebook values and 49,344 EMA accumulators:
     13,915,200 saved scalar values in total. Its learned first-level
@@ -1523,7 +1588,8 @@ research direction rather than a demonstrated capability.</p>
   <table-wrap>
     <caption>
       <p>Experiments in order. Sudoku results are for the easy test
-      boards.</p>
+      boards; E21 onwards use TinyStories and report external generative
+      perplexity (GPT-2 large, lower is better).</p>
     </caption>
     <table>
       <colgroup>
@@ -1719,6 +1785,43 @@ research direction rather than a demonstrated capability.</p>
           <td>Easy/medium gains persist; hard result varies by 7.05
           points; audit limits remain</td>
         </tr>
+        <tr>
+          <td>E21</td>
+          <td>Can NCM be trained on BPE story text?</td>
+          <td>New codec on TinyStories windows; generator corruption
+          0.75 → 0.25; AR control</td>
+          <td>Reconstruction 99.816%; perplexity 47.897 (AR 14.676)</td>
+          <td>The pipeline runs end to end; free-running text is far
+          behind AR</td>
+        </tr>
+        <tr>
+          <td>E22</td>
+          <td>Is that corruption too strong?</td>
+          <td>Corruption 0.30 → 0.05, same codec and exposure</td>
+          <td>Clean code CE 1.66515; perplexity 54.923</td>
+          <td>Lower clean loss, worse generated text</td>
+        </tr>
+        <tr>
+          <td>E23</td>
+          <td>What happens without corruption?</td>
+          <td>Corruption 0 → 0</td>
+          <td>Clean code CE 1.38995; perplexity 97.776</td>
+          <td>Best clean loss, worst generated text</td>
+        </tr>
+        <tr>
+          <td>E24</td>
+          <td>Does E21 repeat across generator seeds?</td>
+          <td>Generator and AR seed 1, same frozen codec</td>
+          <td>Clean code CE 2.24909; perplexity 45.568 (AR 14.311)</td>
+          <td>E21’s result repeats; one codec only</td>
+        </tr>
+        <tr>
+          <td>E22 / E23, seed 1</td>
+          <td>Does the ordering repeat?</td>
+          <td>Generator seed 1, same frozen codec</td>
+          <td>Code CE 1.66106 / 1.38638; perplexity 55.114 / 93.833</td>
+          <td>The inverted ordering repeats in both generator seeds</td>
+        </tr>
       </tbody>
     </table>
   </table-wrap>
@@ -1733,7 +1836,899 @@ research direction rather than a demonstrated capability.</p>
   Corruption alone (E8) produced the first solved boards and lifted
   blank-cell accuracy by 20 points on every test set. Its validation
   loss was <italic>worse</italic> than without corruption, a reminder
-  that teacher-forced loss does not measure what generation needs.</p>
+  that teacher-forced loss does not measure what generation needs. The
+  TinyStories ablation of Section 10 shows the same dissociation on
+  text: less corruption lowers clean loss and worsens generated
+  text.</p>
+</sec>
+<sec id="released-checkpoints-in-mlx-inference-parity">
+  <title>Released checkpoints in MLX: inference parity</title>
+  <disp-quote>
+    <p><bold>In short.</bold> The released TinyStories and Sudoku
+    checkpoints of Kumbong et al. run in an independent, inference-only
+    MLX port. In the tested computations the port agrees with upstream
+    PyTorch on CPU, up to stated floating-point effects. This section
+    concerns upstream-trained weights. It does not reproduce upstream
+    training and says nothing about the models we trained ourselves.</p>
+  </disp-quote>
+  <p>Throughout this section the models are called the <bold>Released
+  TinyStories checkpoint (Kumbong et al.)</bold> and the released Sudoku
+  checkpoints. They were trained by the original authors; we only
+  convert and run them.</p>
+  <sec id="what-was-ported-and-how-it-is-converted">
+    <title>What was ported and how it is converted</title>
+    <p>The port (<monospace>ncm_mlx/official/</monospace>) implements
+    the inference computation of the released codec and generator for
+    TinyStories (unconditional BPE text) and for the easy, medium and
+    hard Sudoku models. It is written from the published architecture
+    and the released configurations and contains no upstream source
+    code. It is pinned to upstream code revision
+    <monospace>c70274273f489abc73832b2b98584a8483b6b203</monospace> and
+    checkpoint revision
+    <monospace>d342ce8aaea58830eef3b8ad473664673e41f692</monospace>. The
+    weights are downloaded from their Hugging Face repository on demand
+    and are not redistributed in our code repository.</p>
+    <p>Conversion does not need PyTorch. A small reader parses the
+    checkpoint’s zip container, tensor storage and reconstruction
+    metadata through a restricted unpickler that accepts only the
+    globals a tensor checkpoint uses and refuses all others; the
+    tokenizer pickles are read by an unpickler that refuses every
+    global. Each upstream tensor name must match exactly one explicit
+    rule: it becomes an MLX parameter with a stated layout change (for
+    example convolution weights change from
+    <monospace>[out, in, kernel]</monospace> to
+    <monospace>[out, kernel, in]</monospace>), or it is dropped. Dropped
+    names are the EMA training state and two derived buffers, the level
+    identifiers and the block-diagonal mask, which are first checked
+    against the values the MLX model assumes. An unmatched name, a
+    missing parameter or a shape mismatch stops the conversion, and a
+    configuration whose SHA-256 differs from the pinned one is refused.
+    The output is safetensors plus an architecture specification,
+    tokenizer JSON and, for TinyStories, the level-0 distribution. This
+    is a format and layout conversion, not quantisation or further
+    training.</p>
+    <p>TinyStories uses the released 8,192-token BPE tokenizer.
+    Replacing it with a similar tokenizer would change every input, so
+    we reimplemented its pre-tokenisation, byte handling, merges and
+    special tokens. Thirteen retained cases, including Unicode, agree
+    with upstream in pre-tokenisation, token identifiers and round trip.
+    Rare whitespace classes are not exhausted and remain a documented
+    limitation.</p>
+  </sec>
+  <sec id="parity-with-upstream-pytorch">
+    <title>Parity with upstream PyTorch</title>
+    <p>A parity script runs upstream PyTorch 2.15.0 on CPU and the MLX
+    port (0.32.3) on <monospace>mx.cpu</monospace> in one process with
+    identical inputs, and routes teacher-forced codes through each
+    implementation’s own generation loop. The TinyStories check uses
+    four input texts for the codec and eight greedy samples; the Sudoku
+    check uses the first 64 published easy boards.</p>
+    <table-wrap>
+      <caption>
+        <p>MLX port versus upstream PyTorch, CPU, fp32 unless
+        stated.</p>
+      </caption>
+      <table>
+        <colgroup>
+          <col width="33%" />
+          <col width="33%" />
+          <col width="33%" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Check</th>
+            <th>Released TinyStories</th>
+            <th>Released Sudoku-easy</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>BPE pre-tokenisation, identifiers, round trip (13
+            cases)</td>
+            <td>identical</td>
+            <td>not applicable</td>
+          </tr>
+          <tr>
+            <td>Codec embedding, largest absolute difference</td>
+            <td>2.9e-6</td>
+            <td>1.4e-6</td>
+          </tr>
+          <tr>
+            <td>Codec codes from real inputs, agreement per level</td>
+            <td>97.45–100%</td>
+            <td>100% (64 boards)</td>
+          </tr>
+          <tr>
+            <td>Per-level logits, largest absolute difference</td>
+            <td>0.100 (logit magnitudes up to 853)</td>
+            <td>7.2e-5 (magnitudes up to 29)</td>
+          </tr>
+          <tr>
+            <td>Same, both sides in exact fp64</td>
+            <td>3.2e-10</td>
+            <td>1.2e-13</td>
+          </tr>
+          <tr>
+            <td>Greedy generation, codes and decoded text</td>
+            <td>identical, 8 of 8</td>
+            <td>identical, 64 of 64</td>
+          </tr>
+        </tbody>
+      </table>
+    </table-wrap>
+    <p>The TinyStories fp32 difference exceeds a naive absolute
+    threshold of <inline-formula><alternatives>
+    <tex-math><![CDATA[10^{-4}]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msup><mml:mn>10</mml:mn><mml:mrow><mml:mi>−</mml:mi><mml:mn>4</mml:mn></mml:mrow></mml:msup></mml:math></alternatives></inline-formula>
+    for a numerical reason. The model carries activations of magnitude
+    several hundred, and its codebook-tied output head subtracts large
+    squared-codebook terms, which amplifies float32 rounding. Upstream
+    PyTorch’s own fp32 result is 0.071 from an exact-fp64 reference, and
+    the MLX fp32 result is 0.126 from it. The exact-fp64 row shows that
+    the two implementations compute the same function. The argmax agrees
+    at every compared position.</p>
+    <p>The fp64 row is a diagnostic computation, run only for this
+    check. Upstream normalisation layers, tied-head norm buffers and
+    rotary tables, which it computes in float32 even for float64 inputs,
+    are recomputed in float64. On the MLX side, composed operations
+    replace primitives that do not preserve float64 accuracy on CPU,
+    with <monospace>exp</monospace> and <monospace>erf</monospace>
+    evaluated on the host. Production inference stays float32. This
+    supports agreement of the tested computations; it does not establish
+    bitwise identity of production inference. Apple GPUs also compute
+    fp32 matrix products at reduced precision (Section 6.2), so Metal
+    outputs can differ from CPU outputs at near-ties.</p>
+    <p>The four TinyStories codec inputs show per-level code agreement
+    below 100% for a precise reason. The first differing code of each
+    affected input is a near-tie in quantiser distance (gaps of 4.5e-3
+    and 2.4e-4 at distances near 10), and the changed code alters the
+    residual and therefore later levels. A repository test requires
+    codes to match up to the first divergence and the two candidates to
+    lie within a small relative distance. With four inputs this is a
+    spot check and not a distributional claim.</p>
+  </sec>
+  <sec id="released-sudoku-evaluation">
+    <title>Released Sudoku evaluation</title>
+    <p>On the published 2,000-board test sets, greedy decoding with the
+    MLX port on the Metal GPU solves 99.40%, 96.30% and 86.20% of easy,
+    medium and hard boards (1,988, 1,926 and 1,724 boards). The original
+    paper reports 99.5%, 96.5% and 86.1%
+    (<xref alt="Kumbong et al. 2026" rid="ref-ncm2026" ref-type="bibr">Kumbong
+    et al. 2026</xref>, Table 3). On the easy set, upstream PyTorch on
+    this machine’s CPU produces exactly the same 2,000 outputs, and
+    Metal and CPU MLX outputs are also identical, so the 0.10-point
+    difference from the quoted value does not come from the port.
+    Upstream was not rerun locally on the medium and hard sets, so the
+    differences of <inline-formula><alternatives>
+    <tex-math><![CDATA[-0.20]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>−</mml:mi><mml:mn>0.20</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+    and <inline-formula><alternatives>
+    <tex-math><![CDATA[+0.10]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>+</mml:mi><mml:mn>0.10</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+    points there are not diagnosed. These are results of
+    upstream-trained models. They are separate from E19 and E20 and say
+    nothing about our smaller generators.</p>
+  </sec>
+  <sec id="latency-and-what-this-section-does-not-establish">
+    <title>Latency, and what this section does not establish</title>
+    <p>The recorded eager TinyStories batch-1 median is 39.8 ms on the
+    Metal GPU for the MLX port and 280 ms for upstream PyTorch on CPU,
+    each completing a 128-position sample through a host copy. MLX used
+    three warmups and 20 timed iterations, PyTorch two and ten; the GPU
+    was shared with desktop applications. This compares a working GPU
+    port with a CPU reference, because the tested PyTorch MPS path
+    rejects the non-divisible area interpolation the model requires. It
+    is not an architecture-only speed ratio. Later repository work adds
+    prefix caching and optional compilation for the port; Section 10.8
+    reports their timings and the output differences they introduce, and
+    no quality score here is attached to those modes.</p>
+    <p>The port establishes that the tested inference computation is
+    implemented independently and checkably. It does not reproduce
+    upstream training or its results. Upstream’s TinyStories
+    generative-perplexity protocol is not reproduced: Section 10 scores
+    the Released TinyStories checkpoint with our own pinned scorer.
+    Sampled outputs use MLX’s random generator and so do not match
+    upstream sample for sample. The LM1B, OpenWebText, WMT14 and XSum
+    checkpoints are not converted. A fresh-environment installation and
+    inference check on an accelerator remains a verification limit.</p>
+  </sec>
+</sec>
+<sec id="controlled-text-tinystories-pilots">
+  <title>Controlled text: TinyStories pilots</title>
+  <disp-quote>
+    <p><bold>In short.</bold> We trained a small NCM and a small AR
+    baseline on TinyStories, a synthetic children’s-story corpus, and
+    compared them under one fixed external scorer. The NCM reconstructs
+    held-out windows accurately but generates text that scores far worse
+    than the AR baseline. Varying the conditioning-corruption schedule
+    moves clean teacher-forced loss and free-running quality in opposite
+    directions, in two generator seeds that share one frozen codec. The
+    comparison does not match total compute, uses synthetic prose and
+    includes no conditional task.</p>
+  </disp-quote>
+  <sec id="scope-and-labels">
+    <title>Scope and labels</title>
+    <p>Three kinds of model appear. <bold>MLX NCM</bold> means the NCM
+    models trained in this project (called “MLX implementation” in the
+    Sudoku tables). <bold>MLX AR baseline</bold> is the autoregressive
+    model trained here on the same windows. <bold>Released TinyStories
+    checkpoint (Kumbong et al.)</bold> is the original authors’ released
+    model, run through the port of Section 9; it is a reference and is
+    not trained here. A fourth row, <italic>held-out data</italic>,
+    scores real held-out stories windowed in the same way. The study is
+    unconditional generation of 128-token story openings from a null
+    prefix. No supplied prompt, continuation or other conditional task
+    is evaluated.</p>
+  </sec>
+  <sec id="representation-and-training-contract">
+    <title>Representation and training contract</title>
+    <table-wrap>
+      <caption>
+        <p>TinyStories contract shared by the MLX NCM and MLX AR
+        baseline runs. These differ from the character and Sudoku path
+        of Sections 5–7.</p>
+      </caption>
+      <table>
+        <colgroup>
+          <col width="50%" />
+          <col width="50%" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>Setting</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Corpus</td>
+            <td><monospace>roneneldan/TinyStories</monospace>
+            (<xref alt="Eldan and Li 2023" rid="ref-tinystories2023" ref-type="bibr">Eldan
+            and Li 2023</xref>), V2 GPT-4 train and validation text,
+            revision
+            <monospace>f54c09fd23315a6f9c86f9dc80f725de7d8f9c64</monospace>.
+            The pinned
+            <ext-link ext-link-type="uri" xlink:href="https://huggingface.co/datasets/roneneldan/TinyStories/blob/f54c09fd23315a6f9c86f9dc80f725de7d8f9c64/README.md">dataset
+            card</ext-link> identifies it as GPT-4-generated and lists
+            CDLA-Sharing-1.0.</td>
+          </tr>
+          <tr>
+            <td>Splits</td>
+            <td>2,717,495 training stories. The validation file is split
+            by SHA-1 parity of the stripped story into 13,960 validation
+            and 13,670 test stories, so splits are document-level;
+            document overlap with training is checked in
+            preprocessing.</td>
+          </tr>
+          <tr>
+            <td>Tokenisation</td>
+            <td>The released 8,192-token BPE (EOS 0, PAD 1). Each story
+            is taken verbatim with its leading newline; the window is
+            the first 128 tokens of story plus EOS, then right padding.
+            Later parts of long stories are dropped; about 5% of
+            training windows contain their story’s EOS and about 0.38%
+            of training positions are padding. Losses include
+            padding.</td>
+          </tr>
+          <tr>
+            <td>Hierarchy</td>
+            <td>12 levels with lengths 1, 8, 16, 24, 32, 40, 52, 64, 76,
+            92, 108, 128 and 2,048 codes per level.</td>
+          </tr>
+          <tr>
+            <td>Generation</td>
+            <td>Level 0 is sampled from the stored empirical unigram of
+            level-0 codes. Exactly 11 generator forwards predict the
+            remaining levels, and the result is decoded to 128
+            tokens.</td>
+          </tr>
+          <tr>
+            <td>Conditioning</td>
+            <td>A single null EOS prefix. Previous concept levels supply
+            the only internal conditioning.</td>
+          </tr>
+          <tr>
+            <td>Codec</td>
+            <td>Token and position lookup encoder, GroupNorm (8 groups),
+            learned strided level-0 cascade, area pooling and linear
+            interpolation at other levels, per-level residual transforms
+            and one transformer decoder block; width 256, 4 heads.
+            15,508,096 saved values, of which 6,291,456 are EMA codebook
+            values and 9,216,640 are gradient-trained.</td>
+          </tr>
+          <tr>
+            <td>MLX NCM generator</td>
+            <td>6 blocks, width 384, 6 heads, QK normalisation, RoPE
+            base 100,000, codebook-tied distance heads, block-diagonal
+            level attention. 11,832,587 values.</td>
+          </tr>
+          <tr>
+            <td>MLX AR baseline</td>
+            <td>The same 6-block, width-384, 6-head stack with a tied
+            8,192-token embedding: 13,794,048 parameters, 128 cached
+            next-token forwards.</td>
+          </tr>
+          <tr>
+            <td>Released TinyStories checkpoint</td>
+            <td>36,434,816 codec values and 88,605,707 generator values
+            (Section 9).</td>
+          </tr>
+          <tr>
+            <td>Optimisation</td>
+            <td>AdamW, peak learning rate 5e-4 with cosine decay to
+            5e-5, betas (0.9, 0.95), gradient clipping 1, compiled
+            steps. Codec: warmup 1,000, weight decay 0.01, dropout 0.3,
+            fine-level dropout 0.5, commitment 0.25, EMA decay 0.95,
+            dead-code restart below count 0.01. Generator and AR: warmup
+            500, weight decay 0.1, dropout 0.1. Generator loss uses
+            <inline-formula><alternatives>
+            <tex-math><![CDATA[\alpha = 0]]></tex-math>
+            <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>α</mml:mi><mml:mo>=</mml:mo><mml:mn>0</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+            (equal weight per code). Final exported weights are
+            evaluated; no checkpoint is selected on validation
+            data.</td>
+          </tr>
+          <tr>
+            <td>Stage budgets</td>
+            <td>Codec: 14,000 updates × 256 = 3,584,000 windows, trained
+            once with seed 0 and then frozen. Generator: 15,000 × 64 =
+            960,000 windows (122,880,000 output-token positions) per
+            run. AR: 7,500 × 128 = 960,000 windows per run.</td>
+          </tr>
+        </tbody>
+      </table>
+    </table-wrap>
+    <p>Seed 0 training-loop times on the Mac were 5,517.25 s for the
+    codec, 13,898.17 s for the strong-corruption generator, 14,435.59 s
+    for the reduced-corruption generator, 20,734.07 s for the
+    no-corruption generator and 2,062.03 s for the AR baseline, none
+    time-limited. These are elapsed times on a desktop with other
+    workloads, not FLOP, energy or cost measurements; the longer
+    no-corruption time cannot be attributed to corruption alone. The
+    seed-1 generators took 18,842.73 s (strong), 22,419.19 s (reduced)
+    and 18,706.68 s (none) under similarly uncontrolled desktop load;
+    the seed-1 AR training time is not reported. Configured seeds are
+    offset internally (the generator derives initialisation and
+    minibatch streams from seed + 1 and the AR from seed + 2), so
+    configured seed 0 does not mean every stream is seeded with
+    zero.</p>
+    <p><bold>What the budgets do and do not match.</bold> The generator
+    and AR runs see the same number of windows (960,000) and use the
+    same block stack. Total compute and total system size differ. The
+    NCM’s teacher-forced input has 641 positions per window (640
+    predicted code positions plus the EOS prefix) against 128 for the
+    AR; sequence length alone is not a FLOP estimate. The NCM also needs
+    a codec, trained separately at additional cost and counted here as
+    15,508,096 more values, so the MLX NCM system holds 27,340,683 saved
+    values against 13,794,048 for the AR baseline. The Released
+    TinyStories checkpoint has a much larger parameter count and
+    training budget and is not a matched reproduction target.</p>
+  </sec>
+  <sec id="evaluation-protocol">
+    <title>Evaluation protocol</title>
+    <p>Three different quantities are reported and must not be
+    conflated.</p>
+    <list list-type="order">
+      <list-item>
+        <p><bold>Reconstruction.</bold> Non-padding token accuracy and
+        exact-window rate when held-out windows are encoded and decoded
+        through the full hierarchy, on the first 4,096 ordered held-out
+        test windows.</p>
+      </list-item>
+      <list-item>
+        <p><bold>Clean code CE.</bold> The generator’s position-weighted
+        cross-entropy in nats per code on the same windows when every
+        earlier level is supplied correctly. Values from different
+        codecs, such as the released model’s, are not directly
+        comparable with ours.</p>
+      </list-item>
+      <list-item>
+        <p><bold>Free-running quality.</bold> Each model generates 256
+        outputs for each of five sampling seeds (42, 0, 1, 2, 3), 1,280
+        outputs per model, at batch 128, temperature 1, top-k 0 and
+        top-p 1. The outputs are scored by the external model GPT-2
+        large at pinned revision
+        <ext-link ext-link-type="uri" xlink:href="https://huggingface.co/openai-community/gpt2-large/tree/32b71b12589c2f8d625668d2335a01cac3249519"><monospace>32b71b1</monospace></ext-link>.
+        Cleanup stops each output at the first EOS and removes PAD
+        tokens before decoding. The scorer adds no beginning-of-sequence
+        token, so every token after the first is scored; padded targets
+        are masked. NLL sums are divided by scored-token counts within
+        each sampling seed, and the five resulting perplexities are
+        averaged. Empty or one-token strings would be unscorable and
+        counted separately; none occurred in any model or run. The
+        scorer’s 1,024-token limit was never reached (retained records
+        have at most 155 scored tokens).</p>
+      </list-item>
+    </list>
+    <p>Generative perplexity is a fixed external probability score of
+    generated text. It is not the generating model’s own perplexity, and
+    it is neither a human rating nor an LLM-judge score. It does not
+    directly establish coherence, grammaticality, truthfulness or
+    usefulness. The five sampling seeds are repeated draws from one
+    trained model; the standard deviation across them is not a
+    confidence interval over training runs. Temperature, top-k and top-p
+    sensitivity was not evaluated. Novelty is checked only by exact
+    match of the first 32 output tokens against training windows, and by
+    the diagnostics below.</p>
+  </sec>
+  <sec id="the-corruption-ablation-with-two-generator-seeds">
+    <title>The corruption ablation, with two generator seeds</title>
+    <p>During generator training, a fraction
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[p_k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>p</mml:mi><mml:mi>k</mml:mi></mml:msub></mml:math></alternatives></inline-formula>
+    of the conditioning codes of level <inline-formula><alternatives>
+    <tex-math><![CDATA[k]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>k</mml:mi></mml:math></alternatives></inline-formula>
+    is replaced by random codes of that level (Section 5.2), falling
+    linearly across levels from <inline-formula><alternatives>
+    <tex-math><![CDATA[p_{\mathrm{first}}]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>p</mml:mi><mml:mrow><mml:mi mathvariant="normal">f</mml:mi><mml:mi mathvariant="normal">i</mml:mi><mml:mi mathvariant="normal">r</mml:mi><mml:mi mathvariant="normal">s</mml:mi><mml:mi mathvariant="normal">t</mml:mi></mml:mrow></mml:msub></mml:math></alternatives></inline-formula>
+    to <inline-formula><alternatives>
+    <tex-math><![CDATA[p_{\mathrm{last}}]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>p</mml:mi><mml:mrow><mml:mi mathvariant="normal">l</mml:mi><mml:mi mathvariant="normal">a</mml:mi><mml:mi mathvariant="normal">s</mml:mi><mml:mi mathvariant="normal">t</mml:mi></mml:mrow></mml:msub></mml:math></alternatives></inline-formula>.
+    We compare three schedules with fresh generators on the same frozen
+    codec, the same level-0 unigram, tokenizer, architecture, optimizer
+    and window exposure: <bold>strong</bold> 0.75 → 0.25 (E21, repeated
+    as E24), <bold>reduced</bold> 0.30 → 0.05 (E22) and
+    <bold>none</bold> 0 → 0 (E23).</p>
+    <p>Every generator schedule was run with configured generator seed 0
+    and again with seed 1. Each seed-1 configuration differs from its
+    seed-0 counterpart only in the configured seed, run name and output
+    path. Both generator seeds use <bold>the same frozen seed-0
+    codec</bold>, so the repeat measures generator variability
+    conditional on one codec and not variability of the full two-stage
+    procedure. The AR baseline was trained once for seed 0 and once for
+    seed 1 (in the E24 run); within each seed it is a single control
+    shared by all three schedules, not three independent runs. All
+    completed outcomes are reported, and none was replaced by a selected
+    winner. The E24 controller was interrupted once, by a disk-headroom
+    guard after generator training had finished; the original queue then
+    resumed at AR training without retraining the generator or changing
+    a recipe.</p>
+    <table-wrap>
+      <caption>
+        <p>Corruption ablation, MLX NCM versus controls. Perplexity is
+        external GPT-2-large generative perplexity, the mean of five
+        sampling-seed values (their standard deviation in brackets),
+        lower is better. Non-padding reconstruction is 99.816% for every
+        MLX NCM row because the codec is shared.</p>
+      </caption>
+      <table>
+        <colgroup>
+          <col width="17%" />
+          <col width="22%" />
+          <col width="17%" />
+          <col width="22%" />
+          <col width="22%" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th align="right">Generator seed</th>
+            <th>Corruption</th>
+            <th align="right">Clean code CE (nats/code)</th>
+            <th align="right">Generative perplexity</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>MLX NCM, strong (E21 / E24)</td>
+            <td align="right">0</td>
+            <td>0.75 → 0.25</td>
+            <td align="right">2.24875</td>
+            <td align="right">47.897 (0.797)</td>
+          </tr>
+          <tr>
+            <td></td>
+            <td align="right">1</td>
+            <td>0.75 → 0.25</td>
+            <td align="right">2.24909</td>
+            <td align="right">45.568 (0.909)</td>
+          </tr>
+          <tr>
+            <td>MLX NCM, reduced (E22)</td>
+            <td align="right">0</td>
+            <td>0.30 → 0.05</td>
+            <td align="right">1.66515</td>
+            <td align="right">54.923 (1.548)</td>
+          </tr>
+          <tr>
+            <td></td>
+            <td align="right">1</td>
+            <td>0.30 → 0.05</td>
+            <td align="right">1.66106</td>
+            <td align="right">55.114 (1.568)</td>
+          </tr>
+          <tr>
+            <td>MLX NCM, none (E23)</td>
+            <td align="right">0</td>
+            <td>0 → 0</td>
+            <td align="right">1.38995</td>
+            <td align="right">97.776 (2.107)</td>
+          </tr>
+          <tr>
+            <td></td>
+            <td align="right">1</td>
+            <td>0 → 0</td>
+            <td align="right">1.38638</td>
+            <td align="right">93.833 (1.424)</td>
+          </tr>
+          <tr>
+            <td>MLX AR baseline</td>
+            <td align="right">0</td>
+            <td>not applicable</td>
+            <td align="right">not applicable</td>
+            <td align="right">14.676 (0.450)</td>
+          </tr>
+          <tr>
+            <td></td>
+            <td align="right">1</td>
+            <td>not applicable</td>
+            <td align="right">not applicable</td>
+            <td align="right">14.311 (0.237)</td>
+          </tr>
+          <tr>
+            <td>Released TinyStories checkpoint (Kumbong et al.)</td>
+            <td align="right">not trained here</td>
+            <td>not applicable</td>
+            <td align="right">1.37032 (different codec)</td>
+            <td align="right">16.259 (0.315)</td>
+          </tr>
+          <tr>
+            <td>Held-out data</td>
+            <td align="right">not applicable</td>
+            <td>not applicable</td>
+            <td align="right">not applicable</td>
+            <td align="right">8.529 (0.067)</td>
+          </tr>
+        </tbody>
+      </table>
+    </table-wrap>
+    <p>The two measurements order the schedules oppositely, in both
+    generator seeds. Clean code CE falls as corruption falls: 2.24875,
+    1.66515 and 1.38995 for seed 0 and 2.24909, 1.66106 and 1.38638 for
+    seed 1. Free-running perplexity rises: 47.897, 54.923 and 97.776 for
+    seed 0 and 45.568, 55.114 and 93.833 for seed 1. Between the two
+    generator seeds the clean code CE of a schedule changes by at most
+    0.005 nats per code, while perplexity changes by
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[-2.329]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>−</mml:mi><mml:mn>2.329</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+    (strong), <inline-formula><alternatives>
+    <tex-math><![CDATA[+0.191]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>+</mml:mi><mml:mn>0.191</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+    (reduced) and <inline-formula><alternatives>
+    <tex-math><![CDATA[-3.943]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>−</mml:mi><mml:mn>3.943</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+    (none), within a few sampling-seed standard deviations (0.8 to 2.1).
+    The ordering of the three schedules is the same in both seeds, but
+    two generator seeds are too few to estimate how much a single
+    schedule varies across training runs. The best MLX NCM configuration
+    scores about 3.3 times (seed 0) and 3.2 times (seed 1) the AR
+    baseline’s perplexity. A plausible reading is that a generator
+    trained only on correct context is more sensitive to its own earlier
+    errors, which corruption is meant to address. The experiment does
+    not isolate that mechanism: corruption strength and schedule,
+    optimisation and level-wise error behaviour are not separated, and
+    no control with matched total corruption but different distribution
+    across levels is reported here.</p>
+    <p>Each seed-1 evaluation report passes the result audit built into
+    the evaluation pipeline (2,560 scored outputs per report). The
+    independent recomputation described below was carried out for seed 0
+    only. The seed-1 evidence has the same format as seed 0; both are
+    attached to the paper release as
+    <monospace>ncm-mlx-tinystories-evidence-e21-e24.tar.gz</monospace>
+    (SHA-256
+    <monospace>4a744f5306ebef3433abbab9647372d6ad00949f616c7befe9476fbccb0d20b8</monospace>,
+    <ext-link ext-link-type="uri" xlink:href="https://github.com/janmus1c/ncm-mlx/releases/download/paper-v0.12/ncm-mlx-tinystories-evidence-e21-e24.tar.gz">download</ext-link>).</p>
+    <fig>
+      <caption><p>Corruption ablation on TinyStories, both generator
+      seeds (circles: seed 0, squares: seed 1), one frozen codec. (a)
+      Clean teacher-forced code cross-entropy of the MLX NCM; the
+      Released TinyStories checkpoint (Kumbong et al.) uses a different
+      codec. (b) GPT-2 large generative perplexity on a logarithmic
+      axis: the five sampling-seed values of each model as small points
+      and their mean as the marker, with horizontal lines for the MLX AR
+      baseline (seeds 0 and 1), the Released TinyStories checkpoint and
+      held-out text. Lower clean loss goes with worse free-running text.
+      The two panels use different measures and are not on a shared
+      axis.</p></caption>
+      <graphic mimetype="image" mime-subtype="svg+xml" xlink:href="figures/corruption-ablation.svg" />
+    </fig>
+  </sec>
+  <sec id="controls-and-diagnostics">
+    <title>Controls and diagnostics</title>
+    <p>Diagnostics on 1,280 outputs per model (the held-out-data row
+    uses 1,280 real windows) help to read the perplexities, with the
+    caveat that none is a quality measure.</p>
+    <table-wrap>
+      <caption>
+        <p>Output diagnostics. Seed-pair entries read generator seed 0 /
+        generator seed 1. Tokens are BPE tokens after cleanup.
+        Distinct-3 is the fraction of distinct 3-grams. Repeated 4-grams
+        is the percentage of 4-grams repeated within an output. Opening
+        copies are exact matches of the first 32 tokens to a training
+        window.</p>
+      </caption>
+      <table>
+        <colgroup>
+          <col width="13%" />
+          <col width="17%" />
+          <col width="17%" />
+          <col width="17%" />
+          <col width="17%" />
+          <col width="17%" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th align="right">Mean output tokens</th>
+            <th align="right">EOS inside window (%)</th>
+            <th align="right">Distinct-3</th>
+            <th align="right">Repeated 4-grams (%)</th>
+            <th align="right">Opening copies (%)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>MLX NCM, strong</td>
+            <td align="right">127.36 / 127.27</td>
+            <td align="right">7.11 / 6.95</td>
+            <td align="right">0.4951 / 0.4787</td>
+            <td align="right">0.51 / 0.63</td>
+            <td align="right">0.00 / 0.00</td>
+          </tr>
+          <tr>
+            <td>MLX NCM, reduced</td>
+            <td align="right">127.20 / 127.33</td>
+            <td align="right">8.05 / 6.64</td>
+            <td align="right">0.5374 / 0.5455</td>
+            <td align="right">0.40 / 0.37</td>
+            <td align="right">0.00 / 0.00</td>
+          </tr>
+          <tr>
+            <td>MLX NCM, none</td>
+            <td align="right">127.14 / 127.21</td>
+            <td align="right">7.50 / 6.48</td>
+            <td align="right">0.6239 / 0.6151</td>
+            <td align="right">0.19 / 0.22</td>
+            <td align="right">0.00 / 0.08</td>
+          </tr>
+          <tr>
+            <td>MLX AR baseline</td>
+            <td align="right">127.61 / 127.65</td>
+            <td align="right">3.12 / 4.14</td>
+            <td align="right">0.4910 / 0.4797</td>
+            <td align="right">0.84 / 0.89</td>
+            <td align="right">1.25 / 1.25</td>
+          </tr>
+          <tr>
+            <td>Released TinyStories checkpoint</td>
+            <td align="right">128.00</td>
+            <td align="right">0.31</td>
+            <td align="right">0.4595</td>
+            <td align="right">0.58</td>
+            <td align="right">0.70</td>
+          </tr>
+          <tr>
+            <td>Held-out data</td>
+            <td align="right">127.32</td>
+            <td align="right">5.94</td>
+            <td align="right">0.4850</td>
+            <td align="right">1.01</td>
+            <td align="right">4.61</td>
+          </tr>
+        </tbody>
+      </table>
+    </table-wrap>
+    <p>Lengths are similar across models, so length alone does not
+    explain the perplexity ordering. Higher distinct-3 and lower
+    repetition for less-corrupted generators coexist with much worse
+    perplexity: diverse but ungrammatical text can look good on these
+    diagnostics, so they must not be read as quality. Few or no exact
+    opening matches (none in five of the six MLX NCM runs, one output in
+    1,280 for the seed-1 no-corruption run) do not rule out
+    memorisation; only the first 32 tokens are compared, and about 4.7%
+    of test windows share their opening with a training window, as do
+    4.61% of the sampled held-out-data windows. Substring copying and
+    semantic near-duplicates are untested. The AR baseline’s own
+    held-out non-padding token cross-entropy is 1.32042 (seed 0) and
+    1.32396 (seed 1) nats per token; this is a third quantity, not
+    comparable with code CE or with external perplexity. The Released
+    TinyStories checkpoint reconstructs 99.981% of non-padding tokens
+    and 92.969% of windows exactly, against 99.816% and 84.937% for our
+    codec, on the same windows.</p>
+  </sec>
+  <sec id="sensitivity-of-the-seed-0-scores-to-aggregation">
+    <title>Sensitivity of the seed-0 scores to aggregation</title>
+    <p>To test whether the seed-0 ranking depends on how perplexity is
+    summarised, a CPU-only audit verified 7,680 saved output texts
+    against their scorer-record hashes and reproduced every reported
+    mean to three decimals. It then reaggregated the same per-output
+    NLLs, with no new generation or scoring. <italic>Pooled token
+    perplexity</italic> exponentiates total NLL divided by total scored
+    tokens. <italic>Equal-sample geometric perplexity</italic>
+    exponentiates the mean per-output NLL per token, giving every output
+    equal weight. <italic>Median sample perplexity</italic> is the
+    median output’s value.</p>
+    <table-wrap>
+      <caption>
+        <p>Seed-0 scores under four aggregations. These summarise one
+        scorer and are not independent quality measurements.</p>
+      </caption>
+      <table>
+        <colgroup>
+          <col width="16%" />
+          <col width="21%" />
+          <col width="21%" />
+          <col width="21%" />
+          <col width="21%" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th align="right">Reported mean of seed perplexities</th>
+            <th align="right">Pooled token</th>
+            <th align="right">Equal-sample geometric</th>
+            <th align="right">Median sample</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>MLX NCM, strong</td>
+            <td align="right">47.897</td>
+            <td align="right">47.891</td>
+            <td align="right">47.862</td>
+            <td align="right">46.196</td>
+          </tr>
+          <tr>
+            <td>MLX NCM, reduced</td>
+            <td align="right">54.923</td>
+            <td align="right">54.906</td>
+            <td align="right">54.868</td>
+            <td align="right">52.635</td>
+          </tr>
+          <tr>
+            <td>MLX NCM, none</td>
+            <td align="right">97.776</td>
+            <td align="right">97.757</td>
+            <td align="right">97.680</td>
+            <td align="right">95.498</td>
+          </tr>
+          <tr>
+            <td>MLX AR baseline</td>
+            <td align="right">14.676</td>
+            <td align="right">14.671</td>
+            <td align="right">14.708</td>
+            <td align="right">13.612</td>
+          </tr>
+        </tbody>
+      </table>
+    </table-wrap>
+    <p>The ordering strong &lt; reduced &lt; none, with the AR baseline
+    lowest, holds under every aggregation. Mean scored lengths are
+    similar (127.1, 127.1 and 127.5 GPT-2 tokens). Within outputs of
+    96–127 scorer tokens, pooled perplexity is 46.089, 53.804 and 94.413
+    for strong, reduced and none; within 128–159 tokens it is 50.807,
+    56.304 and 100.457, with at least 494 outputs per NCM model in each
+    group, and the AR baseline remains lower in both. These length
+    groups are post hoc and do not control every difference between
+    models. The audit was not repeated for seed 1.</p>
+  </sec>
+  <sec id="generated-examples">
+    <title>Generated examples</title>
+    <p>The examples are the first output (sampling seed 42, index 0) of
+    each seed-0 model, not selected for fluency, shown as opening
+    excerpts. Their complete text and token identifiers are retained
+    with the evidence.</p>
+    <p><italic>MLX NCM, strong corruption (E21):</italic> Once there was
+    a little boy called Jack. Joe was was three years old and discover.
+    One One day, he wanted to go and look for exploring.</p>
+    <p><italic>MLX NCM, reduced corruption (E22):</italic> He and his
+    mum were walking by the beach beach. T Tise was very happy because
+    he wanted to learn how to try it. He wanted to show his plane plane
+    and take off his boat.</p>
+    <p><italic>MLX NCM, no corruption (E23):</italic> Jack and his mum
+    were walking by the beach at. T T gears. Tom loved to harbor because
+    learn learned he wanted to travel beyond and was and excited, green
+    trees and trees.</p>
+    <p>An informal, unblinded reading of the first eight retained
+    outputs of each run, performed with the assistance described under
+    AI assistance, finds recognisable story vocabulary and short
+    plausible phrases mixed with duplicated words, incomplete clauses,
+    changing names and pronouns, implausible actions and unstable
+    continuity. The first strong-corruption output switches between
+    Jack, Joe and John, and the first no-corruption output shifts among
+    a beach, trees, a park and several animals. This is a description of
+    a small fixed sample, not a human rating, a blinded comparison or an
+    error-rate estimate. Many outputs, including real held-out windows,
+    end mid-story because outputs are capped at 128 BPE tokens. This
+    revision shows seed-0 examples only.</p>
+  </sec>
+  <sec id="latency-a-qualitylatency-tradeoff">
+    <title>Latency: a quality/latency tradeoff</title>
+    <table-wrap>
+      <caption>
+        <p>Seed-0 recorded latency, median / 95th percentile in ms,
+        batch 1, 16 and 64. NCM is the eager MLX NCM with strong
+        corruption; the AR baseline uses a key-value cache. Timings use
+        three warmups and 20 iterations and include a host copy of the
+        decoded tokens.</p>
+      </caption>
+      <table>
+        <colgroup>
+          <col width="20%" />
+          <col width="27%" />
+          <col width="27%" />
+          <col width="27%" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Runner</th>
+            <th align="right">Batch 1</th>
+            <th align="right">Batch 16</th>
+            <th align="right">Batch 64</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>MLX NCM, eager (11 generator forwards)</td>
+            <td align="right">12.791 / 13.005</td>
+            <td align="right">45.432 / 45.888</td>
+            <td align="right">223.878 / 227.090</td>
+          </tr>
+          <tr>
+            <td>MLX AR baseline, KV cache (128 forwards)</td>
+            <td align="right">81.841 / 83.411</td>
+            <td align="right">142.712 / 144.585</td>
+            <td align="right">357.411 / 365.647</td>
+          </tr>
+        </tbody>
+      </table>
+    </table-wrap>
+    <p>In these recorded runs the NCM is faster than the AR baseline at
+    all three batch sizes while generating much worse text under the
+    external scorer, so this is a quality/latency tradeoff and not a
+    matched-quality speedup. The timings come from a contended desktop:
+    other services were active, and a zero reading of device utilisation
+    before a benchmark cannot exclude load during it. The reduced- and
+    no-corruption benchmarks show larger latency tails and nonzero
+    utilisation at their boundaries, and their slower batch timings
+    should not be read as an architectural effect of corruption. The NCM
+    and AR timings use different sampler implementations, and the AR
+    peak MLX allocation at batch 1 is about 62.6 MiB against about 184.6
+    MiB for the NCM.</p>
+    <p>Cached and cached-plus-compiled NCM modes have separate timings.
+    In the tested cold runs, their sampled outputs differ from eager
+    outputs at batches 16 and 64 for the strong-corruption model
+    (changed-token fractions 0.049–0.317%) and for the no-corruption
+    model (0.342–0.403%), and match for the reduced-corruption model;
+    this is one seed per tested batch and mode. A cache-correctness
+    result on fixed greedy fixtures does not remove this qualification,
+    so the eager quality scores above are not attached to the optimised
+    timings. Timings are reported for seed 0 only.</p>
+  </sec>
+  <sec id="what-these-experiments-establish-and-what-remains-open">
+    <title>What these experiments establish and what remains
+    open</title>
+    <p>The experiments establish that independently trained short-prose
+    reconstruction and unconditional generation run end to end in MLX,
+    and that reconstruction (99.816% of non-padding tokens) far exceeds
+    free-running quality (generative perplexity roughly 3.2 times the AR
+    baseline’s or more). They show, in two generator seeds on one frozen
+    codec, that lower clean teacher-forced code loss accompanied worse
+    generated text under this scorer when conditioning corruption was
+    reduced or removed.</p>
+    <p>They do not establish quality on naturally occurring documents;
+    any conditional task, long-form coherence or instruction following;
+    human-rated quality; the effect of sampling temperature or
+    truncation; independence of the result from the codec (only one
+    codec seed was trained); equal-total-compute behaviour; the ceiling
+    of the architecture at the released model’s far larger budget; or
+    memorisation safety. No energy, monetary or independent-hardware
+    measurement is available.</p>
+  </sec>
 </sec>
 <sec id="discussion">
   <title>Discussion</title>
@@ -1744,7 +2739,11 @@ research direction rather than a demonstrated capability.</p>
   is slower than AR from batch 64 on. These observations do not
   establish natural-text speed or isolate dispatch, memory traffic and
   kernel costs. The completed E19/E20 training runs use CUDA, not the
-  Mac.</p>
+  Mac. On TinyStories, the eager MLX NCM has lower recorded latency than
+  the cached MLX AR baseline at batch sizes 1, 16 and 64 in one seed-0
+  run, while generating text that scores far worse (Section 10.8). That
+  is a quality/latency tradeoff on a contended desktop, not a
+  matched-quality speed result.</p>
   <p><bold>Partial success at the tested scale.</bold> A 6.44M generator
   learns substantial puzzle-conditioned structure: both funded-recipe
   seeds solve more than 97% of easy boards and 79% of medium boards.
@@ -1777,20 +2776,37 @@ research direction rather than a demonstrated capability.</p>
   scale without conflating both. Checkpoint selection must use
   validation data rather than the external benchmark. These are proposed
   tests, not completed findings.</p>
-  <p><bold>Decision for the next phase.</bold> The project can proceed
-  to controlled text research without declaring the Sudoku reproduction
-  complete. Keep the small generator as a reference while investigating
-  independently converted Original NCM weights. Conversion parity would
-  validate inference compatibility; it would not reproduce training or
-  validate our smaller model. Begin text with a pinned permitted corpus,
-  explicit tokenizer and padding boundaries, and document-separated
-  splits. Report reconstruction and free-running generation separately,
-  include readable failures and an autoregressive comparison with
-  total-cost qualifications. Synthetic TinyStories would be an initial
-  engineering benchmark; naturally occurring text and conditional tasks
-  require further evidence. No instruction-following, summarization,
-  translation or useful application integration follows from Sudoku
-  scores.</p>
+  <p><bold>What the text experiments show.</bold> Two things were
+  previously proposed and are now observed within bounds. The released
+  checkpoints can be converted and run independently, with agreement to
+  upstream PyTorch in the tested computations (Section 9); this
+  validates inference compatibility and nothing about training. And an
+  independently trained small NCM on synthetic TinyStories prose
+  reconstructs text accurately but generates it poorly relative to a
+  token-by-token baseline of the same block stack and window exposure
+  (Section 10). The corruption ablation is the informative part of that
+  result: lower clean teacher-forced loss accompanied worse free-running
+  text, in both generator seeds. This echoes the Sudoku observation that
+  validation loss can move against generation quality (Section 8), and
+  it argues for reporting reconstruction, teacher-forced loss and
+  free-running quality as separate columns. Two generator seeds that
+  share one codec cannot say how large the variation across full
+  training runs is, and no experiment here separates corruption strength
+  from the other differences between schedules.</p>
+  <p><bold>How to challenge the text interpretation.</bold> A small
+  blinded human comparison of the retained outputs, with recorded
+  instructions and sample identities, would test what the external
+  scorer cannot. Novelty checks beyond exact openings would address
+  memorisation. Independent codec seeds would test whether the result
+  depends on the single frozen codec. A per-level comparison of
+  teacher-forced and self-generated error would probe the proposed
+  explanation, and a sampling-sensitivity study would separate poor
+  sampling calibration from poor learned generation. A comparison at
+  matched total compute, a conditional task and naturally occurring text
+  would be needed before any broader claim. These are proposed tests,
+  not completed findings. Nothing in Sudoku or TinyStories scores
+  implies instruction following, summarisation, translation or
+  application value.</p>
 </sec>
 <sec id="limitations">
   <title>Limitations</title>
@@ -1798,15 +2814,26 @@ research direction rather than a demonstrated capability.</p>
   ablations use about 25M. E19-funded and E20 provide only two training
   seeds of one recipe, not a reliable population variance estimate. The
   best hard score remains 45.80 points below Original NCM; the second
-  seed remains 52.85 points below. No current-budget AR comparison,
-  matched total-cost study or natural-text validation is available.
-  Full-depth codec validation reconstruction does not prove useful
-  coarse representations under generated errors. Historical
-  aggregate-only scoring, missing remote manifests, repeated
-  benchmark-guided development and unknown benchmark contention limit
-  independent audit and generalization. The original training
-  implementation is not released; unstated recipe details remain
-  uncertain. Existing measurements establish neither production
+  seed remains 52.85 points below. The TinyStories study uses one frozen
+  codec shared by both generator seeds, so it measures generator
+  variability only; total training compute and model size are not
+  matched between the MLX NCM and the MLX AR baseline; the corpus is
+  synthetic GPT-4 prose; generation is unconditional and no conditional
+  task is tested; scoring relies on a single external model without
+  human ratings, and sampling-policy sensitivity, full-training-seed
+  variability and memorisation beyond exact openings are untested. The
+  aggregation sensitivity audit and the latency measurements cover
+  generator seed 0 only. The Released TinyStories checkpoint is an
+  upstream-trained reference at a far larger budget, not a reproduction
+  target. For Sudoku, no AR comparison at the current
+  16.384M-presentation budget is available. No natural-text validation
+  or matched total-cost study is available. Full-depth codec validation
+  reconstruction does not prove useful coarse representations under
+  generated errors. Historical aggregate-only scoring, missing remote
+  manifests, repeated benchmark-guided development and unknown benchmark
+  contention limit independent audit and generalization. The original
+  training implementation is not released; unstated recipe details
+  remain uncertain. Existing measurements establish neither production
   reliability nor a benefit in a user application.</p>
 </sec>
 <sec id="related-work">
@@ -1829,7 +2856,70 @@ research direction rather than a demonstrated capability.</p>
   <ext-link ext-link-type="uri" xlink:href="https://github.com/Bakhaow/ncm-forge">Bakhaow/ncm-forge</ext-link>
   adds PyTorch training loops around upstream modules. The repository’s
   dated related-work comparison records other implementations; we make
-  no priority claim for this MLX implementation.</p>
+  no priority claim for this MLX implementation. The released
+  TinyStories and Sudoku checkpoints (Section 9) are the work of Kumbong
+  et al.
+  (<xref alt="Kumbong et al. 2026" rid="ref-ncm2026" ref-type="bibr">Kumbong
+  et al. 2026</xref>); our port only runs them. TinyStories text comes
+  from the dataset of Eldan and Li
+  (<xref alt="Eldan and Li 2023" rid="ref-tinystories2023" ref-type="bibr">Eldan
+  and Li 2023</xref>), used here at the pinned revision of Section 10
+  and scored with GPT-2 large
+  (<xref alt="Radford et al. 2019" rid="ref-gpt2-2019" ref-type="bibr">Radford
+  et al. 2019</xref>).</p>
+</sec>
+<sec id="roadmap">
+  <title>Roadmap</title>
+  <p>The project’s long-term aim is a text model of about one billion
+  parameters whose generations are not worse than those of an
+  autoregressive baseline trained with the same compute. Nothing in this
+  paper shows that NCM can reach it. At the small scale tested, the best
+  MLX NCM run has about three times the GPT-2 large generative
+  perplexity of the MLX AR baseline (45.568 against 14.311, Section 10).
+  The steps below are plans, ordered by dependency, with no delivery
+  dates; each later step is conditional on the evidence from the earlier
+  ones.</p>
+  <p><bold>Completed.</bold> TinyWorld, a synthetic grammar with codec,
+  generator and AR baseline (Section 7). Sudoku, from E6 to the two-seed
+  E19 and E20 recipe (Sections 7 and 8). The inference-only port of the
+  released checkpoints, with parity checks (Section 9). The TinyStories
+  corruption ablation, E21 to E24, with two generator seeds (Section
+  10).</p>
+  <p><bold>Planned, in order.</bold></p>
+  <list list-type="order">
+    <list-item>
+      <p>Close the NCM/AR gap at small scale, through further corruption
+      and loss-weighting ablations; the aim is a smaller gap under a
+      fixed scorer, not a claim about larger models.</p>
+    </list-item>
+    <list-item>
+      <p>Prompt-conditioned (prefix) training and the official XSum and
+      WMT14 codecs. Red-fuchs described an MLX port of both codecs and a
+      prefix-conditioned training loop in issue 3 of the code repository
+      (Red-fuchs/ncm-modular).</p>
+    </list-item>
+    <list-item>
+      <p>Mixed-precision training throughput, measured before any larger
+      run is sized.</p>
+    </list-item>
+    <list-item>
+      <p>A natural-text corpus of several billion tokens, with its
+      licence and splits recorded.</p>
+    </list-item>
+    <list-item>
+      <p>A model of about 100M parameters trained on about 2B tokens, as
+      the go/no-go comparison against an AR baseline.</p>
+    </list-item>
+    <list-item>
+      <p>About 300M parameters, then about 1B, only if NCM is close to
+      the AR baseline at matched compute.</p>
+    </list-item>
+  </list>
+  <fig>
+    <caption><p>Project roadmap: completed milestones and planned steps.
+    Planned steps are plans, not results.</p></caption>
+    <graphic mimetype="image" mime-subtype="svg+xml" xlink:href="figures/project-roadmap.svg" />
+  </fig>
 </sec>
 <sec id="conclusion">
   <title>Conclusion</title>
@@ -1843,9 +2933,20 @@ research direction rather than a demonstrated capability.</p>
   unresolved provenance and reproducibility limits. It does not
   reproduce Original NCM’s scores or establish matched-cost superiority.
   The observed seed difference warrants better diagnostics rather than
-  attributing the deficit to a single component. The next research phase
-  will test text generation and its quality/cost tradeoff; those
-  capabilities remain unvalidated.</p>
+  attributing the deficit to a single component. An inference-only port
+  runs the released checkpoints of Kumbong et al. and agrees with
+  upstream PyTorch in the tested computations, up to stated precision
+  effects. Small TinyStories models trained here reconstruct held-out
+  windows accurately but generate text that an external scorer rates far
+  worse than a similarly built autoregressive baseline (generative
+  perplexity 45.568–97.776 against 14.311–14.676). Across two generator
+  seeds on one frozen codec, reducing conditioning corruption lowered
+  clean teacher-forced code loss and worsened free-running text. These
+  text results come from synthetic prose, unconditional generation and
+  unmatched total compute, and they establish no conditional capability.
+  The unresolved gaps are the hard-Sudoku deficit, the autoregressive
+  quality gap on text, the single-codec dependence and the absence of
+  human ratings and of naturally occurring text.</p>
 </sec>
 <sec id="code-and-reproducibility">
   <title>Code and reproducibility</title>
@@ -1854,7 +2955,32 @@ research direction rather than a demonstrated capability.</p>
   Every configuration is in <monospace>configs/</monospace>; measured
   runs are logged in <monospace>docs/EXPERIMENTS.md</monospace>. The
   benchmark guide explains budget matching, parameter accounting,
-  synchronization and uncertainty.</p>
+  synchronization and uncertainty. The TinyStories training and
+  evaluation source that produced Section 10 is identified by per-file
+  SHA-256 digests in
+  <monospace>docs/research/e21-e23-evidence.json</monospace>, together
+  with configuration, data, tokenizer and scorer identities, checkpoint
+  hashes and per-seed scores. The development commit named there is not
+  in the public history; 41 of its 44 digested training files are
+  byte-identical in the public repository, and the other three, in the
+  released-checkpoint port, also contain later prefix-cache, compilation
+  and benchmark changes. The 44 digested training files, exactly as they
+  were run, are attached to the paper release as the archive
+  <monospace>ncm-mlx-text-training-source-d323f4f.tar.gz</monospace>
+  (SHA-256
+  <monospace>7c5f9d6e08f70eda075a4d35556bd46a3ef4cc622756f36545915040879a0c64</monospace>)
+  (<ext-link ext-link-type="uri" xlink:href="https://github.com/janmus1c/ncm-mlx/releases/download/paper-v0.12/ncm-mlx-text-training-source-d323f4f.tar.gz">download</ext-link>);
+  the digest of each file inside it matches the evidence extract. The
+  aligned evaluation and benchmark driver is not part of the repository
+  or the archive. A clean checkout does not yet reproduce those runs end
+  to end, and the released package <monospace>ncm-mlx</monospace> 0.2.0
+  does not include the text-training commands; the commands below cover
+  the Sudoku path. Audited reports, sample outputs and per-output scorer
+  records for all six runs are attached to the paper release as
+  <monospace>ncm-mlx-tinystories-evidence-e21-e24.tar.gz</monospace>
+  (SHA-256
+  <monospace>4a744f5306ebef3433abbab9647372d6ad00949f616c7befe9476fbccb0d20b8</monospace>,
+  <ext-link ext-link-type="uri" xlink:href="https://github.com/janmus1c/ncm-mlx/releases/download/paper-v0.12/ncm-mlx-tinystories-evidence-e21-e24.tar.gz">download</ext-link>).</p>
   <code language="bash">git clone https://github.com/janmus1c/ncm-mlx &amp;&amp; cd ncm-mlx
 mise run setup                                     # Python 3.12, MLX, tests
 scripts/run_experiment.sh configs/sudoku-e6.json   # train, evaluate, benchmark
@@ -1881,14 +3007,14 @@ paper/build.sh                                     # rebuild this paper</code>
     </caption>
     <table>
       <colgroup>
+        <col width="7%" />
+        <col width="16%" />
+        <col width="8%" />
+        <col width="18%" />
+        <col width="11%" />
         <col width="12%" />
         <col width="12%" />
-        <col width="12%" />
-        <col width="12%" />
-        <col width="12%" />
-        <col width="12%" />
-        <col width="12%" />
-        <col width="12%" />
+        <col width="15%" />
       </colgroup>
       <thead>
         <tr>
@@ -2107,6 +3233,20 @@ paper/build.sh                                     # rebuild this paper</code>
   reported result. Full settings and checkpoint prerequisites are in the
   corresponding <monospace>configs/sudoku-e*.json</monospace> files and
   <monospace>docs/EXPERIMENTS.md</monospace>.</p>
+  <p><bold>TinyStories settings (Section 10).</bold> Codec: 12 levels of
+  lengths 1, 8, 16, 24, 32, 40, 52, 64, 76, 92, 108, 128 with 2,048
+  codes each, width 256, 4 heads, 14,000 updates at batch 256, learning
+  rate 5e-4 with cosine decay to 5e-5, warmup 1,000, weight decay 0.01,
+  dropout 0.3, fine-level dropout 0.5, commitment 0.25, EMA decay 0.95.
+  Generator: 6 × 384, 6 heads, dropout 0.1, 15,000 updates at batch 64,
+  warmup 500, weight decay 0.1, betas (0.9, 0.95), gradient clipping 1,
+  loss <inline-formula><alternatives>
+  <tex-math><![CDATA[\alpha = 0]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>α</mml:mi><mml:mo>=</mml:mo><mml:mn>0</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>.
+  AR baseline: same stack, 7,500 updates at batch 128. Corruption
+  endpoints: 0.75 → 0.25 (E21, E24), 0.30 → 0.05 (E22) and 0 → 0 (E23);
+  E24 and the seed-1 repeats of E22 and E23 differ only in configured
+  seed 1 and reuse the seed-0 codec.</p>
 </sec>
 <sec id="appendix-b-environment">
   <title>Appendix B: Environment</title>
@@ -2114,8 +3254,11 @@ paper/build.sh                                     # rebuild this paper</code>
   Python 3.12.14 managed with mise and uv. Figures: matplotlib. Paper:
   Pandoc and Typst. E18: RTX 3080, Python 3.12.15; both E19 runs and
   E20: NVIDIA A40, Python 3.12.3, MLX 0.32.3 CUDA. Preflight and
-  contention qualifications accompany each run in the experiment
-  log.</p>
+  contention qualifications accompany each run in the experiment log.
+  TinyStories experiments and parity checks: Apple M5 Pro, 64 GB, macOS
+  26.5, Python 3.12.14, MLX 0.32.3, <monospace>mlx-lm</monospace>
+  0.32.2, NumPy 2.5.4, PyTorch 2.15.0 for upstream parity only; Metal
+  float32 with reduced-precision matrix products.</p>
 </sec>
 <sec id="appendix-c-version-history">
   <title>Appendix C: Version history</title>
@@ -2206,6 +3349,16 @@ paper/build.sh                                     # rebuild this paper</code>
           hard-board failure accounting, explicit provenance limits and
           a gated text-research direction.</td>
         </tr>
+        <tr>
+          <td>0.12</td>
+          <td>2026-11-02</td>
+          <td>Roadmap; inference parity for the released checkpoints;
+          TinyStories training contract; corruption ablation (E21–E24)
+          with two generator seeds on one frozen codec, AR, released and
+          held-out controls, aggregation sensitivity and qualified
+          latency; text future-work statements replaced by the observed
+          bounded result. TinyWorld and Sudoku results unchanged.</td>
+        </tr>
       </tbody>
     </table>
   </table-wrap>
@@ -2219,6 +3372,12 @@ paper/build.sh                                     # rebuild this paper</code>
     Noam Shazeer. 2015. ‘Scheduled Sampling for Sequence Prediction with
     Recurrent Neural Networks’. <italic>Advances in Neural Information
     Processing Systems</italic>.</mixed-citation>
+  </ref>
+  <ref id="ref-tinystories2023">
+    <mixed-citation>Eldan, Ronen, and Yuanzhi Li. 2023.
+    <italic>TinyStories: How Small Can Language Models Be and Still
+    Speak Coherent English?</italic>
+    <ext-link ext-link-type="uri" xlink:href="https://arxiv.org/abs/2305.07759">https://arxiv.org/abs/2305.07759</ext-link>.</mixed-citation>
   </ref>
   <ref id="ref-mlx2023">
     <mixed-citation>Hannun, Awni, Jagrit Digani, Angelos Katharopoulos,
@@ -2244,6 +3403,11 @@ paper/build.sh                                     # rebuild this paper</code>
     <italic>Advances in Neural Information Processing
     Systems</italic>.</mixed-citation>
   </ref>
+  <ref id="ref-gpt2-2019">
+    <mixed-citation>Radford, Alec, Jeffrey Wu, Rewon Child, David Luan,
+    Dario Amodei, and Ilya Sutskever. 2019. <italic>Language Models Are
+    Unsupervised Multitask Learners</italic>. OpenAI.</mixed-citation>
+  </ref>
   <ref id="ref-nested2014">
     <mixed-citation>Rippel, Oren, Michael Gelbart, and Ryan Adams. 2014.
     ‘Learning Ordered Representations with Nested Dropout’.
@@ -2265,7 +3429,7 @@ paper/build.sh                                     # rebuild this paper</code>
   <ref id="ref-var2024">
     <mixed-citation>Tian, Keyu, Yi Jiang, Zehuan Yuan, Bingyue Peng, and
     Liwei Wang. 2024. ‘Visual Autoregressive Modeling: Scalable Image
-    Generation via Next-Scale Prediction’. <italic>Advances in Neural
+    Generation via next-Scale Prediction’. <italic>Advances in Neural
     Information Processing Systems</italic>.</mixed-citation>
   </ref>
   <ref id="ref-soundstream2021">

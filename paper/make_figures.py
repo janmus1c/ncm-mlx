@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RUNS = ROOT / "runs"
 PAPER = Path(__file__).resolve().parent
 DATA = PAPER / "data" / "results.json"
+CORRUPTION = PAPER / "data" / "tinystories-corruption.json"
 FIGS = PAPER / "figures"
 
 SUDOKU_RUNS = {
@@ -266,6 +267,52 @@ def fig_completed_sudoku(data: dict) -> None:
     _save(fig, "sudoku-completed-runs")
 
 
+def fig_corruption(_: dict) -> None:
+    """Two panels: clean code CE and GPT-2-large generative perplexity by corruption schedule."""
+    d = json.loads(CORRUPTION.read_text())
+    keys = ["strong", "reduced", "none"]
+    xlabels = [k if k == "none" else f"{k}\n{d['schedules'][k]['label']}" for k in keys]
+    seed_style = {0: ("o", ACCENT), 1: ("s", WARM)}
+    fig, (a, b) = plt.subplots(1, 2, figsize=(6.4, 2.9))
+    for seed, (marker, color) in seed_style.items():
+        ce = [d["schedules"][k]["runs"][seed]["clean_code_ce"] for k in keys]
+        xs = [i + (seed - 0.5) * 0.12 for i in range(3)]
+        a.plot(xs, ce, "-", color=color, lw=0.8, alpha=0.6)
+        a.plot(xs, ce, marker, color=color, ms=5, label=f"MLX NCM, generator seed {seed}")
+        mean = [d["schedules"][k]["runs"][seed]["gen_ppl_mean"] for k in keys]
+        for i, k in enumerate(keys):
+            pts = list(d["schedules"][k]["runs"][seed]["gen_ppl_per_sampling_seed"].values())
+            b.scatter([i + (seed - 0.5) * 0.18] * len(pts), pts, s=7, color=color, alpha=0.45, linewidths=0)
+        b.plot([i + (seed - 0.5) * 0.18 for i in range(3)], mean, marker, color=color, ms=5, mfc="none" if False else color,
+               label=f"MLX NCM, generator seed {seed}")
+    a.axhline(d["released_checkpoint"]["clean_code_ce"], color=MUTED, ls=":", lw=0.9)
+    a.text(-0.35, d["released_checkpoint"]["clean_code_ce"] - 0.04, "Released checkpoint, different codec", ha="left", va="top", fontsize=6.3, color=MUTED)
+    a.set_title("(a) Clean teacher-forced loss", fontsize=8.5)
+    a.set_ylabel("code CE (nats per code)")
+    a.set_ylim(1.2, 2.45)
+    ar0, ar1 = (d["ar_baseline"][s]["mean"] for s in ("0", "1"))
+    refs = [(ar0, "MLX AR baseline, seed 0", "--", INK), (ar1, "MLX AR baseline, seed 1", "-.", INK),
+            (d["released_checkpoint"]["gen_ppl_mean"], "Released checkpoint", ":", MUTED),
+            (d["held_out_data"]["gen_ppl_mean"], "Held-out text", ":", MUTED)]
+    for value, text, ls, color in refs:
+        b.axhline(value, color=color, ls=ls, lw=0.8)
+    b.text(-0.35, d["released_checkpoint"]["gen_ppl_mean"] * 1.04, "Released checkpoint", ha="left", fontsize=6.3, color=MUTED)
+    b.text(-0.35, min(ar0, ar1) * 0.9, "MLX AR baseline (seeds 0, 1)", ha="left", va="top", fontsize=6.3, color=INK)
+    b.text(-0.35, d["held_out_data"]["gen_ppl_mean"] * 0.95, "Held-out text", ha="left", va="top", fontsize=6.3, color=MUTED)
+    b.set_yscale("log")
+    b.set_ylim(6, 140)
+    b.yaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter())
+    b.set_yticks([8, 16, 32, 64, 128])
+    b.set_title("(b) Free-running generative perplexity", fontsize=8.5)
+    b.set_ylabel("GPT-2 large perplexity (log scale)")
+    for ax in (a, b):
+        ax.set_xticks(range(3), xlabels, fontsize=7)
+        ax.set_xlim(-0.4, 2.5)
+        ax.set_xlabel("conditioning corruption (high to low)", fontsize=7.5)
+    a.legend(fontsize=6.3, loc="upper right", bbox_to_anchor=(1, 0.93))
+    _save(fig, "corruption-ablation")
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--plot", action="store_true", help="skip collection and plot from data/results.json")
@@ -275,7 +322,7 @@ def main() -> int:
         DATA.write_text(json.dumps(collect(), indent=1) + "\n")
     data = json.loads(DATA.read_text())
     for fig in (fig_overview, fig_codec_refinement, fig_latency, fig_val_curves, fig_sudoku_cells,
-                fig_completed_sudoku):
+                fig_completed_sudoku, fig_corruption):
         fig(data)
     print(f"wrote {DATA.relative_to(ROOT)} and {len(list(FIGS.glob('*.svg')))} figures to {FIGS.relative_to(ROOT)}")
     return 0

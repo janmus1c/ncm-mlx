@@ -202,10 +202,91 @@ def cmd_bench(args) -> int:
     return 0
 
 
+def _text_cfg(args):
+    from ncm_mlx.official.train_config import TextConfig
+
+    return TextConfig.load(args.config)
+
+
+def cmd_prepare_data(args) -> int:
+    from ncm_mlx.official import tinystories
+
+    cfg = _text_cfg(args)
+    d = cfg.data
+    if d.limit == 0:
+        tinystories.fetch(Path(d.raw_dir))
+    m = tinystories.prepare(Path(d.raw_dir), Path(d.cache_root), Path(d.bpe), d.seq_len, args.workers, d.limit)
+    print(json.dumps(m, indent=2))
+    return 0
+
+
+def cmd_train_text(args) -> int:
+    from ncm_mlx.official import ar, trainer
+
+    info = _device(args)
+    cfg = _text_cfg(args)
+    stage = {"train-codec": "codec", "train-generator": "generator", "train-ar": "ar"}[args.official_cmd]
+    out = Path(cfg.out_dir)
+    state = out / f"{stage}-training.safetensors"
+    if state.exists() and not args.resume:
+        raise SystemExit(f"{state} exists; pass --resume or choose a new out_dir")
+    if args.resume and not state.exists():
+        raise SystemExit(f"no {state} to resume")
+    out.mkdir(parents=True, exist_ok=True)
+    (out / f"{stage}-config.json").write_text(json.dumps(cfg.to_dict(), indent=2) + "\n")
+    print(json.dumps({"stage": stage, "config": args.config, "runtime": info}), flush=True)
+    fn = {"codec": trainer.train_codec, "generator": trainer.train_generator, "ar": ar.train_ar}[stage]
+    fn(cfg, resume=args.resume, log=lambda m: print(m, flush=True))
+    return 0
+
+
+def cmd_eval_text(args) -> int:
+    from ncm_mlx.official.text_run import run_text_eval
+
+    info = _device(args)
+    cfg = _text_cfg(args)
+    report = run_text_eval(cfg, args, info)
+    out = Path(args.out) if args.out else Path("runs") / f"{cfg.name}-eval" / "report.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report, indent=2) + "\n")
+    print(f"report written to {out}")
+    return 0
+
+
+def register_text(osub) -> None:
+    sp = osub.add_parser("prepare-data", help="download and tokenize the pinned TinyStories files")
+    sp.add_argument("--config", required=True)
+    sp.add_argument("--workers", type=int, default=0)
+    sp.set_defaults(fn=cmd_prepare_data)
+    for name, help_ in (("train-codec", "train the codec (stage 1)"),
+                        ("train-generator", "train the next-concept generator on the frozen codec (stage 2)"),
+                        ("train-ar", "train the autoregressive baseline")):
+        sp = osub.add_parser(name, help=help_)
+        sp.add_argument("--config", required=True)
+        sp.add_argument("--resume", action="store_true", help="restore the full training state from out_dir")
+        sp.add_argument("--cpu", action="store_true")
+        sp.set_defaults(fn=cmd_train_text)
+    sp = osub.add_parser("eval-text", help="held-out, free-running and scorer evaluation of text models")
+    sp.add_argument("--config", required=True)
+    sp.add_argument("--models", nargs="+", default=["data", "official", "ncm", "ar"],
+                    choices=["data", "official", "ncm", "ar"])
+    sp.add_argument("--n", type=int, default=256, help="samples per seed")
+    sp.add_argument("--seeds", type=int, nargs="+", default=[42, 0, 1, 2, 3])
+    sp.add_argument("--batch", type=int, default=128)
+    sp.add_argument("--test-rows", type=int, default=4096)
+    sp.add_argument("--no-scorer", action="store_true", help="skip generative perplexity")
+    sp.add_argument("--no-bench", action="store_true", help="skip latency")
+    sp.add_argument("--official-weights", default=str(ARTIFACTS / "tinystories" / "mlx"))
+    sp.add_argument("--cpu", action="store_true")
+    sp.add_argument("--out")
+    sp.set_defaults(fn=cmd_eval_text)
+
+
 def register(sub) -> None:
     p = sub.add_parser("official", help="fetch, convert and run the released NCM checkpoints")
     osub = p.add_subparsers(dest="official_cmd", required=True)
     tasks = list(specs.TASKS)
+    register_text(osub)
 
     def add(name, fn, help_, default_task="tinystories"):
         sp = osub.add_parser(name, help=help_)

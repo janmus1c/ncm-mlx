@@ -5,17 +5,28 @@
   <subtitle>Software, research articles and working-paper releases for an independent MLX implementation of Next-Concept Modeling.</subtitle>
   <link rel="self" type="application/atom+xml" href="https://janmus1c.github.io/ncm-mlx/feed.xml" />
   <link rel="alternate" href="https://janmus1c.github.io/ncm-mlx/" />
-  <updated>2026-10-30T15:23:49Z</updated>
+  <updated>2026-11-02T22:00:00Z</updated>
   <author>
     <name>NCM-MLX project</name>
     <uri>https://github.com/janmus1c/ncm-mlx</uri>
   </author>
   <entry>
+    <id>https://doi.org/10.5281/zenodo.23897923</id>
+    <title>Working paper v0.12: released-checkpoint parity and a TinyStories corruption ablation</title>
+    <link rel="alternate" href="https://janmus1c.github.io/ncm-mlx/paper/" />
+    <link rel="related" href="https://doi.org/10.5281/zenodo.23897923" />
+    <link rel="related" href="https://github.com/janmus1c/ncm-mlx/releases/tag/paper-v0.12" />
+    <published>2026-11-02T22:00:00Z</published>
+    <updated>2026-11-02T22:00:00Z</updated>
+    <author><name>Jan Music</name><uri>https://orcid.org/0009-0001-5376-7913</uri></author>
+    <summary type="text">The independent MLX port of the released TinyStories and Sudoku checkpoints agrees with upstream PyTorch in the tested computations, and the converted Sudoku checkpoints solve 99.40 / 96.30 / 86.20% of 2,000 boards per difficulty. Small TinyStories models trained here reconstruct held-out text accurately, but in both generator seeds less conditioning corruption lowers teacher-forced loss and worsens GPT-2-large generative perplexity; the best run scores 45.568 against 14.311 for an AR baseline. One frozen codec, unmatched total compute, synthetic text. Unreviewed working paper.</summary>
+  </entry>
+  <entry>
     <id>https://janmus1c.github.io/ncm-mlx/research/checkpoint-parity/</id>
     <title>Running released Next-Concept Modeling checkpoints on Apple Silicon</title>
     <link rel="alternate" href="https://janmus1c.github.io/ncm-mlx/research/checkpoint-parity/" />
     <published>2026-10-30T15:23:49Z</published>
-    <updated>2026-10-30T15:23:49Z</updated>
+    <updated>2026-11-02T22:00:00Z</updated>
     <author><name>Jan Music</name><uri>https://orcid.org/0009-0001-5376-7913</uri></author>
     <summary type="text">Run the released HazyResearch TinyStories and Sudoku checkpoints through an independent MLX port. The article explains conversion rules, tokenizer and numerical parity checks, runnable commands and the limits of the recorded performance comparisons.</summary>
   </entry>
