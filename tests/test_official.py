@@ -105,9 +105,14 @@ def test_spec_matches_downloaded_config(name):
     assert tuple(qc["levels"]["manual_levels"]) == c.levels and tuple(vq["vqvae_vocab_size"]) == c.codebook_sizes
     assert qc["quant_resi"] == {"enabled": True, "ratio": c.phi_ratio, "share_mode": 0, "learnable_ratio": False}
     assert qc["learned_l1_sampling"] and qc["learned_l1_cascade"] and not qc["learned_all_sampling"]
-    assert not qc.get("learned_l1_cascade_norm") and not qc.get("learned_l1_cascade_norm_final")
+    assert bool(qc.get("learned_l1_cascade_norm")) == c.cascade_norm
+    assert bool(qc.get("learned_l1_cascade_norm_final")) == c.cascade_norm_final
     assert vq["pre_quant_groupnorm"] == c.group_norm_groups and vq.get("pre_quant_norm_type", "group") == "group"
     assert vq.get("enc_layers", 0) == 0 and vq.get("dec_layers", 1) == 1 and vq["compression_factor"] == 1
+    assert cfg["generation"]["temperature"] == task.temperature
+    if g is None:
+        assert cfg["generation"]["cfg_scale"] == 0.0
+        return
     assert (mdl["n_layer"], mdl["n_head"], mdl["n_embd"], mdl["prefix_len"], mdl["rope_base"]) == \
         (g.n_layer, g.n_head, g.dim, g.prefix_len, g.rope_base)
     assert mdl["attn_pattern"] == "block_diagonal" and mdl["use_rope"] and mdl["use_qk_norm"]
@@ -116,7 +121,6 @@ def test_spec_matches_downloaded_config(name):
     assert bool(mdl.get("tie_heads_to_codebook")) == g.tied_heads
     assert mdl.get("prefix_pad_token_id") == g.prefix_pad_id
     assert not mdl.get("predict_level0") and not (mdl.get("ctx_encoder") or {}).get("enabled")
-    assert cfg["generation"]["temperature"] == task.temperature
 
 
 @pytest.fixture

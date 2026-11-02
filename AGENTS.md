@@ -20,7 +20,7 @@ Read this file, then `docs/STATUS.md` (what is true now) and `docs/NEXT.md` (wha
 | Quality metrics | `mise run eval` |
 | Latency benchmark | `mise run bench` |
 | AR baseline | `python -m ncm_mlx baseline --bench` |
-| Released checkpoints | `python -m ncm_mlx official fetch|convert|generate|sudoku|bench --task TASK` (see `docs/official-checkpoints.md`) |
+| Released checkpoints | `python -m ncm_mlx official fetch|convert|codec|generate|sudoku|bench --task TASK` (see `docs/official-checkpoints.md`) |
 | TinyStories text training | `python -m ncm_mlx official prepare-data|train-codec|train-generator|train-ar|eval-text --config configs/tinystories-*.json` (see `docs/text-training.md`) |
 | Resume full training state | `python -m ncm_mlx train --config CONFIG --resume` (read `docs/RECOVERY.md`) |
 

@@ -39,6 +39,8 @@ def load(directory: str | Path) -> Official:
     if not (d / "spec.json").exists():
         raise SystemExit(f"no converted checkpoint in {d}; run `python -m ncm_mlx official convert` first")
     task = specs.from_json(json.loads((d / "spec.json").read_text())["task"])
+    if task.generator is None:
+        raise SystemExit(f"{task.name} is a codec-only release; use `official codec` to run its codec")
     codec = Codec(task.codec)
     codec.load_weights(str(d / "codec.safetensors"), strict=True)
     gen = Generator(task.generator, codec)
@@ -50,6 +52,18 @@ def load(directory: str | Path) -> Official:
         unigram = mx.load(str(d / "inference.safetensors"))["level0_unigram"]
     bpe = BPETokenizer.load(d / "bpe.json") if task.tokenizer == "bpe" else None
     return Official(task, codec, gen, bpe, unigram)
+
+
+def load_codec(directory: str | Path) -> tuple[specs.TaskSpec, Codec]:
+    """Load a converted codec (any task, including the codec-only XSum and WMT14 releases)."""
+    d = Path(directory)
+    if not (d / "spec.json").exists():
+        raise SystemExit(f"no converted checkpoint in {d}; run `python -m ncm_mlx official convert` first")
+    task = specs.from_json(json.loads((d / "spec.json").read_text())["task"])
+    codec = Codec(task.codec)
+    codec.load_weights(str(d / "codec.safetensors"), strict=True)
+    codec.eval()
+    return task, codec
 
 
 def sample_codes(logits: mx.array, temperature: float, top_k: int, top_p: float, key) -> mx.array:
@@ -196,5 +210,12 @@ def generate(m: Official, prefix_tokens: mx.array, temperature: float = 1.0, top
 
 
 def unconditional_prefix(m: Official, batch: int) -> mx.array:
-    """TinyStories samples start from a single end-of-text prefix token, as in the upstream evaluation."""
-    return mx.full((batch, m.task.generator.prefix_len), m.task.eos_id, dtype=mx.int32)
+    """TinyStories samples start from a single end-of-text prefix token, as in the upstream evaluation.
+
+    A longer prompt-conditioned prefix is filled with that token followed by padding, i.e. an empty prompt.
+    """
+    n = m.task.generator.prefix_len
+    prefix = mx.full((batch, n), m.task.eos_id, dtype=mx.int32)
+    if n > 1 and m.task.pad_id is not None:
+        prefix = mx.concatenate([prefix[:, :1], mx.full((batch, n - 1), m.task.pad_id, dtype=mx.int32)], axis=1)
+    return prefix

@@ -205,6 +205,25 @@ def convert_bpe(src: Path, out: Path) -> None:
                  ["<|endoftext|>", "<|pad|>"]).save(out / "bpe.json")
 
 
+def convert_codec(task: specs.TaskSpec, src: Path, out: Path) -> dict:
+    """Convert only the tokenizer checkpoint of a codec-only task (no generator, no source tokenizer)."""
+    import mlx.core as mx
+
+    from ncm_mlx.official.model import Codec
+
+    tok_ck = torch_reader.load(src / "tokenizer.pt")
+    if set(tok_ck) != {"model"}:
+        raise ValueError(f"unexpected checkpoint sections {sorted(tok_ck)}")
+    codec_w, codec_drop = map_state(tok_ck["model"], CODEC_RULES)
+    _check_shapes(Codec(task.codec), codec_w, "codec")
+    mx.save_safetensors(str(out / "codec.safetensors"), {k: mx.array(v) for k, v in codec_w.items()})
+    meta = {"task": task.to_json(), "source": {"repo": specs.REPO, "revision": specs.REVISION,
+                                               "files": task.files},
+            "dropped_upstream_tensors": sorted(codec_drop)}
+    (out / "spec.json").write_text(json.dumps(meta, indent=2) + "\n")
+    return {"codec_tensors": len(codec_w), "generator_tensors": 0, "dropped": len(codec_drop), "out": str(out)}
+
+
 def convert(task: specs.TaskSpec, src: Path, out: Path) -> dict:
     """Convert ``src`` (release files) into ``out`` (MLX files); return a summary."""
     import mlx.core as mx
@@ -213,6 +232,8 @@ def convert(task: specs.TaskSpec, src: Path, out: Path) -> dict:
 
     verify_files(task, src)
     out.mkdir(parents=True, exist_ok=True)
+    if task.generator is None:
+        return convert_codec(task, src, out)
     tok_ck = torch_reader.load(src / "tokenizer.pt")
     gen_ck = torch_reader.load(src / "generator.pt")
     if set(tok_ck) != {"model"} or set(gen_ck) - {"model", "inference"}:

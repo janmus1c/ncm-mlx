@@ -32,6 +32,8 @@ class CodecSpec:
     group_norm_groups: int = 8
     phi_ratio: float = 0.5
     encoder_positional: bool = True
+    cascade_norm: bool = False
+    cascade_norm_final: bool = False
 
 
 @dataclass(frozen=True)
@@ -52,7 +54,7 @@ class TaskSpec:
     remote_dir: str
     tokenizer: str
     codec: CodecSpec
-    generator: GeneratorSpec
+    generator: GeneratorSpec | None
     files: dict[str, str] = field(default_factory=dict)
     temperature: float = 1.0
     eos_id: int | None = None
@@ -61,6 +63,13 @@ class TaskSpec:
     def to_json(self) -> dict:
         return asdict(self)
 
+
+# Source tokenizers of the codec-only tasks; their ids are the codec's input vocabulary.
+# Hugging Face model ids and the revisions the parity inputs were tokenized with.
+SOURCE_TOKENIZERS = {
+    "gpt2": ("openai-community/gpt2", "607a30d783dfa663caf39e06633721c8d4cfcd7e"),
+    "qwen3": ("Qwen/Qwen3-0.6B", "c1899de289a04d12100db370d81485cdf75e47ca"),
+}
 
 _TS_LEVELS = (1, 8, 16, 24, 32, 40, 52, 64, 76, 92, 108, 128)
 _SUDOKU_LEVELS = (1, 2, 4, 6, 9, 13, 18, 26, 37, 50, 67, 89)
@@ -116,6 +125,38 @@ TASKS.update({t.name: t for t in (
 )})
 
 
+# Codec-only: the generators of these releases condition on source-text prefixes and (XSum) use
+# decoding penalties that this port does not implement, so only the tokenizer checkpoint (the
+# codec) is pinned, converted and run. Level 0 is resampled through parameter-free GroupNorm
+# between and after the strided convolutions.
+TASKS.update({t.name: t for t in (
+    TaskSpec(
+        name="xsum",
+        remote_dir="xsum",
+        tokenizer="gpt2",
+        codec=CodecSpec(vocab_size=50304, seq_len=48, dim=384, n_head=6, levels=(4, 6, 10, 14, 20, 26, 32, 40, 48),
+                        codebook_sizes=(4096,) * 9, l0_strides=(4, 3), cascade_norm=True, cascade_norm_final=True),
+        generator=None,
+        files={"config.yaml": "5dee6b7339645a22362f695fbadb27df6e5254db2d3be0bff8516138d95da493",
+               "tokenizer.pt": "1f806ddaf8e023d1933e95efeabcaaf99f795576c0a05045f1a0f9389ab34fa7"},
+    ),
+    TaskSpec(
+        name="wmt14",
+        remote_dir="wmt14",
+        tokenizer="qwen3",
+        codec=CodecSpec(vocab_size=151680, seq_len=64, dim=384, n_head=6,
+                        levels=(1, 4, 8, 14, 20, 26, 32, 40, 48, 56, 64),
+                        codebook_sizes=(4096,) * 11, l0_strides=(4, 4, 4), cascade_norm=True,
+                        cascade_norm_final=True),
+        generator=None,
+        files={"config.yaml": "6401af2a14d41c6582c3181a0b683e8970c1eeefe8cf7afaf74f1597da3fcd72",
+               "tokenizer.pt": "74f04176a3cd985e4142761bd7464ea6edb44dc0025c40302b5e45ea0d865702"},
+    ),
+)})
+
+GENERATOR_TASKS = tuple(name for name, t in TASKS.items() if t.generator is not None)
+
+
 def get(name: str) -> TaskSpec:
     if name not in TASKS:
         raise SystemExit(f"unknown official task {name!r}; choose one of {', '.join(TASKS)}")
@@ -124,5 +165,5 @@ def get(name: str) -> TaskSpec:
 
 def from_json(d: dict) -> TaskSpec:
     codec = CodecSpec(**{k: tuple(v) if isinstance(v, list) else v for k, v in d["codec"].items()})
-    gen = GeneratorSpec(**d["generator"])
+    gen = GeneratorSpec(**d["generator"]) if d["generator"] is not None else None
     return TaskSpec(**{**d, "codec": codec, "generator": gen})

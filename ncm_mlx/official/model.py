@@ -8,7 +8,8 @@ matter for numerical parity:
   uses eps 1e-5 without affine parameters and pools each group over all
   positions.
 * Level 0 is resampled by a cascade of strided convolutions (kernel = stride)
-  each way; other levels use area pooling down and linear interpolation
+  each way, optionally with the same parameter-free GroupNorm between stages (XSum, WMT14: also
+  after the last down stage, never after the last up stage); other levels use area pooling down and linear interpolation
   (``align_corners=False``) up. The last level is quantised at full length.
 * Every level's upsampled code passes through its own ``Phi`` blend
   ``(1 - r) h + r Conv1d_k3(h)``.
@@ -136,6 +137,38 @@ class StridedUp(nn.Module):
         return (x @ self.weight).reshape(B, L * self.stride, -1) + self.bias
 
 
+def group_norm(z: mx.array, groups: int) -> mx.array:
+    """GroupNorm without affine parameters; each group pools over all positions and its channels."""
+    B, L, D = z.shape
+    g = z.reshape(B, L, groups, D // groups)
+    mean = g.mean(axis=(1, 3), keepdims=True)
+    var = ((g - mean) ** 2).mean(axis=(1, 3), keepdims=True)
+    return ((g - mean) * mx.rsqrt(var + GROUP_NORM_EPS)).reshape(B, L, D)
+
+
+class CascadeNorm(nn.Module):
+    """Parameter-free GroupNorm between level-0 resampling stages; it owns no tensors."""
+
+    def __init__(self, groups: int):
+        super().__init__()
+        self.groups = groups
+
+    def __call__(self, x: mx.array) -> mx.array:
+        return group_norm(x, self.groups)
+
+
+def cascade(stages: list[nn.Module], groups: int, between: bool, after: bool) -> list[nn.Module]:
+    """Insert ``CascadeNorm`` between stages and/or after the last one; stages keep upstream's list indices."""
+    out = []
+    for i, stage in enumerate(stages):
+        if between and i:
+            out.append(CascadeNorm(groups))
+        out.append(stage)
+    if after:
+        out.append(CascadeNorm(groups))
+    return out
+
+
 class Phi(nn.Module):
     def __init__(self, dim: int, ratio: float):
         super().__init__()
@@ -169,8 +202,10 @@ class Codec(nn.Module):
             self.pos = nn.Embedding(L, D)
         self.codebooks = [mx.zeros((v, D)) for v in spec.codebook_sizes]
         self.phi = [Phi(D, spec.phi_ratio) for _ in range(K)]
-        self.down0 = [StridedDown(D, s) for s in spec.l0_strides]
-        self.up0 = [StridedUp(D, s) for s in reversed(spec.l0_strides)]
+        G = spec.group_norm_groups
+        self.down0 = cascade([StridedDown(D, s) for s in spec.l0_strides], G, spec.cascade_norm,
+                             spec.cascade_norm_final)
+        self.up0 = cascade([StridedUp(D, s) for s in reversed(spec.l0_strides)], G, spec.cascade_norm, False)
         self.dec_block = Block(D, spec.n_head)
         self.dec_ln = nn.LayerNorm(D, eps=LN_EPS, bias=False)
         self.dec_head = nn.Linear(D, spec.vocab_size, bias=False)
@@ -202,12 +237,7 @@ class Codec(nn.Module):
         return z
 
     def normalize(self, z: mx.array) -> mx.array:
-        B, L, D = z.shape
-        G = self.spec.group_norm_groups
-        g = z.reshape(B, L, G, D // G)
-        mean = g.mean(axis=(1, 3), keepdims=True)
-        var = ((g - mean) ** 2).mean(axis=(1, 3), keepdims=True)
-        return ((g - mean) * mx.rsqrt(var + GROUP_NORM_EPS)).reshape(B, L, D)
+        return group_norm(z, self.spec.group_norm_groups)
 
     def _down(self, z: mx.array, level: int) -> mx.array:
         if level == 0:

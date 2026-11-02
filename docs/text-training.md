@@ -71,6 +71,37 @@ Per batch:
 
 `ncm_mlx/official/ar.py`: the generator's `Block` (QK norm, RoPE base 10⁵), same width, depth and dropout, tied 8,192-token embedding. The EOS prefix is its first input. Next-token cross-entropy is taken over the same 128 positions, padding included. Sampling uses a KV cache (128 forwards) and the NCM sampler's temperature/top-k/top-p semantics. The two models share the block stack and the number of training windows, and nothing else is matched. The NCM's teacher-forced input has 641 positions per window (640 code positions plus the EOS prefix) against the AR's 128; sequence length alone is not a FLOP estimate. The NCM codec's training is additional.
 
+## Prompt continuation (prefix conditioning)
+
+`data.prefix_len` (P, default 0) switches the task from unconditional stories to continuing a prompt. With P = 0 nothing above changes: the key is left out of the saved configuration, so existing configurations, config hashes, checkpoints and `--resume` behave as before, and a short CPU run of codec, generator and AR training gives bit-identical state to the code before this option was added. `configs/tinystories-prefix-p32.json` is E21 with P = 32 (same codec, corruption 0.75 → 0.25, 15,000 × 64 generator steps, AR 7,500 × 128); `configs/tinystories-prefix-smoke.json` is a small P = 16 end-to-end check on 20,000 stories.
+
+**Data.** A row is the first P + 128 tokens of `encode(story) + [EOS]`, right-padded with PAD. Tokens 0..P−1 are the prefix (including the leading newline token), tokens P..P+127 are the target the codec encodes. Stories with an EOS inside the first P tokens (fewer than P real tokens) are dropped from every split; a story of exactly P tokens is kept and its target is EOS followed by padding. The train/validation/test assignment is made per story before this filter, so held-out stories stay disjoint from training stories. The cache lives in `v2-bpe8192-L128-P<P>/`. Targets are therefore mid-story windows, not story openings.
+
+**Generator.** The prefix is the P prompt tokens, embedded by the codec's token table, with the released semantics: pad positions are masked, RoPE restarts at 0, and the prefix attends only to itself. Level 0 is predicted from the prompt with the generator's learned level-0 queries (`query_level0`, as in the upstream prefix tasks) instead of being drawn from the stored unigram, since otherwise the global code of the continuation would ignore the prompt. Only target codes are labels, with the same level weights, corruption and dropout as before. A CPU test checks that the training logits equal the official sampler's per-level logits for prompts with padding, with and without the prefix cache. The generator sees 32 more positions per sequence (672 instead of 640).
+
+**AR baseline.** The prompt tokens are prepended to the target, there is no BOS token, and the loss covers only the 128 target positions, the same positions the NCM codes describe. Block stack, width and depth are unchanged; the prompt is read once into the KV cache before sampling.
+
+**Codec.** It is trained on the target windows only. E21's frozen codec can be reused; it was trained on story openings, so check `codec_test_target` in the evaluation report before trusting a comparison:
+
+```bash
+mkdir -p artifacts/tinystories-prefix-p32/export
+cp artifacts/tinystories-e21/export/{codec.safetensors,inference.safetensors,bpe.json} artifacts/tinystories-prefix-p32/export/
+scripts/run_text_pipeline.sh configs/tinystories-prefix-p32.json   # skips the codec stage, trains generator and AR, evaluates
+```
+
+Without the copy the pipeline trains a new codec on the continuation windows.
+
+**Evaluation.** `official eval-text --models data ncm ar` detects P > 0 and continues the first 256 held-out prompts (the same prompts for every model and seed). The released checkpoint is skipped because its prefix has one token. Reported separately:
+
+- Teacher-forced held-out loss of the continuation, with the true prompt and with another story's prompt (`*_shuffled_prompt`). The gap shows how much each model reads its prompt.
+- The sample diagnostics from above, on continuations only.
+- Generative perplexity under the same GPT-2 large scorer. The scorer reads prompt plus continuation; only tokens after the prompt count. The boundary is the number of GPT-2 tokens the prompt encodes on its own, so a token that straddles it counts as continuation. Gold continuations are scored the same way.
+- A prompt-faithfulness **diagnostic**, labelled as such in the report: share of continuations that mention a character name from the prompt (capitalised words that do not start a sentence), content-word overlap, and the share of continuation 4-grams copied verbatim from the prompt, each next to a control that pairs every continuation with the next story's prompt. These are surface heuristics. They do not measure coherence, and verbatim copying is a failure mode, not a success.
+
+Latency is not measured in this mode. A single prompt can be continued with `python -m ncm_mlx official continue-text --weights artifacts/tinystories-prefix-p32/export --prompt "..."`; the model reads the first P tokens of the prompt, and shorter prompts are padded, which training never showed it.
+
+No prefix-conditioned model has been trained or evaluated yet; the tests use tiny CPU models and check shapes, masking, equivalence and resume, not quality.
+
 ## Assumptions where the paper and code are silent
 
 | Topic | Assumption here | Upstream evidence |

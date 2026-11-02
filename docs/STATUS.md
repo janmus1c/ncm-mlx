@@ -46,7 +46,8 @@ The E19/E20 phase is a partial implementation and small-model success: both seed
 ## Not done
 
 - The upstream Sudoku result is not reproduced. Width-512 runs E10/E12 did not close the gap; a paper-scale training budget remains pending.
-- Released checkpoints other than TinyStories and Sudoku are not converted; the official port is inference-only and has no classifier-free guidance.
+- Released checkpoints other than TinyStories and Sudoku are not converted, except the XSum and WMT14 codecs (codec only, no generators or source tokenizers). The official port is inference-only and has no classifier-free guidance.
+- Prompt-prefix TinyStories training (`data.prefix_len`, software 0.3.0) is implemented and tested on tiny CPU models; no prefix-conditioned model has been trained or evaluated.
 - Generator training supports `mx.compile` when `train.compile` is true. In the independent TinyWorld/Sudoku training path, codec/AR training and the samplers remain uncompiled, and the NCM sampler has no prefix cache. This differs from the released-checkpoint sampler described above. Quantisation for compressed inference is not implemented.
 - No power or energy measurements (no instrumentation without sudo).
 

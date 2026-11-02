@@ -38,23 +38,36 @@ from ncm_mlx.training.common import BatchStream
 
 class TextAR(nn.Module):
     def __init__(self, vocab: int, seq_len: int, dim: int, n_layer: int, n_head: int, rope_base: float,
-                 bos_id: int = ts.EOS_ID):
+                 bos_id: int = ts.EOS_ID, prefix_len: int = 0):
         super().__init__()
-        self.seq_len, self.bos_id, self.n_head = seq_len, bos_id, n_head
+        self.seq_len, self.bos_id, self.n_head, self.prefix_len = seq_len, bos_id, n_head, prefix_len
+        total = prefix_len + seq_len
         self.wte = nn.Embedding(vocab, dim)
         self.blocks = [Block(dim, n_head) for _ in range(n_layer)]
         self.ln_f = nn.LayerNorm(dim, eps=LN_EPS)
-        self._rope = rope_tables(np.arange(seq_len), dim // n_head, rope_base)
-        self._mask = mx.array(np.tril(np.ones((seq_len, seq_len), dtype=bool)))
+        self._rope = rope_tables(np.arange(total), dim // n_head, rope_base)
+        self._mask = mx.array(np.tril(np.ones((total, total), dtype=bool)))
 
     def __call__(self, tokens: mx.array, p: float = 0.0) -> mx.array:
-        """Next-token logits for ``[BOS] + tokens[:, :-1]``, aligned with ``tokens``."""
-        B = tokens.shape[0]
-        inp = mx.concatenate([mx.full((B, 1), self.bos_id, dtype=tokens.dtype), tokens[:, :-1]], axis=1)
+        """Next-token logits for ``[BOS] + tokens[:, :-1]``, aligned with ``tokens``.
+
+        With a prefix, ``tokens`` are ``[prefix, target]`` rows and the logits are those that predict the target.
+        """
+        P = self.prefix_len
+        if P:
+            inp = tokens[:, :-1]
+        else:
+            inp = mx.concatenate([mx.full((tokens.shape[0], 1), self.bos_id, dtype=tokens.dtype), tokens[:, :-1]],
+                                 axis=1)
         h = self.wte(inp)
+        T = h.shape[1]
+        rope = (self._rope[0][:T], self._rope[1][:T])
         for blk in self.blocks:
-            h = block_forward(blk, h, self._mask, self._rope, p)
-        return self.wte.as_linear(self.ln_f(h))
+            h = block_forward(blk, h, self._mask[:T, :T], rope, p)
+        return self.wte.as_linear(self.ln_f(h))[:, max(P - 1, 0):]
+
+    def target(self, tokens: mx.array) -> mx.array:
+        return tokens[:, self.prefix_len :]
 
     def _cached(self, tok: mx.array, pos: int, cache: list) -> mx.array:
         """Logits for one new token at ``pos``, extending the per-block key/value cache."""
@@ -76,16 +89,26 @@ class TextAR(nn.Module):
         return self.wte.as_linear(self.ln_f(h))[:, -1]
 
     def generate(self, batch: int, temperature: float = 1.0, top_k: int = 0, top_p: float = 1.0,
-                 seed: int = 0, keep_logits: bool = False):
+                 seed: int = 0, keep_logits: bool = False, prefix: mx.array | None = None):
+        """Sample ``seq_len`` tokens; with ``prefix_len > 0`` a ``(batch, prefix_len)`` prompt is required."""
+        P = self.prefix_len
+        if P and (prefix is None or prefix.shape != (batch, P)):
+            raise ValueError(f"this model needs a ({batch}, {P}) prefix")
         keys = mx.random.split(mx.random.key(seed), self.seq_len)
         cache = [None] * len(self.blocks)
-        tok = mx.full((batch, 1), self.bos_id, dtype=mx.int32)
         out, seen = [], []
-        for pos in range(self.seq_len):
+        if P:
+            for i in range(P - 1):
+                self._cached(prefix[:, i : i + 1].astype(mx.int32), i, cache)
+            tok = prefix[:, P - 1 :].astype(mx.int32)
+        else:
+            tok = mx.full((batch, 1), self.bos_id, dtype=mx.int32)
+        start = max(P - 1, 0)
+        for pos in range(start, start + self.seq_len):
             logits = self._cached(tok, pos, cache)
             if keep_logits:
                 seen.append(logits)
-            tok = sample_codes(logits, temperature, top_k, top_p, keys[pos]).astype(mx.int32)[:, None]
+            tok = sample_codes(logits, temperature, top_k, top_p, keys[pos - start]).astype(mx.int32)[:, None]
             out.append(tok)
         tokens = mx.concatenate(out, axis=1)
         return (tokens, seen) if keep_logits else tokens
@@ -94,13 +117,13 @@ class TextAR(nn.Module):
 def build_ar(cfg: TextConfig, seed: int) -> TextAR:
     g = cfg.generator
     mx.random.seed(seed)
-    m = TextAR(8192, cfg.data.seq_len, g.dim, g.n_layer, g.n_head, g.rope_base)
+    m = TextAR(8192, cfg.data.seq_len, g.dim, g.n_layer, g.n_head, g.rope_base, prefix_len=cfg.data.prefix_len)
     scaled_residual_init(m.blocks, g.n_layer, seed + 7)
     return m
 
 
 def ar_loss(m: TextAR, tokens: mx.array, p: float):
-    return nn.losses.cross_entropy(m(tokens, p), tokens, reduction="mean")
+    return nn.losses.cross_entropy(m(tokens, p), m.target(tokens), reduction="mean")
 
 
 def ar_report(m: TextAR, rows: np.ndarray, batch: int = 256) -> dict:
@@ -108,7 +131,8 @@ def ar_report(m: TextAR, rows: np.ndarray, batch: int = 256) -> dict:
     tot = tot_np = n = n_np = 0.0
     for i in range(0, len(rows), batch):
         t = to_batch(rows[i : i + batch])
-        ce = nn.losses.cross_entropy(m(t), t, reduction="none")
+        logits, t = m(t), m.target(t)
+        ce = nn.losses.cross_entropy(logits, t, reduction="none")
         mask = t != ts.PAD_ID
         tot += ce.sum().item()
         tot_np += (ce * mask).sum().item()
@@ -163,7 +187,7 @@ def load_ar(cfg: TextConfig) -> TextAR:
     if not path.exists():
         raise SystemExit(f"no trained AR baseline at {path}; run `official train-ar` first")
     g = cfg.generator
-    m = TextAR(8192, cfg.data.seq_len, g.dim, g.n_layer, g.n_head, g.rope_base)
+    m = TextAR(8192, cfg.data.seq_len, g.dim, g.n_layer, g.n_head, g.rope_base, prefix_len=cfg.data.prefix_len)
     m.load_weights(str(path), strict=True)
     m.eval()
     return m

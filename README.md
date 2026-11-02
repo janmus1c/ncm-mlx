@@ -53,6 +53,8 @@ No install needed to look: the [refinement demo](https://huggingface.co/spaces/j
 
 **Text models trained here from scratch (2026-11-02).** Small TinyStories models reconstruct held-out text accurately (99.8% of tokens) but generate stories that GPT-2 large scores far worse than an autoregressive baseline: generative perplexity 45.6–97.8 against 14.3–14.7, across three corruption schedules and two generator seeds on one codec. Less conditioning corruption lowers teacher-forced loss and worsens generated text. Text training is experimental and not part of the released package; see the [controlled-text assessment](docs/research/e21-e23-assessment.md).
 
+**Software 0.3.0** converts the codecs of the released XSum and WMT14 checkpoints (codec only; they match upstream PyTorch on CPU apart from one float32 near-tie) and lets the TinyStories models train on a prompt prefix. No prompt-conditioned model has been trained yet. See the [release notes](docs/releases.md).
+
 To train your own models:
 
 ```bash
@@ -239,9 +241,9 @@ Full source-by-source map: [`docs/research/upstream-map.md`](docs/research/upstr
 ## Limitations
 
 - Synthetic data only (TinyWorld, Sudoku, TinyStories); quality on naturally occurring text is unknown.
-- Conditioning is a fixed-length token prefix only (Sudoku). No prompts of free text, so not useful for summarisation, translation or instructions yet.
+- Conditioning is a fixed-length token prefix: Sudoku boards, and from 0.3.0 the first tokens of a TinyStories story ([prompt continuation](docs/text-training.md#prompt-continuation-prefix-conditioning)). No prompt-conditioned model has been trained yet, and nothing here summarises, translates or follows instructions.
 - Sudoku: 33.25–40.30% of hard boards solved across E20 and E19-funded, against 86.1% for Original NCM (Kumbong et al.), with different model size and training budget.
-- Weights trained here use their own format. The released TinyStories and Sudoku checkpoints run through the inference-only [official port](docs/official-checkpoints.md); LM1B, OpenWebText, WMT14 and XSum are not converted yet.
+- Weights trained here use their own format. The released TinyStories and Sudoku checkpoints run through the inference-only [official port](docs/official-checkpoints.md). The XSum and WMT14 codecs convert and run, codec only and without their generators; LM1B and OpenWebText are not converted yet.
 - Generator training can use `mx.compile`; the independent implementation's inference sampler is not compiled, so its latency gap to AR may change once it is. The official-checkpoint port has an opt-in compiled step.
 - On Metal, fp32 matmuls run at reduced precision (~1e-3 relative error, measured); exactness tests therefore run on the CPU device.
 - No energy or power measurements.
@@ -258,7 +260,7 @@ Full source-by-source map: [`docs/research/upstream-map.md`](docs/research/upstr
 The long-term aim is a model of about 1B parameters that writes good text and is not worse than an autoregressive baseline trained with the same compute. Nothing here shows that NCM can get there yet. Completed so far: TinyWorld, Sudoku (E6 to E20), the released-checkpoint port, and TinyStories training (E21 to E24). The steps below are plans in dependency order, without delivery dates.
 
 1. **Close the NCM/AR gap at small scale.** On TinyStories the best MLX NCM run has about three times the GPT-2 large generative perplexity of the MLX AR baseline (45.6–97.8 across runs, against 14.3–14.7). Next: further corruption and loss-weighting ablations.
-2. **Prompt-conditioned (prefix) training and the official XSum and WMT14 codecs.** Red-fuchs described an MLX port of both codecs and a prefix-conditioned training loop in [issue #3](https://github.com/janmus1c/ncm-mlx/issues/3) ([Red-fuchs/ncm-modular](https://github.com/Red-fuchs/ncm-modular)).
+2. **Prompt-conditioned (prefix) training and the official XSum and WMT14 codecs.** Red-fuchs described an MLX port of both codecs and a prefix-conditioned training loop in [issue #3](https://github.com/janmus1c/ncm-mlx/issues/3) ([Red-fuchs/ncm-modular](https://github.com/Red-fuchs/ncm-modular)). Software 0.3.0 adds both, written independently: the two codecs convert and match upstream PyTorch on CPU (codec only, no generators), and TinyStories training can condition on a prompt prefix. The first prefix-conditioned training run is still to come.
 3. **Mixed-precision throughput**, measured before a larger run is sized.
 4. **A natural-text corpus of several billion tokens.**
 5. **A 100M-parameter model on about 2B tokens**, as the go/no-go comparison against AR.

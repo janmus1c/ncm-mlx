@@ -38,6 +38,14 @@ Stage 2 (generator), with the codec frozen:
 * Loss ``sum_k l_k^(1-alpha) CE_k / sum_k l_k^(1-alpha)`` (paper eq. 10).
 * Level 0 is not predicted: its empirical unigram over training sequences is
   stored and sampled at generation time, as in the released checkpoint.
+
+Prefix-conditioned variant (``data.prefix_len = P > 0``): rows are ``P`` prefix
+tokens followed by the ``seq_len`` target tokens. The codec encodes only the
+target. The generator's prefix is the ``P`` real text tokens (pad-masked, RoPE
+from 0, attending only to itself) instead of the single EOS, and level 0 is
+predicted from the prefix with learned queries (``query_level0``), as in the
+upstream prefix tasks; the stored unigram is unused. The loss covers target
+codes only. ``P = 0`` takes exactly the code paths above.
 """
 
 from __future__ import annotations
@@ -113,11 +121,18 @@ def to_batch(rows: np.ndarray) -> mx.array:
 
 def load_rows(cfg: TextConfig, log=print) -> tuple[np.ndarray, np.ndarray, dict]:
     d = cfg.data
-    manifest = ts.prepare(Path(d.raw_dir), Path(d.cache_root), Path(d.bpe), d.seq_len, limit=d.limit, log=log)
-    directory = ts.split_dir(Path(d.cache_root), d.seq_len, d.limit)
+    manifest = ts.prepare(Path(d.raw_dir), Path(d.cache_root), Path(d.bpe), d.seq_len, limit=d.limit, log=log,
+                          prefix_len=d.prefix_len)
+    directory = ts.split_dir(Path(d.cache_root), d.seq_len, d.limit, d.prefix_len)
     train = ts.load_split(directory, "train")
     val = np.asarray(ts.load_split(directory, "val")[: d.val_rows])
     return train, val, manifest
+
+
+def split_prefix(cfg: TextConfig, rows: np.ndarray) -> tuple[np.ndarray | None, np.ndarray]:
+    """``(prefix, target)`` views of continuation rows; ``(None, rows)`` for the unconditional task."""
+    P = cfg.data.prefix_len
+    return (rows[:, :P], rows[:, P:]) if P else (None, rows)
 
 
 def export_dir(cfg: TextConfig) -> Path:
@@ -369,6 +384,8 @@ def train_codec(cfg: TextConfig, resume: bool = False, log=print) -> dict:
     st = cfg.train.codec
     mx.random.seed(cfg.train.seed)
     train_rows, val_rows, manifest = load_rows(cfg, log)
+    if cfg.data.prefix_len:
+        train_rows, val_rows = (np.ascontiguousarray(split_prefix(cfg, r)[1]) for r in (train_rows, val_rows))
     tr = CodecTrainer(cfg, cfg.train.seed)
     tr.train()
     data = BatchStream(train_rows, st.batch_size, np.random.default_rng(cfg.train.seed))
@@ -530,22 +547,33 @@ def level_weights(levels: list[int], alpha: float) -> list[float]:
     return [x / s for x in w]
 
 
-def generator_loss(tf: TeacherForced, codec: Codec, tokens: mx.array, rates, alpha: float, p: float):
+def generator_loss(tf: TeacherForced, codec: Codec, tokens: mx.array, rates, alpha: float, p: float,
+                   prefix_len: int = 0):
+    """Weighted code cross-entropy. With ``prefix_len > 0``, ``tokens`` are ``[prefix, target]`` rows and
+    only the target is encoded and predicted."""
+    if prefix_len:
+        prefix, tokens = tokens[:, :prefix_len], tokens[:, prefix_len:]
+    else:
+        prefix = mx.full((tokens.shape[0], 1), ts.EOS_ID, dtype=mx.int32)
     codes = [mx.stop_gradient(c).astype(mx.int32) for c in codec.encode(tokens)]
     seen = corrupt(codes[:-1], rates, codec.spec.codebook_sizes) if rates else codes[:-1]
-    prefix = mx.full((tokens.shape[0], 1), ts.EOS_ID, dtype=mx.int32)
-    logits = tf.logits(teacher_inputs(codec, seen), prefix, p)
-    ce = [nn.losses.cross_entropy(lg, c, reduction="mean") for lg, c in zip(logits, codes[1:])]
+    inputs = teacher_inputs(codec, seen)
+    first = tf.gen.first
+    if not first:
+        inputs = [mx.broadcast_to(tf.gen.l0_queries, (tokens.shape[0], *tf.gen.l0_queries.shape[1:])), *inputs]
+    logits = tf.logits(inputs, prefix, p)
+    ce = [nn.losses.cross_entropy(lg, c, reduction="mean") for lg, c in zip(logits, codes[first:])]
     w = level_weights(tf.lengths, alpha)
     return sum(wi * c for wi, c in zip(w, ce)), ce
 
 
-def generator_report(tf: TeacherForced, codec: Codec, rows: np.ndarray, batch: int = 256) -> dict:
+def generator_report(tf: TeacherForced, codec: Codec, rows: np.ndarray, batch: int = 256,
+                     prefix_len: int = 0) -> dict:
     """Held-out teacher-forced code cross-entropy per level (clean conditioning). Not text perplexity."""
     sums, n = None, 0
     for i in range(0, len(rows), batch):
         t = to_batch(rows[i : i + batch])
-        _, ce = generator_loss(tf, codec, t, None, 0.0, 0.0)
+        _, ce = generator_loss(tf, codec, t, None, 0.0, 0.0, prefix_len)
         v = np.array([c.item() for c in ce]) * t.shape[0]
         sums = v if sums is None else sums + v
         n += t.shape[0]
@@ -577,19 +605,20 @@ def train_generator(cfg: TextConfig, resume: bool = False, log=print) -> dict:
         f"train rows {len(train_rows):,}")
     rates = corruption_rates(g.corrupt_first, g.corrupt_last, len(codec.levels) - 1)
     rates = rates if any(rates) else None
-    grad_fn = nn.value_and_grad(gen, lambda m, t: generator_loss(tf, codec, t, rates, g.loss_alpha, g.dropout))
+    P = cfg.data.prefix_len
+    grad_fn = nn.value_and_grad(gen, lambda m, t: generator_loss(tf, codec, t, rates, g.loss_alpha, g.dropout, P))
 
     def step(tokens):
         (loss, ce), grads = grad_fn(gen, tokens)
         grads, norm = optim.clip_grad_norm(grads, st.grad_clip)
         run.opt.update(gen, grads)
-        return loss, {"grad_norm": norm, "ce_level1": ce[0], "ce_last": ce[-1]}
+        return loss, {"grad_norm": norm, "ce_level0" if P else "ce_level1": ce[0], "ce_last": ce[-1]}
 
     step = compiled(gen, run.opt, step, cfg.train.compile)
 
     def evaluate():
         gen.eval()
-        r = generator_report(tf, codec, val_rows)
+        r = generator_report(tf, codec, val_rows, prefix_len=P)
         gen.train()
         return r
 
@@ -597,7 +626,7 @@ def train_generator(cfg: TextConfig, resume: bool = False, log=print) -> dict:
     gen.eval()
     out = export_dir(cfg)
     atomic_arrays(dict(tree_flatten(gen.parameters())), out / "generator.safetensors")
-    report = generator_report(tf, codec, val_rows)
+    report = generator_report(tf, codec, val_rows, prefix_len=P)
     meta = {"steps": last, "planned_steps": st.steps, "time_limited": run.time_limited,
             "train_seconds": round(run.elapsed_before, 2), "sequences_seen": last * st.batch_size,
             "corruption_rates": rates, "val": report, "history": run.history}

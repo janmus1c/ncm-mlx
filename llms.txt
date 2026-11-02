@@ -26,7 +26,7 @@ This is an optional navigation file following the llms.txt proposal, not a unive
 - [Paper DOI](https://doi.org/10.5281/zenodo.23897923): unreviewed working paper version 0.12, adding released-checkpoint parity and the TinyStories corruption ablation with two generator seeds.
 - [Earlier paper archive](https://doi.org/10.5281/zenodo.23640777): immutable working paper version 0.10.
 - [Two-seed assessment](https://janmus1c.github.io/ncm-mlx/research/e20-seed-report/): completed E20, hard-board failures, evidence limitations and planned text research.
-- [Latest paper release](https://github.com/janmus1c/ncm-mlx/releases/tag/paper-v0.12): working paper version 0.12; separate from software version 0.2.0.
+- [Latest paper release](https://github.com/janmus1c/ncm-mlx/releases/tag/paper-v0.12): working paper version 0.12; separate from software version 0.3.0.
 
 ## Original method
 

@@ -27,6 +27,7 @@ class TextData:
     limit: int = 0
     val_rows: int = 2048
     unigram_rows: int = 200_000
+    prefix_len: int = 0
 
 
 @dataclass
@@ -111,7 +112,10 @@ class TextConfig:
     train: TextTrain = field(default_factory=TextTrain)
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        if not self.data.prefix_len:
+            del d["data"]["prefix_len"]
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> TextConfig:
@@ -133,6 +137,8 @@ class TextConfig:
 
     def validate(self) -> None:
         c, g = self.codec, self.generator
+        if self.data.prefix_len < 0:
+            raise ValueError("data.prefix_len must be 0 (unconditional) or a positive token count")
         if len(c.levels) != len(c.codebook_sizes) or len(c.levels) < 2:
             raise ValueError("codec.levels and codec.codebook_sizes need the same length (>= 2)")
         if c.levels != sorted(set(c.levels)) or c.levels[-1] != self.data.seq_len:
@@ -164,9 +170,9 @@ class TextConfig:
                                phi_ratio=c.phi_ratio, encoder_positional=True)
 
     def generator_spec(self) -> specs.GeneratorSpec:
-        g = self.generator
-        return specs.GeneratorSpec(n_layer=g.n_layer, n_head=g.n_head, dim=g.dim, prefix_len=1,
-                                   rope_base=g.rope_base, query_level0=False, tied_heads=True,
+        g, P = self.generator, self.data.prefix_len
+        return specs.GeneratorSpec(n_layer=g.n_layer, n_head=g.n_head, dim=g.dim, prefix_len=P or 1,
+                                   rope_base=g.rope_base, query_level0=P > 0, tied_heads=True,
                                    prefix_pad_id=1)
 
     def task_spec(self) -> specs.TaskSpec:

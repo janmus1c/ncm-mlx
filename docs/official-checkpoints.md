@@ -7,7 +7,7 @@ updated: 2026-10-29
 
 # Released NCM checkpoints in MLX
 
-`ncm_mlx/official/` runs the released checkpoints of the original Next-Concept Modeling work in MLX on Apple Silicon. It covers TinyStories (unconditional BPE text) and the three Sudoku checkpoints (easy, medium, hard). It is an inference-only reimplementation, written from the upstream architecture and released configurations. It is separate from this repository's own training models and contains no upstream source code.
+`ncm_mlx/official/` runs the released checkpoints of the original Next-Concept Modeling work in MLX on Apple Silicon. It covers TinyStories (unconditional BPE text) and the three Sudoku checkpoints (easy, medium, hard). The XSum and WMT14 releases are supported at the codec level only, see [XSum and WMT14 codecs](#xsum-and-wmt14-codecs). It is an inference-only reimplementation, written from the upstream architecture and released configurations. It is separate from this repository's own training models and contains no upstream source code.
 
 **Credit and license.** The checkpoints, configurations and reference PyTorch implementation are by HazyResearch: [checkpoints](https://huggingface.co/hazyresearch/ncm-checkpoints), [code](https://github.com/HazyResearch/ncm) and the paper [Kumbong et al., arXiv:2610.14162](https://arxiv.org/abs/2610.14162). They are MIT licensed, Copyright (c) 2025 Hermann Kumbong. Weights are downloaded from Hugging Face on demand and never redistributed here.
 
@@ -25,9 +25,47 @@ python -m ncm_mlx official sudoku --task sudoku-easy --n 200   # greedy; --n 0 f
 python -m ncm_mlx official bench --task sudoku-easy      # eager vs cached vs cached+compiled, batch 1 4 16 64
 ```
 
-Tasks are `tinystories`, `sudoku-easy`, `sudoku-medium` and `sudoku-hard`. Add `--cpu` to run on `mx.cpu`. `generate` and `sudoku` take `--no-prefix-cache` (reference path that recomputes the prefix in every level) and `--compile` (`mx.compile` of the per-level step). The prefix cache is on by default; compilation is opt-in. `generate` takes `--temperature`, `--top-k`, `--top-p`, `--seed` and `--level0 CODE`; the defaults follow the released config (temperature 1.0 for TinyStories, greedy for Sudoku).
+Tasks for `generate`, `sudoku` and `bench` are `tinystories`, `sudoku-easy`, `sudoku-medium` and `sudoku-hard`. Add `--cpu` to run on `mx.cpu`. `generate` and `sudoku` take `--no-prefix-cache` (reference path that recomputes the prefix in every level) and `--compile` (`mx.compile` of the per-level step). The prefix cache is on by default; compilation is opt-in. `generate` takes `--temperature`, `--top-k`, `--top-p`, `--seed` and `--level0 CODE`; the defaults follow the released config (temperature 1.0 for TinyStories, greedy for Sudoku).
 
 Conversion does not need PyTorch. `.pt` files are read by `torch_reader`, which accepts only the four globals a tensor checkpoint uses and refuses all others. The BPE pickles are plain dicts and lists of bytes, read by an unpickler that refuses every global, and are converted once to JSON. Each upstream tensor name must match exactly one explicit rule: it either becomes an MLX parameter with a stated layout change or is dropped. Dropped names are the EMA training state and two derived buffers. The level ids and block-diagonal mask are first checked against the values the MLX model assumes. An unmatched name, missing parameter or shape mismatch stops the conversion.
+
+## XSum and WMT14 codecs
+
+The `xsum` and `wmt14` tasks convert and run the tokenizer checkpoint (the codec) only. There is no generator, no classifier-free guidance, no decoding penalties and no source tokenizer, so nothing here summarizes or translates. The codec encodes token ids into per-level codes and decodes cumulative reconstructions back to ids.
+
+```bash
+python -m ncm_mlx official fetch --task xsum      # config.yaml and tokenizer.pt only, SHA-256 checked
+python -m ncm_mlx official convert --task xsum    # codec.safetensors + spec.json; no PyTorch
+python -m ncm_mlx official codec --task xsum --cpu --ids ids.json   # JSON list of rows of 48 ids (WMT14: 64)
+```
+
+| | XSum | WMT14 |
+|---|---|---|
+| Source tokenizer (ids come from it; not downloaded or converted here) | `openai-community/gpt2` @ `607a30d` | `Qwen/Qwen3-0.6B` @ `c1899de` |
+| Input vocabulary / length | 50,304 / 48 | 151,680 / 64 |
+| Levels | 9: 4, 6, 10, 14, 20, 26, 32, 40, 48 | 11: 1, 4, 8, 14, 20, 26, 32, 40, 48, 56, 64 |
+| Level-0 strides | 4, 3 | 4, 4, 4 |
+| `config.yaml` SHA-256 | `5dee6b73...` | `6401af2a...` |
+| `tokenizer.pt` SHA-256 | `1f806ddaf8e0...` | `74f04176a3cd...` |
+
+Checkpoint revision `d342ce8` as above. The only architectural difference from the TinyStories codec is that the level-0 resampling cascade has a parameter-free GroupNorm(8) between the strided convolutions and after the last down convolution (`learned_l1_cascade_norm` and `_final`; none after the last up convolution). The norms hold no tensors but occupy list slots, so convolution weights keep upstream's indices (`0, 2, ...`) and the existing conversion rules apply unchanged. The configs set `n_layers: 6`, which is the attention head count; they have no contextual encoder block and one decoder block. Conversion keeps the strict rules above: every upstream tensor needs exactly one rule, and a missing, extra or misshapen tensor stops it (tests cover each case, including a state laid out without the norms).
+
+**Parity scope** (CPU, fp32, upstream PyTorch 2.15 at `c702742`, `scripts/official_codec_parity.py`). 12 fixed inputs per task (eight short texts including German and Unicode, random ids, high-vocabulary ids, all-padding, all-EOS), compared on every level:
+
+| Check | XSum | WMT14 |
+|---|---|---|
+| Code disagreements, 12 fixed inputs (2,400 / 3,756 codes) | 0 | 0 |
+| Decoder ids from upstream's codes at every level, same inputs | identical | identical |
+| 16-input batch of the [ncm-modular](https://github.com/Red-fuchs/ncm-modular) protocol (12 texts, 4 random rows) | 0 | **1 code differs** (level 9) |
+| 256 random-id rows | 0 differ; 1 decoded id differs | 0 differ; 1 decoded id differs |
+
+The first two rows are stored in `tests/fixtures/official_codec_parity.json` and checked by `tests/test_official_codec.py` once the weights are converted (skipped otherwise). A CPU-only version of the same test needs no checkpoint: seeded narrow tensors with the real level geometry were loaded into upstream's `VQVAE` with `strict=True` and the resulting codes are stored; the MLX codec must reproduce them, and a codec without the norms must not.
+
+**Open: the WMT14 level-9 code.** Red-fuchs reported one code differing from PyTorch at level 9 of WMT14, unchanged between fp32 and fp64, cause not investigated. Our 16-input rerun shows one such code (input 2, position 53: MLX 2703, upstream 1640). Under upstream's own residual the two candidates' squared distances differ by 3e-8 at a scale of 3,539, so this is a float32 tie that the two argmin implementations break differently. That is a measurement, not an explanation: we have not established which candidate is closer in exact arithmetic, why a tie arises, or whether it is the same code as the contributor's. A first private run of the same inputs with a different harness found no disagreement, so the outcome depends on details of the run. Decoded ids from upstream's codes still agree on those 16 inputs. Treat WMT14 codes as matching upstream except at float32 near-ties such as this one. The one decoded-id difference in each 256-row random run was not investigated.
+
+**Limits.** No Metal run, no float64 run of the real checkpoints, and no evidence about summarization or translation quality. The inputs are few and mostly short.
+
+**Credit.** The finding that these codecs need normalized level-0 resampling, and the pinned configuration facts above, come from [Red-fuchs/ncm-modular](https://github.com/Red-fuchs/ncm-modular) (MIT; reviewed at `eae154b`), discussed in [issue 3](https://github.com/janmus1c/ncm-mlx/issues/3). No code from that repository is copied; it was used as a cross-check. The checkpoints and reference implementation are by Kumbong et al. and HazyResearch as above.
 
 ## What the port implements
 
@@ -140,7 +178,7 @@ Reading, with the contention caveat. For Sudoku (91-token prefix) the cache give
 ## Limitations
 
 - The port itself is inference-only. Training new models in the TinyStories architecture family is a separate, experimental recipe; see [text training](text-training.md). It does not fine-tune or reproduce the released weights.
-- Not converted: LM1B, OpenWebText, WMT14 and XSum. WMT14 and XSum also need classifier-free guidance and a pretrained source tokenizer, which are not implemented. Upstream's experimental options outside the released configs, such as a context encoder, `predict_level0` and block-causal attention, are rejected by the pinned specs rather than supported.
+- Not converted: LM1B and OpenWebText. WMT14 and XSum are converted at the codec level only; their generators, source tokenizers and decoding penalties are not implemented. Upstream's experimental options outside the released configs, such as a context encoder, `predict_level0` and block-causal attention, are rejected by the pinned specs rather than supported.
 - The pinned spec restates each `config.yaml`. The converter refuses a config whose SHA-256 differs, and a test compares the spec field by field with the downloaded YAML.
 - The BPE pre-tokenizer reimplements upstream's `regex` pattern with `unicodedata`. It is verified on the parity cases, including Unicode, but rare whitespace classes such as `\x1c`–`\x1f` may differ.
 - Metal fp32 matmul is reduced precision (see E-precision), so GPU outputs can differ from CPU at near-ties. On the 2,000 easy boards, Metal and CPU outputs were identical.
@@ -154,7 +192,9 @@ uv run --with torch --with omegaconf --with hydra-core --with regex \
     python scripts/official_parity.py --upstream /path/to/ncm --task tinystories
 uv run --with torch --with omegaconf --with hydra-core --with regex \
     python scripts/official_torch_reference.py sudoku --upstream /path/to/ncm --task sudoku-easy --n 0
-uv run pytest -q tests/test_official.py    # skips parity checks when converted weights are absent
+uv run --with torch --with omegaconf --with hydra-core --with regex \
+    python scripts/official_codec_parity.py --upstream /path/to/ncm --task xsum    # or wmt14; add --inputs FILE for other rows
+uv run pytest -q tests/test_official.py tests/test_official_codec.py    # skips parity checks when converted weights are absent
 ```
 
 PyTorch is used only in these ephemeral runs. It is not a dependency of `ncm_mlx`.

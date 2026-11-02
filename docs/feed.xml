@@ -5,11 +5,22 @@
   <subtitle>Software, research articles and working-paper releases for an independent MLX implementation of Next-Concept Modeling.</subtitle>
   <link rel="self" type="application/atom+xml" href="https://janmus1c.github.io/ncm-mlx/feed.xml" />
   <link rel="alternate" href="https://janmus1c.github.io/ncm-mlx/" />
-  <updated>2026-11-02T22:00:00Z</updated>
+  <updated>2026-11-02T23:00:00Z</updated>
   <author>
     <name>NCM-MLX project</name>
     <uri>https://github.com/janmus1c/ncm-mlx</uri>
   </author>
+  <entry>
+    <id>https://github.com/janmus1c/ncm-mlx/releases/tag/v0.3.0</id>
+    <title>Software 0.3.0: XSum and WMT14 codecs and prompt-prefix text training</title>
+    <link rel="alternate" href="https://janmus1c.github.io/ncm-mlx/releases/" />
+    <link rel="related" href="https://pypi.org/project/ncm-mlx/0.3.0/" />
+    <link rel="related" href="https://github.com/janmus1c/ncm-mlx/releases/tag/v0.3.0" />
+    <published>2026-11-02T23:00:00Z</published>
+    <updated>2026-11-02T23:00:00Z</updated>
+    <author><name>Jan Music</name><uri>https://orcid.org/0009-0001-5376-7913</uri></author>
+    <summary type="text">Converts the codecs of the released XSum and WMT14 checkpoints without PyTorch. On CPU they match upstream PyTorch on all fixed test inputs; one WMT14 level-9 code differs in a further batch at a float32 near-tie. No generators, source tokenizers or guidance, so no summarization or translation. Adds prompt-prefix training and evaluation for the TinyStories NCM and AR models; no prompt-conditioned model has been trained yet. Both features follow work by Red-fuchs in ncm-modular (MIT); no code is copied.</summary>
+  </entry>
   <entry>
     <id>https://doi.org/10.5281/zenodo.23897923</id>
     <title>Working paper v0.12: released-checkpoint parity and a TinyStories corruption ablation</title>

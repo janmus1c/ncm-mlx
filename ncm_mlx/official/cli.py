@@ -50,6 +50,30 @@ def cmd_convert(args) -> int:
     return 0
 
 
+def cmd_codec(args) -> int:
+    import mlx.core as mx
+
+    from ncm_mlx.official import sample
+
+    info = _device(args)
+    task = specs.get(args.task)
+    task, codec = sample.load_codec(_converted(task, args))
+    rows = json.loads(Path(args.ids).read_text())
+    if not isinstance(rows, list) or not rows or any(
+            not isinstance(r, list) or len(r) != task.codec.seq_len
+            or not all(type(t) is int and 0 <= t < task.codec.vocab_size for t in r) for r in rows):
+        raise SystemExit(f"{args.ids}: expected rows of {task.codec.seq_len} integer token ids below "
+                         f"{task.codec.vocab_size}")
+    codes = codec.encode(mx.array(np.array(rows, dtype=np.int32)))
+    decoded = mx.argmax(codec.decode_logits(codec.cumulative(codes)[-1]), axis=-1)
+    result = {"task": task.name, "levels": list(codec.levels), "runtime": info,
+              "codes": [np.array(c).tolist() for c in codes], "decoded": np.array(decoded).tolist()}
+    print(json.dumps(result))
+    if args.out:
+        Path(args.out).write_text(json.dumps(result, indent=2) + "\n")
+    return 0
+
+
 def _flat(text: str, limit: int) -> str:
     text = text.replace("\n", " ⏎ ")
     return text if not limit or len(text) <= limit else text[: limit - 1] + "…"
@@ -215,7 +239,8 @@ def cmd_prepare_data(args) -> int:
     d = cfg.data
     if d.limit == 0:
         tinystories.fetch(Path(d.raw_dir))
-    m = tinystories.prepare(Path(d.raw_dir), Path(d.cache_root), Path(d.bpe), d.seq_len, args.workers, d.limit)
+    m = tinystories.prepare(Path(d.raw_dir), Path(d.cache_root), Path(d.bpe), d.seq_len, args.workers, d.limit,
+                            prefix_len=d.prefix_len)
     print(json.dumps(m, indent=2))
     return 0
 
@@ -237,6 +262,32 @@ def cmd_train_text(args) -> int:
     print(json.dumps({"stage": stage, "config": args.config, "runtime": info}), flush=True)
     fn = {"codec": trainer.train_codec, "generator": trainer.train_generator, "ar": ar.train_ar}[stage]
     fn(cfg, resume=args.resume, log=lambda m: print(m, flush=True))
+    return 0
+
+
+def cmd_continue_text(args) -> int:
+    import mlx.core as mx
+
+    from ncm_mlx.official import sample, tinystories
+
+    _device(args)
+    m = sample.load(args.weights)
+    P = m.task.generator.prefix_len
+    if P <= 1:
+        raise SystemExit("this checkpoint has a one-token prefix; train with data.prefix_len > 0 to continue prompts")
+    text = args.prompt if args.prompt.startswith("\n") else "\n" + args.prompt
+    ids = m.bpe.encode(text)
+    if len(ids) > P:
+        print(f"prompt has {len(ids)} tokens; the model reads the first {P}", file=sys.stderr)
+    if len(ids) < P:
+        print(f"prompt has {len(ids)} tokens, fewer than the {P} used in training; the rest is masked padding",
+              file=sys.stderr)
+    row = (ids[:P] + [tinystories.PAD_ID] * P)[:P]
+    prefix = mx.broadcast_to(mx.array(row, dtype=mx.int32), (args.n, P))
+    g = sample.generate(m, prefix, temperature=args.temperature, top_k=args.top_k, top_p=args.top_p, seed=args.seed)
+    shown = m.bpe.decode([t for t in row if t != tinystories.PAD_ID], skip_special=True)
+    for i, tokens in enumerate(np.array(g.tokens)):
+        print(f"--- continuation {i}\n{shown}[|]{m.decode(tokens)}")
     return 0
 
 
@@ -266,6 +317,16 @@ def register_text(osub) -> None:
         sp.add_argument("--resume", action="store_true", help="restore the full training state from out_dir")
         sp.add_argument("--cpu", action="store_true")
         sp.set_defaults(fn=cmd_train_text)
+    sp = osub.add_parser("continue-text", help="continue a prompt with a prefix-conditioned text checkpoint")
+    sp.add_argument("--weights", required=True, help="<out_dir>/export of a run with data.prefix_len > 0")
+    sp.add_argument("--prompt", required=True)
+    sp.add_argument("--n", type=int, default=2)
+    sp.add_argument("--temperature", type=float, default=1.0)
+    sp.add_argument("--top-k", type=int, default=0)
+    sp.add_argument("--top-p", type=float, default=1.0)
+    sp.add_argument("--seed", type=int, default=0)
+    sp.add_argument("--cpu", action="store_true")
+    sp.set_defaults(fn=cmd_continue_text)
     sp = osub.add_parser("eval-text", help="held-out, free-running and scorer evaluation of text models")
     sp.add_argument("--config", required=True)
     sp.add_argument("--models", nargs="+", default=["data", "official", "ncm", "ar"],
@@ -288,9 +349,9 @@ def register(sub) -> None:
     tasks = list(specs.TASKS)
     register_text(osub)
 
-    def add(name, fn, help_, default_task="tinystories"):
+    def add(name, fn, help_, default_task="tinystories", choices=tasks):
         sp = osub.add_parser(name, help=help_)
-        sp.add_argument("--task", choices=tasks, default=default_task)
+        sp.add_argument("--task", choices=choices, default=default_task)
         sp.set_defaults(fn=fn)
         return sp
 
@@ -299,11 +360,17 @@ def register(sub) -> None:
     sp = add("convert", cmd_convert, "convert release .pt files to MLX safetensors")
     sp.add_argument("--src", help="release files (default artifacts/official/<task dir>)")
     sp.add_argument("--weights", help="output directory (default <src>/mlx)")
+    sp = add("codec", cmd_codec, "encode token-id rows with a converted codec (the only command for XSum and WMT14)",
+             "xsum")
+    sp.add_argument("--ids", required=True, help="JSON list of token-id rows, one row of seq_len ids per input")
+    sp.add_argument("--weights", help="converted checkpoint directory")
+    sp.add_argument("--cpu", action="store_true", help="run on mx.cpu instead of the GPU")
+    sp.add_argument("--out")
     for name, fn, help_, task in (
             ("generate", cmd_generate, "sample text and show per-level refinement", "tinystories"),
             ("sudoku", cmd_sudoku, "solve the published Sudoku test boards", "sudoku-easy"),
             ("bench", cmd_bench, "synchronized generation latency", "tinystories")):
-        sp = add(name, fn, help_, task)
+        sp = add(name, fn, help_, task, specs.GENERATOR_TASKS)
         sp.add_argument("--weights", help="converted checkpoint directory")
         sp.add_argument("--cpu", action="store_true", help="run on mx.cpu instead of the GPU")
         sp.add_argument("--seed", type=int, default=0)

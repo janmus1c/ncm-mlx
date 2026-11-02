@@ -22,6 +22,10 @@ def run_text_eval(cfg: TextConfig, args, runtime: dict, log=print) -> dict:
     from ncm_mlx.official import trainer
     from ncm_mlx.official.ar import ar_report
 
+    if cfg.data.prefix_len:
+        from ncm_mlx.official.prefix_eval import run_prefix_eval
+
+        return run_prefix_eval(cfg, args, runtime, log)
     d = cfg.data
     directory = ts.split_dir(Path(d.cache_root), d.seq_len, d.limit)
     manifest = json.loads((directory / "manifest.json").read_text())

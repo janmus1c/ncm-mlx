@@ -110,8 +110,12 @@ class Scorer:
         self.model, self.tokenizer = load(str(path))
         self.path = path
 
-    def token_nll(self, texts: list[str], batch: int = 32, max_tokens: int = 1024) -> list[tuple[float, int]]:
-        """Per text: summed NLL of tokens 2..n given their prefix, and the number of scored tokens."""
+    def token_nll(self, texts: list[str], batch: int = 32, max_tokens: int = 1024,
+                  skip: list[int] | None = None) -> list[tuple[float, int]]:
+        """Per text: summed NLL of tokens 2..n given their prefix, and the number of scored tokens.
+
+        ``skip[i]`` leading tokens of text ``i`` are read as context but not counted.
+        """
         enc = [self.tokenizer.encode(t)[:max_tokens] if t else [] for t in texts]
         order = sorted(range(len(enc)), key=lambda i: len(enc[i]))
         out: list[tuple[float, int]] = [(0.0, 0)] * len(enc)
@@ -124,7 +128,7 @@ class Scorer:
             mask = np.zeros((len(idx), T), dtype=np.float32)
             for r, i in enumerate(idx):
                 ids[r, : len(enc[i])] = enc[i]
-                mask[r, : len(enc[i])] = 1
+                mask[r, (skip[i] if skip is not None else 0) : len(enc[i])] = 1
             x = mx.array(ids)
             logits = self.model(x[:, :-1]).astype(mx.float32)
             logp = logits - mx.logsumexp(logits, axis=-1, keepdims=True)
@@ -137,11 +141,19 @@ class Scorer:
         return out
 
 
-def gen_ppl(scorer: Scorer, texts_by_seed: dict[int, list[str]]) -> dict:
+def gen_ppl(scorer: Scorer, texts_by_seed: dict[int, list[str]], prefixes: list[str] | None = None) -> dict:
+    """Generative perplexity per seed. With ``prefixes`` (one per sample, the same list for every seed) the
+    scorer reads ``prefix + continuation`` but only tokens after the prefix's own GPT-2 token count are scored."""
     per = {}
     unscorable = 0
+    skip = None
+    if prefixes is not None:
+        skip = [len(scorer.tokenizer.encode(p)) if p else 0 for p in prefixes]
     for seed, texts in texts_by_seed.items():
-        res = scorer.token_nll(texts)
+        if prefixes is None:
+            res = scorer.token_nll(texts)
+        else:
+            res = scorer.token_nll([p + t if t else "" for p, t in zip(prefixes, texts)], skip=skip)
         unscorable += sum(c == 0 for _, c in res)
         nll, cnt = sum(a for a, _ in res), sum(c for _, c in res)
         per[seed] = round(math.exp(nll / max(cnt, 1)), 3)

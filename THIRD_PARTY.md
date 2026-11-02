@@ -6,6 +6,13 @@ This repository's original implementation and documentation are licensed under [
 
 The architecture originates in [Next-Concept Modeling: Fast, Parallel Coarse-to-Fine Text Generation](https://arxiv.org/abs/2610.14162), Kumbong et al. (2026). The [HazyResearch reference implementation](https://github.com/HazyResearch/ncm) has an [MIT license](https://github.com/HazyResearch/ncm/blob/main/LICENSE), copyright 2025 Hermann Kumbong. NCM-MLX independently implements the architecture; no upstream source code is copied. The [upstream map](docs/research/upstream-map.md) describes conceptual correspondences and differences. Preserve the upstream notice with any future copied code.
 
+## Red-fuchs/ncm-modular
+
+Two features of this release follow [Red-fuchs/ncm-modular](https://github.com/Red-fuchs/ncm-modular) (MIT, Copyright (c) 2026 the ncm-modular authors; reviewed at `eae154b`). No code from it is copied or vendored; the code here is written against this repository's own modules. Keep the ncm-modular MIT notice with any future copied code.
+
+- **XSum and WMT14 codecs.** ncm-modular established that these checkpoints need GroupNorm-normalized level-0 resampling and reported the WMT14 level-9 observation. It served as a reference for cross-checks during development. The source tokenizers it names (`openai-community/gpt2`, `Qwen/Qwen3-0.6B`) are not downloaded or redistributed. `tests/fixtures/official_codec_configs.json` restates the `tokenizer.vqvae` sections of two upstream `config.yaml` files as data (HazyResearch, MIT, Copyright (c) 2025 Hermann Kumbong), and `tests/fixtures/official_codec_parity.json` holds token ids and codes computed with upstream PyTorch.
+- **Prefix-conditioned text training.** The prompt-conditioned training in `ncm_mlx/official/` (`data.prefix_len`) follows the design of ncm-modular's prefix-conditioned NCM loop (MASSIVE pilot, `RESULTS.md` section 3): a frozen codec over the target, a pad-masked prefix of text tokens that attends only to itself, level 0 predicted from the prefix, and block-diagonal per-level attention.
+
 ## Datasets
 
 | Data | Origin and use | License and distribution |

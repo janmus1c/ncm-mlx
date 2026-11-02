@@ -16,6 +16,10 @@ Data contract (one row per story, the upstream generation contract):
   opening and usually run to the 128-token limit without an EOS, which matches
   story-anchored windows; later windows of long stories are not used.
 * The null prefix is a single EOS token (the previous story's end).
+* Continuation task (``prefix_len`` P > 0): a row is the first ``P + seq_len`` tokens of the
+  same story, the first P being the prefix and the next ``seq_len`` the target. Stories whose
+  first P tokens are not all real tokens (story shorter than P + 1 tokens) are dropped from all
+  splits. Split membership is unchanged: it is decided per story before the filter.
 * Train rows come from the V2 train file. The V2 validation file is split by a
   hash of the story text into validation and test halves, and any story whose
   stripped text also occurs in the train file is removed from both, so held-out
@@ -161,23 +165,24 @@ def _atomic_npy(path: Path, arr: np.ndarray) -> None:
     os.replace(tmp, path)
 
 
-def split_dir(root: Path, seq_len: int, limit: int = 0) -> Path:
-    name = f"v2-bpe8192-L{seq_len}"
+def split_dir(root: Path, seq_len: int, limit: int = 0, prefix_len: int = 0) -> Path:
+    name = f"v2-bpe8192-L{seq_len}" + (f"-P{prefix_len}" if prefix_len else "")
     return root / (f"{name}-first{limit}" if limit else name)
 
 
 def prepare(raw: Path, root: Path, bpe_path: Path, seq_len: int = 128, workers: int = 0,
-            limit: int = 0, log=print) -> dict:
-    """Tokenize the pinned files into ``(N, seq_len)`` uint16 arrays; return the manifest.
+            limit: int = 0, log=print, prefix_len: int = 0) -> dict:
+    """Tokenize the pinned files into ``(N, prefix_len + seq_len)`` uint16 arrays; return the manifest.
 
     ``limit`` keeps only the first stories of each file (tests and smoke runs).
     """
-    out = split_dir(root, seq_len, limit)
+    out = split_dir(root, seq_len, limit, prefix_len)
     manifest_path = out / "manifest.json"
     bpe_digest = sha256(bpe_path)
     if manifest_path.exists():
         m = json.loads(manifest_path.read_text())
-        if m.get("cache_version") == CACHE_VERSION and m.get("bpe_sha256") == bpe_digest:
+        if (m.get("cache_version") == CACHE_VERSION and m.get("bpe_sha256") == bpe_digest
+                and m.get("prefix_len", 0) == prefix_len):
             return m
     if not limit:
         verify(raw)
@@ -196,15 +201,21 @@ def prepare(raw: Path, root: Path, bpe_path: Path, seq_len: int = 128, workers: 
         f"removed {overlap} held-out stories also in train")
     counts = {}
     for name, stories in (("train", train), ("val", val), ("test", test)):
-        arr = encode_all(bpe_path, stories, seq_len, workers)
+        arr = encode_all(bpe_path, stories, prefix_len + seq_len, workers)
+        dropped = 0
+        if prefix_len:
+            keep = (arr[:, :prefix_len] > max(EOS_ID, PAD_ID)).all(1)
+            dropped = int((~keep).sum())
+            arr = arr[keep]
         _atomic_npy(out / f"{name}.npy", arr)
-        real = (arr != PAD_ID).sum(1)
+        real = (arr[:, prefix_len:] != PAD_ID).sum(1)
         counts[name] = {
-            "stories": len(stories),
-            "positions": int(arr.size),
+            "stories": len(stories) - dropped,
+            **({"dropped_shorter_than_prefix": dropped} if prefix_len else {}),
+            "positions": int(arr[:, prefix_len:].size),
             "non_pad_tokens": int(real.sum()),
-            "pad_fraction": round(float((arr == PAD_ID).mean()), 4),
-            "with_eos_in_window": round(float((arr == EOS_ID).any(1).mean()), 4),
+            "pad_fraction": round(float((arr[:, prefix_len:] == PAD_ID).mean()), 4),
+            "with_eos_in_window": round(float((arr[:, prefix_len:] == EOS_ID).any(1).mean()), 4),
         }
         log(f"{name}: {counts[name]}")
     manifest = {
@@ -213,6 +224,7 @@ def prepare(raw: Path, root: Path, bpe_path: Path, seq_len: int = 128, workers: 
         "files": {k: v for k, v in FILES.items()},
         "bpe_sha256": bpe_digest, "seq_len": seq_len, "eos_id": EOS_ID, "pad_id": PAD_ID,
         "limit": limit, "heldout_overlap_removed": overlap,
+        **({"prefix_len": prefix_len} if prefix_len else {}),
         "split": "train file -> train; valid file -> val/test by sha1(story.strip()) parity",
         "splits": counts,
     }
