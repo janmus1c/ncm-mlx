@@ -22,7 +22,7 @@ This is an optional navigation file following the llms.txt proposal, not a unive
 - [Citation](https://github.com/janmus1c/ncm-mlx/blob/main/CITATION.cff): software citation metadata and upstream attribution.
 
 - [Working paper](https://github.com/janmus1c/ncm-mlx/blob/main/docs/paper.md): manuscript, figure data and downloadable editions.
-- [Software DOI](https://doi.org/10.5281/zenodo.23781233): archived software, all versions from 0.2.0, resolving to the latest, 0.4.0 (0.3.0: https://doi.org/10.5281/zenodo.23898701; 0.2.0: https://doi.org/10.5281/zenodo.23781234; 0.1.x: https://doi.org/10.5281/zenodo.23620791).
+- [Software DOI](https://doi.org/10.5281/zenodo.23781233): archived software, all versions from 0.2.0, resolving to the latest, 0.4.0 (0.4.0: https://doi.org/10.5281/zenodo.23953482; 0.3.0: https://doi.org/10.5281/zenodo.23898701; 0.2.0: https://doi.org/10.5281/zenodo.23781234; 0.1.x: https://doi.org/10.5281/zenodo.23620791).
 - [Paper DOI](https://doi.org/10.5281/zenodo.23953213): unreviewed working paper version 0.13, adding the TinyStories scaling study (generator size and data), bf16 parity and the released XSum generator (previous version 0.12: https://doi.org/10.5281/zenodo.23897923).
 - [Earlier paper archive](https://doi.org/10.5281/zenodo.23640777): immutable working paper version 0.10.
 - [Two-seed assessment](https://janmus1c.github.io/ncm-mlx/research/e20-seed-report/): completed E20, hard-board failures, evidence limitations and planned text research.

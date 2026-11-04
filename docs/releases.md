@@ -24,7 +24,7 @@ Software 0.4.0 is the code behind working paper v0.13.
 - **Configurations and demos.** The configurations of the scaling study (`configs/tinystories-ladder-*.json` and the follow-ups), `scripts/text_step_timing.py`, level-by-level demo figures (`scripts/render_pass_demos.py`), and a rewritten README.
 - **MLX 0.32.4** replaces 0.32.3 in the pinned dependencies. Tiny CPU training runs give bit-identical checkpoints under both versions, and the checkpoint parity tests are unchanged.
 
-Gradient accumulation, used for four of the follow-up runs on a 12 GB card, is not part of this release. Zenodo archives the release under the concept DOI [10.5281/zenodo.23781233](https://doi.org/10.5281/zenodo.23781233).
+Gradient accumulation, used for four of the follow-up runs on a 12 GB card, is not part of this release. Zenodo archives the release under the concept DOI [10.5281/zenodo.23781233](https://doi.org/10.5281/zenodo.23781233); version DOI [10.5281/zenodo.23953482](https://doi.org/10.5281/zenodo.23953482).
 
 ## Version 0.3.0 — XSum and WMT14 codecs and prompt-prefix text training
 

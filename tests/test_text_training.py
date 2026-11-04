@@ -14,10 +14,11 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from mlx import nn
-from mlx.utils import tree_flatten
 
 mx = pytest.importorskip("mlx.core")
+
+from mlx import nn
+from mlx.utils import tree_flatten
 
 from ncm_mlx.official import ar as ar_mod
 from ncm_mlx.official import sample, trainer

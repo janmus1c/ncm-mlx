@@ -106,11 +106,11 @@ If you use the method, cite the paper by Kumbong et al.:
 }
 ```
 
-To cite this implementation, use the [archived software](https://doi.org/10.5281/zenodo.23781233) (this DOI covers all versions from 0.2.0 and resolves to the latest, 0.4.0; v0.3.0: [10.5281/zenodo.23898701](https://doi.org/10.5281/zenodo.23898701)) and the [working paper v0.13](https://doi.org/10.5281/zenodo.23953213) (all versions: [10.5281/zenodo.23620913](https://doi.org/10.5281/zenodo.23620913)), which reports the experiments and limitations and has not been peer reviewed. [`CITATION.cff`](CITATION.cff) has the metadata.
+To cite this implementation, use the [archived software](https://doi.org/10.5281/zenodo.23781233) (this DOI covers all versions from 0.2.0 and resolves to the latest; v0.4.0: [10.5281/zenodo.23953482](https://doi.org/10.5281/zenodo.23953482)) and the [working paper v0.13](https://doi.org/10.5281/zenodo.23953213) (all versions: [10.5281/zenodo.23620913](https://doi.org/10.5281/zenodo.23620913)), which reports the experiments and limitations and has not been peer reviewed. [`CITATION.cff`](CITATION.cff) has the metadata.
 
 ## License and acknowledgements
 
-MIT licence, see [`LICENSE`](LICENSE), with provenance notes in [`THIRD_PARTY.md`](THIRD_PARTY.md). The source release contains no model weights or downloaded evaluation data; the Sudoku and TinyWorld weights trained here are on Hugging Face as [ncm-mlx-sudoku](https://huggingface.co/janmusic/ncm-mlx-sudoku) and [ncm-mlx-tinyworld](https://huggingface.co/janmusic/ncm-mlx-tinyworld).
+MIT licence, see [`LICENSE`](LICENSE), with provenance notes in [`THIRD_PARTY.md`](THIRD_PARTY.md). The source release contains no model weights or downloaded evaluation data; the weights trained here are on Hugging Face: Sudoku [ncm-mlx-sudoku](https://huggingface.co/janmusic/ncm-mlx-sudoku), TinyWorld [ncm-mlx-tinyworld](https://huggingface.co/janmusic/ncm-mlx-tinyworld), and the 87M TinyStories NCM and its 91M AR baseline from the scaling study, [ncm-tinystories-87m-x4-mlx](https://huggingface.co/janmusic/ncm-tinystories-87m-x4-mlx) and [ar-tinystories-91m-x4-mlx](https://huggingface.co/janmusic/ar-tinystories-91m-x4-mlx).
 
 The method, the released checkpoints and the reference [PyTorch code](https://github.com/HazyResearch/ncm) (MIT) are by Hermann Kumbong, Ishan S. Khare, Iddah Mlauzi, Andrew Woen, Charles Ding, E. Kelly Buchanan, Simran Arora, Azalia Mirhoseini and Christopher Ré. No upstream code is copied here. The XSum and WMT14 codec support and prompt-prefix training in 0.3.0 follow work by Red-fuchs in [ncm-modular](https://github.com/Red-fuchs/ncm-modular). Built with [MLX](https://github.com/ml-explore/mlx).
 

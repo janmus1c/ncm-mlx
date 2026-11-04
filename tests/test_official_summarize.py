@@ -15,6 +15,9 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+
+pytest.importorskip("mlx.core")
+
 from test_official_prefix_cache import prefixes, tiny
 
 from ncm_mlx.official import convert, spec, summarize
