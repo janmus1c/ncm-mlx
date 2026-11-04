@@ -22,6 +22,7 @@ class Official:
     gen: Generator
     bpe: BPETokenizer | None
     level0_unigram: mx.array | None
+    token_unigram: mx.array | None = None
 
     def decode(self, tokens) -> str:
         """Text for one row of decoder tokens, following the upstream evaluation's cleanup."""
@@ -31,7 +32,8 @@ class Official:
         eos, pad = self.task.eos_id, self.task.pad_id
         if eos in ids:
             ids = ids[: ids.index(eos)]
-        return self.bpe.decode([t for t in ids if t not in (eos, pad)], skip_special=True)
+        n = self.bpe.vocab_size
+        return self.bpe.decode([t for t in ids if t not in (eos, pad) and 0 <= t < n], skip_special=True)
 
 
 def load(directory: str | Path) -> Official:
@@ -47,11 +49,14 @@ def load(directory: str | Path) -> Official:
     gen.load_weights(str(d / "generator.safetensors"), strict=True)
     codec.eval()
     gen.eval()
-    unigram = None
+    unigram = token_unigram = None
     if (d / "inference.safetensors").exists():
-        unigram = mx.load(str(d / "inference.safetensors"))["level0_unigram"]
-    bpe = BPETokenizer.load(d / "bpe.json") if task.tokenizer == "bpe" else None
-    return Official(task, codec, gen, bpe, unigram)
+        inference = mx.load(str(d / "inference.safetensors"))
+        unigram, token_unigram = inference.get("level0_unigram"), inference.get("token_unigram")
+    bpe = None
+    if task.tokenizer in ("bpe", "gpt2"):
+        bpe = BPETokenizer.load(d / ("bpe.json" if task.tokenizer == "bpe" else "gpt2.json"))
+    return Official(task, codec, gen, bpe, unigram, token_unigram)
 
 
 def load_codec(directory: str | Path) -> tuple[specs.TaskSpec, Codec]:
@@ -68,7 +73,7 @@ def load_codec(directory: str | Path) -> tuple[specs.TaskSpec, Codec]:
 
 def sample_codes(logits: mx.array, temperature: float, top_k: int, top_p: float, key) -> mx.array:
     """Upstream sampling semantics: greedy at temperature 0, else temperature, top-k, nucleus."""
-    if temperature == 0:
+    if temperature == 0 or top_k == 1:
         return mx.argmax(logits, axis=-1)
     logits = logits / temperature
     if top_k > 0:
@@ -138,13 +143,14 @@ class Generation:
     tokens: mx.array
     per_level_tokens: list[mx.array] | None
     level_logits: list[mx.array] | None
+    final: mx.array | None = None
 
 
 def generate(m: Official, prefix_tokens: mx.array, temperature: float = 1.0, top_k: int = 0,
              top_p: float = 1.0, seed: int = 0, level0: mx.array | None = None,
              keep_levels: bool = False, keep_logits: bool = False,
              forced: list[mx.array] | None = None, prefix_cache: bool = True,
-             compiled: bool = False) -> Generation:
+             compiled: bool = False, cfg_scale: float = 0.0) -> Generation:
     """Sample every level with one generator forward each; decode the final reconstruction.
 
     Level 0 comes from ``level0`` when given, else from learned level-0 queries
@@ -159,11 +165,29 @@ def generate(m: Official, prefix_tokens: mx.array, temperature: float = 1.0, top
     in every level. ``compiled`` additionally wraps the per-level step in
     ``mx.compile`` (requires the prefix cache); the first call at each batch size
     pays the tracing cost.
+
+    ``cfg_scale > 0`` turns on classifier-free guidance with upstream's schedule: the batch is
+    doubled with a null prefix (padding everywhere except the first position, which holds the
+    end-of-text token), and at level ``k`` of ``K`` the conditional and null logits are mixed as
+    ``(1 + t) cond - t null`` with ``t = cfg_scale * k / (K - 1)``. Both halves continue with the
+    same sampled codes. ``keep_logits`` then records the raw logits of the doubled batch.
     """
     if compiled and not prefix_cache:
         raise ValueError("compiled sampling requires the prefix cache")
     codec, gen = m.codec, m.gen
     keys = mx.random.split(mx.random.key(seed), len(codec.levels) + 1)
+    B0 = prefix_tokens.shape[0]
+    if cfg_scale > 0:
+        pad = gen.spec.prefix_pad_id
+        if pad is None or m.task.eos_id is None:
+            raise ValueError("classifier-free guidance needs a prefix padding id and an end-of-text id")
+        null = mx.concatenate([mx.full((B0, 1), m.task.eos_id, dtype=prefix_tokens.dtype),
+                               mx.full((B0, prefix_tokens.shape[1] - 1), pad, dtype=prefix_tokens.dtype)], axis=1)
+        prefix_tokens = mx.concatenate([prefix_tokens, null], axis=0)
+        if level0 is not None:
+            level0 = mx.concatenate([level0, level0], axis=0)
+        if forced is not None:
+            forced = [mx.concatenate([f, f], axis=0) for f in forced]
     B = prefix_tokens.shape[0]
     logits_seen = []
     if prefix_cache:
@@ -180,6 +204,11 @@ def generate(m: Official, prefix_tokens: mx.array, temperature: float = 1.0, top
             logits_seen.append(logits)
         if forced is not None:
             return forced[j + gen.first]
+        if cfg_scale > 0:
+            t = cfg_scale * (j + gen.first) / max(len(codec.levels) - 1, 1)
+            mixed = (1.0 + t) * logits[:B0] - t * logits[B0:]
+            c = sample_codes(mixed, temperature, top_k, top_p, key)
+            return mx.concatenate([c, c], axis=0)
         return sample_codes(logits, temperature, top_k, top_p, key)
 
     if level0 is None and forced is not None and not gen.spec.query_level0:
@@ -204,9 +233,10 @@ def generate(m: Official, prefix_tokens: mx.array, temperature: float = 1.0, top
         z, nxt = out if k + 1 < n_levels else (out, None)
         if keep_levels:
             per_level.append(z)
-    tokens = _finish_fn(m, compiled)(z)
-    level_tokens = [mx.argmax(codec.decode_logits(zk), axis=-1) for zk in per_level] if keep_levels else None
-    return Generation(codes, tokens, level_tokens, logits_seen if keep_logits else None)
+    tokens = _finish_fn(m, compiled)(z[:B0])
+    level_tokens = [mx.argmax(codec.decode_logits(zk[:B0]), axis=-1) for zk in per_level] if keep_levels else None
+    return Generation([c[:B0] for c in codes], tokens, level_tokens, logits_seen if keep_logits else None,
+                      z[:B0])
 
 
 def unconditional_prefix(m: Official, batch: int) -> mx.array:

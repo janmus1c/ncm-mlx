@@ -150,7 +150,8 @@ def sha256(path: Path) -> str:
 
 
 def verify_files(task: specs.TaskSpec, src: Path) -> None:
-    for name, digest in task.files.items():
+    pinned = {**task.files, **{n: d for n, (_, d) in task.aux_files.items() if n.startswith("gpt2/")}}
+    for name, digest in pinned.items():
         path = src / name
         if not path.exists():
             raise SystemExit(f"missing {path}; run `python -m ncm_mlx official fetch --task {task.name}`")
@@ -158,10 +159,30 @@ def verify_files(task: specs.TaskSpec, src: Path) -> None:
             raise SystemExit(f"SHA-256 mismatch for {path}; expected the pinned release file")
 
 
+def _download(url: str, target: Path, digest: str) -> None:
+    if target.exists() and sha256(target) == digest:
+        print(f"ok      {target}")
+        return
+    target.parent.mkdir(parents=True, exist_ok=True)
+    h = hashlib.sha256()
+    with urlopen(url, timeout=120) as r, tempfile.NamedTemporaryFile(dir=target.parent, delete=False) as f:
+        tmp = Path(f.name)
+        for chunk in iter(lambda: r.read(1 << 20), b""):
+            h.update(chunk)
+            f.write(chunk)
+    if h.hexdigest() != digest:
+        tmp.unlink()
+        raise SystemExit(f"SHA-256 mismatch while downloading {target.name}")
+    tmp.replace(target)
+    print(f"fetched {target}")
+
+
 def fetch(task: specs.TaskSpec, dest: Path) -> None:
-    """Download the pinned release files for ``task`` into ``dest`` and verify them."""
+    """Download the pinned release files (and, for XSum, tokenizer files and test data) into ``dest``."""
     base = f"https://huggingface.co/{specs.REPO}/resolve/{specs.REVISION}/{task.remote_dir}"
     dest.mkdir(parents=True, exist_ok=True)
+    for name, (url, digest) in task.aux_files.items():
+        _download(url, dest / name, digest)
     for name, digest in task.files.items():
         target = dest / name
         if target.exists() and sha256(target) == digest:
@@ -203,6 +224,52 @@ def convert_bpe(src: Path, out: Path) -> None:
         raise ValueError("BPE merges are not byte pairs")
     BPETokenizer([vocab[i] for i in range(len(vocab))], list(merges),
                  ["<|endoftext|>", "<|pad|>"]).save(out / "bpe.json")
+
+
+def _byte_decoder() -> dict[str, int]:
+    """Inverse of the byte-to-printable-character table that byte-level BPE vocabularies are stored in."""
+    keep = list(range(ord("!"), ord("~") + 1)) + list(range(ord("\xa1"), ord("\xac") + 1)) + \
+        list(range(ord("\xae"), ord("\xff") + 1))
+    chars, extra = list(keep), 0
+    for b in range(256):
+        if b not in keep:
+            keep.append(b)
+            chars.append(256 + extra)
+            extra += 1
+    return {chr(c): b for b, c in zip(keep, chars)}
+
+
+def convert_gpt2(task: specs.TaskSpec, src: Path, out: Path) -> None:
+    """``vocab.json`` + ``merges.txt`` of GPT-2 into the byte-level JSON the MLX tokenizer reads.
+
+    Ids ``0..50256`` are the released vocabulary; the extra ``<|pad|>`` token that the upstream
+    pre-tokenizer adds gets the next id (50257), as in the configuration's ``prefix_pad_token_id``.
+    """
+    from ncm_mlx.official.bpe import BPETokenizer
+
+    dec = _byte_decoder()
+
+    def to_bytes(piece: str) -> bytes:
+        return bytes(dec[c] for c in piece)
+
+    vocab = json.loads((src / "gpt2/vocab.json").read_text(encoding="utf-8"))
+    if sorted(vocab.values()) != list(range(len(vocab))):
+        raise ValueError("GPT-2 vocabulary ids are not contiguous")
+    table = [b""] * len(vocab)
+    for piece, i in vocab.items():
+        table[i] = to_bytes(piece)
+    lines = (src / "gpt2/merges.txt").read_text(encoding="utf-8").split("\n")
+    if not lines[0].startswith("#version"):
+        raise ValueError("unexpected merges.txt header")
+    merges = []
+    for line in lines[1:]:
+        if line:
+            a, b = line.split(" ")
+            merges.append((to_bytes(a), to_bytes(b)))
+    if task.generator.prefix_pad_id != len(table):
+        raise ValueError("the pad token must directly follow the GPT-2 vocabulary")
+    table.append(b"<|pad|>")
+    BPETokenizer(table, merges, ["<|endoftext|>", "<|pad|>"]).save(out / "gpt2.json")
 
 
 def convert_codec(task: specs.TaskSpec, src: Path, out: Path) -> dict:
@@ -251,8 +318,15 @@ def convert(task: specs.TaskSpec, src: Path, out: Path) -> dict:
     mx.save_safetensors(str(out / "generator.safetensors"), {k: mx.array(v) for k, v in gen_w.items()})
     extras = {}
     inference = gen_ck.get("inference", {})
-    if set(inference) - {"level0_unigram"}:
+    if set(inference) - {"level0_unigram", "token_unigram"}:
         raise ValueError(f"unexpected inference entries {sorted(inference)}")
+    if "token_unigram" in inference:
+        p = np.asarray(inference["token_unigram"], dtype=np.float32)
+        if p.shape != (task.codec.vocab_size,) or (p < 0).any() or not np.isclose(p.sum(), 1, atol=1e-4):
+            raise ValueError("token unigram is not a distribution over the decoder vocabulary")
+        extras["token_unigram"] = mx.array(p)
+    if task.decoding is not None and task.decoding.frequency_penalty > 0 and "token_unigram" not in extras:
+        raise ValueError("the frequency penalty needs the stored token unigram")
     if "level0_unigram" in inference:
         p = np.asarray(inference["level0_unigram"], dtype=np.float32)
         if p.shape != (task.codec.codebook_sizes[0],) or (p < 0).any() or not np.isclose(p.sum(), 1, atol=1e-4):
@@ -264,8 +338,11 @@ def convert(task: specs.TaskSpec, src: Path, out: Path) -> dict:
         mx.save_safetensors(str(out / "inference.safetensors"), extras)
     if task.tokenizer == "bpe":
         convert_bpe(src, out)
+    elif task.tokenizer == "gpt2":
+        convert_gpt2(task, src, out)
     meta = {"task": task.to_json(), "source": {"repo": specs.REPO, "revision": specs.REVISION,
-                                               "files": task.files},
+                                               "files": task.files,
+                                               "aux_files": {n: d for n, (_, d) in task.aux_files.items()}},
             "dropped_upstream_tensors": sorted(codec_drop + gen_drop)}
     (out / "spec.json").write_text(json.dumps(meta, indent=2) + "\n")
     return {"codec_tensors": len(codec_w), "generator_tensors": len(gen_w),

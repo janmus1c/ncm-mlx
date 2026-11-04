@@ -14,6 +14,36 @@ NCM-MLX independently implements the two-stage architecture of [Next-Concept Mod
   <img src="assets/architecture-dark.svg" alt="Train a codec, freeze it, then train a next-concept generator over its coarse-to-fine hierarchy." width="1080">
 </picture>
 
+## In plain terms
+
+An ordinary language model writes one token per model call: 32 characters means 32 calls in sequence. NCM splits generation into a few **levels**. Each level is one model call that predicts all of its positions in parallel, conditioned on the coarser levels before it. The TinyWorld recipe uses 6 levels for 32 characters: 6 generator calls and one final codec decode. Sudoku uses 12 levels for 81 cells.
+
+It takes two models, trained one after the other:
+
+1. **Codec.** It learns to compress a sentence into a ladder of discrete codes and rebuild it. Level 0 is a single coarse code; each finer level corrects what the coarser ones got wrong (a *residual*). This works like a progressive JPEG for text.
+2. **Generator.** With the codec frozen, it learns to produce that ladder from the top down: given levels 0..k−1, predict every code of level k at once.
+
+## How generation works
+
+<picture>
+  <source media="(max-width: 600px)" srcset="assets/generation-mobile-dark.svg">
+  <img src="assets/generation-dark.svg" alt="TinyWorld generates 1, 2, 4, 8, 16 and 32 code positions, one level per forward pass, followed by one final decode." width="1080">
+</picture>
+
+The generator makes 6 forward passes, whatever the batch size, plus one decoder pass. The repo's tests prove that running it level by level produces exactly the logits seen in training (`tests/test_mlx_core.py`).
+
+A real refinement trace, including its failure:
+
+```
+after level 0   eue likes one oed egg.      1 code      a rough guess at the whole sentence
+after level 1   eve likes one oig egg.      2 codes
+after level 2   dee likes one red egg.      4 codes     structure and most words settled
+after level 3   dee likes one ret egg.      8 codes     ← a fine level breaks "red"
+after level 5   dee likes one ret egg.      32 codes    final: invalid (spelling)
+```
+
+A real sample from the trained model (`mise run demo`), chosen because it shows both the refinement and the typical failure. 90% of samples at temperature 1.0 are valid; see [benchmarks](benchmarks.md#tinyworld-e1-in-detail).
+
 ## The codec
 
 An encoder maps a fixed-length token sequence to continuous vectors. At each level, the residual vector quantizer pools the remaining residual to that level's length, assigns its nearest codebook entries, upsamples the selected vectors, and refines them with a blended convolution. It adds this contribution to the reconstruction and removes it from the residual before processing the next level. The decoder turns the cumulative reconstruction back into token logits.
@@ -58,6 +88,22 @@ Teacher forcing supplies true coarse codes during training; inference supplies t
 The implementation uses MLX and NumPy. It does not import the upstream PyTorch modules. Released upstream checkpoints load only through the separate inference port in `ncm_mlx/official/` ([official checkpoints](official-checkpoints.md)), not through the training models described here. Differences include tokenization, sequence lengths, decoder positions, codebook-update timing and training recipes; Sudoku and TinyWorld also use different codec designs. See the [upstream map](research/upstream-map.md) for the detailed comparison.
 
 Generator training can use `mx.compile` when `train.compile` is true. Codec training, autoregressive training, and both generation samplers are currently uncompiled. Compilation status and number of forwards describe different costs; neither alone establishes wall-clock speed. See [benchmark methodology](benchmarks.md).
+
+## What is faithful to NCM and what is not
+
+| | Status |
+|---|---|
+| Two-stage codec → generator | Same as upstream |
+| Multiscale residual VQ: area downsample, linear upsample, per-level blend conv, EMA codebooks, commitment loss, fine-level dropout | Same as upstream |
+| Block-diagonal generator, per-level RoPE, level embeddings, QK-norm, learned level-0 queries | Same as upstream |
+| Encoder and pre-quant norm | TinyWorld: contextual encoder / LayerNorm; later Sudoku: lookup encoder / GroupNorm |
+| Decoder positions, dead-code restart | **Modified** for small scale |
+| Character tokenizer instead of BPE | **Replaced** |
+| Token-prefix conditioning (Sudoku puzzle cells) | Same idea as upstream's `raw_token_prefix` |
+| Learned level-0 resampling | Same idea (`learned_l0`), single layer, lower codec learning rate |
+| Codebook-tied generator heads, CFG, prefix KV cache | **Not implemented in the independent training implementation.** The [official-checkpoint port](official-checkpoints.md) has tied heads, a prefix cache and, for XSum, CFG |
+
+Full source-by-source map: [upstream map](research/upstream-map.md). No upstream code is copied.
 
 ## Source map
 

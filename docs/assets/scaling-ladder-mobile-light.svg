@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 980" role="img" aria-labelledby="title description">
+<title id="title">With a larger generator and more data the NCM/AR ratio falls, and stays above two.</title><desc id="description">NCM over AR ratio of GPT-2-large generative perplexity on TinyStories by generator size. Ratios at 1x data and fp32: 3.33, 2.43, 2.38 for 12M, 50M and 87M generators. Ratios at 4x data and bf16: 3.05, 2.89, 2.21, 2.13 (12M seeds 0 and 1, then 50M and 87M). One training seed per point except the 12M point at 4x data; the 50M to 87M step is within seed variation. Compute is not matched.</desc>
+<rect width="420" height="980" rx="16" fill="#ffffff"/>
+<g font-family="Inter, Helvetica Neue, Arial, sans-serif" fill="#20252b">
+<text x="28" y="48" font-size="26" font-weight="650" fill="#20252b" text-anchor="start">NCM versus AR, by size</text>
+<text x="28" y="80" font-size="17" font-weight="400" fill="#59636e" text-anchor="start">Ratio of GPT-2-large perplexities</text>
+<text x="28" y="104" font-size="17" font-weight="400" fill="#59636e" text-anchor="start">TinyStories · lower is better</text>
+<path d="M72 578.8H398" stroke="#d6dce2" stroke-dasharray="6 5"/>
+<text x="62" y="584.7857142857143" font-size="15" font-weight="400" fill="#59636e" text-anchor="end">1 · parity</text>
+<path d="M72 446.6H398" stroke="#d6dce2"/>
+<text x="62" y="452.6428571428571" font-size="15" font-weight="400" fill="#59636e" text-anchor="end">2</text>
+<path d="M72 314.5H398" stroke="#d6dce2"/>
+<text x="62" y="320.5" font-size="15" font-weight="400" fill="#59636e" text-anchor="end">3</text>
+<text x="120.9" y="622" font-size="16" font-weight="400" fill="#59636e" text-anchor="middle">12M</text>
+<text x="235.0" y="622" font-size="16" font-weight="400" fill="#59636e" text-anchor="middle">50M</text>
+<text x="349.09999999999997" y="622" font-size="16" font-weight="400" fill="#59636e" text-anchor="middle">87M</text>
+<polyline points="120.9,270.9 235.0,389.6 349.1,396.3" fill="none" stroke="#20252b" stroke-width="2"/>
+<polyline points="120.9,318.6 235.0,419.0 349.1,430.1" fill="none" stroke="#20252b" stroke-width="2" stroke-dasharray="7 5"/>
+<circle cx="120.9" cy="270.9" r="7" fill="#ffffff" stroke="#20252b" stroke-width="2"/>
+<text x="108.9" y="258.92562857142855" font-size="17" font-weight="600" fill="#20252b" text-anchor="end">3.33</text>
+<circle cx="235.0" cy="389.6" r="7" fill="#ffffff" stroke="#20252b" stroke-width="2"/>
+<text x="247.0" y="377.6341821428571" font-size="17" font-weight="600" fill="#20252b" text-anchor="start">2.43</text>
+<circle cx="349.1" cy="396.3" r="7" fill="#ffffff" stroke="#20252b" stroke-width="2"/>
+<text x="361.09999999999997" y="384.27924999999993" font-size="17" font-weight="600" fill="#20252b" text-anchor="start">2.38</text>
+<circle cx="120.9" cy="279.7" r="3" fill="#59636e"/>
+<circle cx="120.9" cy="290.2" r="3" fill="#59636e"/>
+<rect x="113.9" y="301.1" width="14" height="14" fill="#20252b" stroke="#20252b" stroke-width="2"/>
+<rect x="113.9" y="322.2" width="14" height="14" fill="#20252b" stroke="#20252b" stroke-width="2"/>
+<path d="M120.9 308.1V329.2" stroke="#20252b" stroke-width="2"/>
+<text x="106.9" y="314.07164642857146" font-size="17" font-weight="600" fill="#20252b" text-anchor="end">3.05</text>
+<text x="106.9" y="335.1543785714286" font-size="17" font-weight="600" fill="#20252b" text-anchor="end">2.89</text>
+<rect x="228.0" y="412.0" width="14" height="14" fill="#20252b" stroke="#20252b" stroke-width="2"/>
+<text x="239.0" y="453.04891785714284" font-size="17" font-weight="600" fill="#20252b" text-anchor="middle">2.21</text>
+<rect x="342.1" y="423.1" width="14" height="14" fill="#20252b" stroke="#20252b" stroke-width="2"/>
+<text x="353.09999999999997" y="464.1191857142858" font-size="17" font-weight="600" fill="#20252b" text-anchor="middle">2.13</text>
+<circle cx="37.0" cy="148.0" r="7" fill="#ffffff" stroke="#20252b" stroke-width="2"/>
+<text x="56" y="154" font-size="16" font-weight="400" fill="#20252b" text-anchor="start">1× data · 960k windows · fp32</text>
+<rect x="30.0" y="171.0" width="14" height="14" fill="#20252b" stroke="#20252b" stroke-width="2"/>
+<text x="56" y="184" font-size="16" font-weight="400" fill="#20252b" text-anchor="start">4× data · 3.84M windows · bf16</text>
+<text x="28" y="658" font-size="14" font-weight="400" fill="#59636e" text-anchor="start">Dashed line joins the 4× points; the 12M point is</text>
+<text x="28" y="682" font-size="14" font-weight="400" fill="#59636e" text-anchor="start">the mean of two seeds. Small dots at 12M: the Mac</text>
+<text x="28" y="706" font-size="14" font-weight="400" fill="#59636e" text-anchor="start">fp32 repeats (E21, E24).</text>
+<text x="28" y="730" font-size="14" font-weight="400" fill="#59636e" text-anchor="start">Frozen E21 codec · 5 sampling seeds × 256 outputs</text>
+<text x="28" y="754" font-size="14" font-weight="400" fill="#59636e" text-anchor="start">per point · one training seed per point except 12M</text>
+<text x="28" y="778" font-size="14" font-weight="400" fill="#59636e" text-anchor="start">at 4×.</text>
+<text x="28" y="802" font-size="14" font-weight="400" fill="#59636e" text-anchor="start">The two 12M seeds at 4× differ more than the 50M</text>
+<text x="28" y="826" font-size="14" font-weight="400" fill="#59636e" text-anchor="start">and 87M points do. The released checkpoint</text>
+<text x="28" y="850" font-size="14" font-weight="400" fill="#59636e" text-anchor="start">(16.259) is not plotted: no AR baseline here</text>
+<text x="28" y="874" font-size="14" font-weight="400" fill="#59636e" text-anchor="start">matches its budget.</text>
+<text x="28" y="898" font-size="14" font-weight="400" fill="#59636e" text-anchor="start">Compute is not matched; GPU and precision differ</text>
+<text x="28" y="922" font-size="14" font-weight="400" fill="#59636e" text-anchor="start">between the two series.</text>
+</g></svg>

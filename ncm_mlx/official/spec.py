@@ -49,6 +49,28 @@ class GeneratorSpec:
 
 
 @dataclass(frozen=True)
+class DecodingSpec:
+    """Generation defaults restated from a ``config.yaml`` ``generation:`` block (summarization tasks).
+
+    ``frequency_*`` and ``adjacency_*`` act on the decoder's token logits, not on the codes:
+    the final reconstruction is read out left to right, one token at a time, with a penalty on
+    tokens used more often than their corpus frequency allows and on tokens seen in the last
+    ``adjacency_window`` positions.
+    """
+
+    temperature: float = 1.0
+    top_k: int = 1
+    top_p: float = 0.0
+    cfg_scale: float = 0.0
+    frequency_penalty: float = 0.0
+    frequency_deficit: float = 0.0
+    adjacency_penalty: float = 0.0
+    adjacency_window: int = 0
+    adjacency_decay: float = 1.0
+    cut_at_eos: bool = True
+
+
+@dataclass(frozen=True)
 class TaskSpec:
     name: str
     remote_dir: str
@@ -59,6 +81,8 @@ class TaskSpec:
     temperature: float = 1.0
     eos_id: int | None = None
     pad_id: int | None = None
+    decoding: DecodingSpec | None = None
+    aux_files: dict[str, tuple[str, str]] = field(default_factory=dict)
 
     def to_json(self) -> dict:
         return asdict(self)
@@ -125,10 +149,17 @@ TASKS.update({t.name: t for t in (
 )})
 
 
-# Codec-only: the generators of these releases condition on source-text prefixes and (XSum) use
-# decoding penalties that this port does not implement, so only the tokenizer checkpoint (the
-# codec) is pinned, converted and run. Level 0 is resampled through parameter-free GroupNorm
-# between and after the strided convolutions.
+# XSum: article tokens (GPT-2 ids) are the 512-token prefix; level 0 comes from learned queries; the
+# generation defaults restate the released config (greedy codes, token-level frequency and adjacency
+# penalties on the decoder logits, no classifier-free guidance). WMT14 is codec-only: its generator,
+# source tokenizer (Qwen3) and decoding are not implemented. Level 0 is resampled through
+# parameter-free GroupNorm between and after the strided convolutions.
+GPT2_REVISION = "607a30d783dfa663caf39e06633721c8d4cfcd7e"
+DATASET_REPO = "hazyresearch/ncm-datasets"
+DATASET_REVISION = "6580ba41a4b0a976dde876fbe84d25327617b0e6"
+_GPT2_URL = f"https://huggingface.co/openai-community/gpt2/resolve/{GPT2_REVISION}"
+_XSUM_DATA_URL = f"https://huggingface.co/datasets/{DATASET_REPO}/resolve/{DATASET_REVISION}/xsum"
+
 TASKS.update({t.name: t for t in (
     TaskSpec(
         name="xsum",
@@ -136,9 +167,27 @@ TASKS.update({t.name: t for t in (
         tokenizer="gpt2",
         codec=CodecSpec(vocab_size=50304, seq_len=48, dim=384, n_head=6, levels=(4, 6, 10, 14, 20, 26, 32, 40, 48),
                         codebook_sizes=(4096,) * 9, l0_strides=(4, 3), cascade_norm=True, cascade_norm_final=True),
-        generator=None,
+        generator=GeneratorSpec(n_layer=12, n_head=12, dim=768, prefix_len=512, rope_base=100000.0,
+                                query_level0=True, tied_heads=True, prefix_pad_id=50257),
         files={"config.yaml": "5dee6b7339645a22362f695fbadb27df6e5254db2d3be0bff8516138d95da493",
-               "tokenizer.pt": "1f806ddaf8e023d1933e95efeabcaaf99f795576c0a05045f1a0f9389ab34fa7"},
+               "tokenizer.pt": "1f806ddaf8e023d1933e95efeabcaaf99f795576c0a05045f1a0f9389ab34fa7",
+               "generator.pt": "f152f390253de886e46303654f01b9e7a2586e609ba3d6b5e86d5969903b1fd4"},
+        aux_files={
+            "gpt2/vocab.json": (f"{_GPT2_URL}/vocab.json",
+                                "196139668be63f3b5d6574427317ae82f612a97c5d1cdaf36ed2256dbf636783"),
+            "gpt2/merges.txt": (f"{_GPT2_URL}/merges.txt",
+                                "1ce1664773c50f3e0cc8842619a93edc4624525b728b188a9e0be33b7726adc5"),
+            "data/passages.pickle": (f"{_XSUM_DATA_URL}/passages.pickle",
+                                     "39b820f0a71ddd6ad178b2700eeae6d035729053b1b2f115d3a92810c6ebf4f8"),
+            "data/reference_summaries.pickle": (
+                f"{_XSUM_DATA_URL}/reference_summaries.pickle",
+                "db624e065b6685dfea25db9106752e837f06f26b799763593759efd150fe554a"),
+        },
+        eos_id=50256,
+        pad_id=50257,
+        decoding=DecodingSpec(temperature=1.0, top_k=1, top_p=0.0, cfg_scale=0.0, frequency_penalty=2.0,
+                              frequency_deficit=1.0, adjacency_penalty=5.0, adjacency_window=4,
+                              adjacency_decay=0.5),
     ),
     TaskSpec(
         name="wmt14",
@@ -166,4 +215,6 @@ def get(name: str) -> TaskSpec:
 def from_json(d: dict) -> TaskSpec:
     codec = CodecSpec(**{k: tuple(v) if isinstance(v, list) else v for k, v in d["codec"].items()})
     gen = GeneratorSpec(**d["generator"]) if d["generator"] is not None else None
-    return TaskSpec(**{**d, "codec": codec, "generator": gen})
+    dec = DecodingSpec(**d["decoding"]) if d.get("decoding") else None
+    aux = {k: tuple(v) for k, v in d.get("aux_files", {}).items()}
+    return TaskSpec(**{**d, "codec": codec, "generator": gen, "decoding": dec, "aux_files": aux})

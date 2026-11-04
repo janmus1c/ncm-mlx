@@ -127,6 +127,69 @@ def cmd_generate(args) -> int:
     return 0
 
 
+def _rouge(hyps: list[str], refs: list[str]) -> dict:
+    try:
+        from rouge_score import rouge_scorer
+    except ImportError:
+        raise SystemExit("ROUGE needs the pinned scorer: uv sync --group xsum-eval "
+                         "(or pip install rouge-score==0.1.2)") from None
+    scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
+    rows = [scorer.score(r, h) for h, r in zip(hyps, refs)]
+    return {"scorer": "rouge-score 0.1.2, use_stemmer=True, F-measure, mean over articles, x100",
+            **{k: round(100 * float(np.mean([r[k].fmeasure for r in rows])), 2) for k in ("rouge1", "rouge2", "rougeL")},
+            "mean_words": round(float(np.mean([len(h.split()) for h in hyps])), 1)}
+
+
+def cmd_summarize(args) -> int:
+    from ncm_mlx.official import sample, summarize
+
+    info = _device(args)
+    task = specs.get(args.task)
+    m = sample.load(_converted(task, args))
+    if task.decoding is None:
+        raise SystemExit(f"{task.name} has no summarization defaults")
+    dec = summarize.with_overrides(task.decoding, temperature=args.temperature, top_k=args.top_k, top_p=args.top_p,
+                                   cfg_scale=args.cfg_scale)
+    if args.no_penalties:
+        dec = summarize.with_overrides(dec, frequency_penalty=0.0, frequency_deficit=0.0, adjacency_penalty=0.0)
+    sampler = _sampler_kwargs(args)
+    settings = {"decoding": dec.__dict__, "seed": args.seed, "batch": args.batch,
+                "clean_up_tokenization_spaces": args.clean_up, **sampler}
+    if args.input:
+        text = sys.stdin.read() if args.input == "-" else Path(args.input).read_text(encoding="utf-8")
+        ids = summarize.tokenize_article(m, text)
+        if len(ids) > task.generator.prefix_len:
+            print(f"article has {len(ids)} tokens; the model reads the first {task.generator.prefix_len}",
+                  file=sys.stderr)
+        texts, stats = summarize.summarize_articles(m, [ids], 1, dec, args.seed, args.clean_up, **sampler)
+        print(texts[0])
+        return 0
+    articles, refs = summarize.load_test_set(Path(args.data) if args.data else _src(task, args) / "data")
+    if args.indices:
+        idx = [int(i) for i in args.indices]
+    elif args.sample_seed is not None:
+        idx = sorted(np.random.default_rng(args.sample_seed).choice(len(articles), args.n, replace=False).tolist())
+    else:
+        idx = list(range(args.n or len(articles)))
+    if min(idx) < 0 or max(idx) >= len(articles):
+        raise SystemExit(f"indices must lie in [0, {len(articles)})")
+    texts, stats = summarize.summarize_articles(m, [articles[i] for i in idx], args.batch, dec, args.seed,
+                                                args.clean_up, **sampler)
+    selection = (f"indices from {args.indices}" if args.indices else
+                 f"random sample of {len(idx)} (numpy default_rng({args.sample_seed}), sorted)"
+                 if args.sample_seed is not None else f"first {len(idx)} of the published test set")
+    result = {"task": task.name, "selection": selection, "indices": idx, "settings": settings, "stats": stats,
+              "runtime": info, "hyps": texts, "refs": [refs[i] for i in idx]}
+    if not args.no_rouge:
+        result["rouge"] = _rouge(texts, result["refs"])
+    for i in range(min(args.show, len(idx))):
+        print(f"--- article {idx[i]}\nsummary:   {texts[i]}\nreference: {refs[idx[i]]}")
+    print(json.dumps({k: result[k] for k in ("selection", "stats", "rouge") if k in result}, indent=2))
+    if args.out:
+        Path(args.out).write_text(json.dumps(result, indent=2) + "\n")
+    return 0
+
+
 def sudoku_rows(task: specs.TaskSpec, boards: Path, n: int) -> tuple[list[list[int]], list[list[int]]]:
     from ncm_mlx.text import upstream_sudoku
 
@@ -366,11 +429,34 @@ def register(sub) -> None:
     sp.add_argument("--weights", help="converted checkpoint directory")
     sp.add_argument("--cpu", action="store_true", help="run on mx.cpu instead of the GPU")
     sp.add_argument("--out")
+    sp = add("summarize", cmd_summarize, "summarize an article (--input) or the XSum test set (--n)", "xsum",
+             ["xsum"])
+    sp.add_argument("--weights", help="converted checkpoint directory")
+    sp.add_argument("--cpu", action="store_true", help="run on mx.cpu instead of the GPU")
+    sp.add_argument("--input", help="text file with one article ('-': stdin)")
+    sp.add_argument("--n", type=int, default=200, help="test-set articles (0: all 11,334)")
+    sp.add_argument("--sample-seed", type=int, help="draw the articles at random with this seed (default: the first N)")
+    sp.add_argument("--indices", nargs="+", help="explicit test-set indices")
+    sp.add_argument("--data", help="directory with passages.pickle and reference_summaries.pickle")
+    sp.add_argument("--batch", type=int, default=16)
+    sp.add_argument("--seed", type=int, default=0)
+    sp.add_argument("--temperature", type=float, default=None, help="default: the released config")
+    sp.add_argument("--top-k", type=int, default=None)
+    sp.add_argument("--top-p", type=float, default=None)
+    sp.add_argument("--cfg-scale", type=float, default=None, help="classifier-free guidance (released config: 0)")
+    sp.add_argument("--no-penalties", action="store_true", help="plain argmax readout, no frequency/adjacency penalty")
+    sp.add_argument("--clean-up", action="store_true",
+                    help="remove the spaces before punctuation and clitics (off, as in the upstream decode)")
+    sp.add_argument("--no-prefix-cache", action="store_true", help="recompute the prefix in every level")
+    sp.add_argument("--compile", action="store_true", help="mx.compile the per-level step")
+    sp.add_argument("--no-rouge", action="store_true")
+    sp.add_argument("--show", type=int, default=3, help="print this many summaries next to their references")
+    sp.add_argument("--out", help="write hypotheses, references, settings and scores as JSON")
     for name, fn, help_, task in (
             ("generate", cmd_generate, "sample text and show per-level refinement", "tinystories"),
             ("sudoku", cmd_sudoku, "solve the published Sudoku test boards", "sudoku-easy"),
             ("bench", cmd_bench, "synchronized generation latency", "tinystories")):
-        sp = add(name, fn, help_, task, specs.GENERATOR_TASKS)
+        sp = add(name, fn, help_, task, [t for t in specs.GENERATOR_TASKS if specs.TASKS[t].tokenizer != "gpt2"])
         sp.add_argument("--weights", help="converted checkpoint directory")
         sp.add_argument("--cpu", action="store_true", help="run on mx.cpu instead of the GPU")
         sp.add_argument("--seed", type=int, default=0)

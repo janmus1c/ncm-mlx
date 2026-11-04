@@ -1,0 +1,63 @@
+{
+ "model": {
+  "n_layer": 12,
+  "n_head": 12,
+  "bias": true,
+  "dropout": 0.3,
+  "n_embd": 768,
+  "context_length": 560,
+  "prefix_len": 512,
+  "raw_token_prefix": true,
+  "prefix_pad_token_id": 50257,
+  "vocab_size": [
+   4096,
+   4096,
+   4096,
+   4096,
+   4096,
+   4096,
+   4096,
+   4096,
+   4096
+  ],
+  "predict_level0": false,
+  "attn_pattern": "block_diagonal",
+  "use_positional_encoding": true,
+  "use_level_encoding": true,
+  "use_rope": true,
+  "rope_base": 100000,
+  "use_qk_norm": true,
+  "ctx_encoder": {
+   "enabled": false,
+   "n_layer": 4,
+   "vocab_size": 50304
+  },
+  "use_flex_attention": false,
+  "query_level0": true,
+  "tie_heads_to_codebook": true,
+  "tie_heads_learn_scale": true
+ },
+ "generation": {
+  "temperature": 1.0,
+  "top_k": 1,
+  "top_p": 0.0,
+  "cfg_scale": 0.0,
+  "frequency_penalty": 2.0,
+  "frequency_deficit": 1.0,
+  "adjacency_penalty": "5,4,0.5",
+  "frequency_allowance": "generator.pt:inference.token_unigram"
+ },
+ "eval": {
+  "split": "test",
+  "n_docs": 11334,
+  "batch_size": 32,
+  "n_shards": 2,
+  "metric": "rouge"
+ },
+ "data": {
+  "test": "passages.pickle",
+  "test_refs": "reference_summaries.pickle",
+  "validation": "validation_cond512_le48.pickle"
+ },
+ "config_sha256": "5dee6b7339645a22362f695fbadb27df6e5254db2d3be0bff8516138d95da493"
+}

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import textwrap
 from html import escape
 from pathlib import Path
 
@@ -182,16 +183,123 @@ def seed_chart(theme: str, mobile: bool) -> None:
     plt.close(fig)
 
 
+def scaling_chart(theme: str, mobile: bool) -> None:
+    data = json.loads((ROOT / "docs/research/tinystories-scaling.json").read_text())
+    runs = data["runs"]
+    width, height = (420, 980) if mobile else (1080, 750)
+    title = "With a larger generator and more data the NCM/AR ratio falls, and stays above two."
+    description = (
+        "NCM over AR ratio of GPT-2-large generative perplexity on TinyStories by generator size. "
+        "Ratios at 1x data and fp32: " + ", ".join(
+            f"{runs[key]['ncm_over_ar']:.2f}" for key in ("ladder-12m", "ladder-50m", "ladder-87m"))
+        + " for 12M, 50M and 87M generators. Ratios at 4x data and bf16: "
+        + ", ".join(f"{runs[key]['ncm_over_ar']:.2f}" for key in (
+            "ladder-12m-x4-bf16", "ladder-12m-x4-bf16-seed1", "ladder-50m-x4-bf16", "ladder-87m-x4-bf16"))
+        + " (12M seeds 0 and 1, then 50M and 87M). One training seed per point except the 12M point at 4x data; "
+        "the 50M to 87M step is within seed variation. Compute is not matched."
+    )
+    d = Drawing(width, height, theme, title, description)
+    m = 28 if mobile else 32
+    if mobile:
+        d.text(m, 48, "NCM versus AR, by size", 26, weight=650)
+        d.text(m, 80, "Ratio of GPT-2-large perplexities", 17, muted=True)
+        d.text(m, 104, "TinyStories · lower is better", 17, muted=True)
+        left, right, top, bottom = 72, 398, 222, 592
+    else:
+        d.text(m, 52, "NCM versus AR: the ratio falls with size and data, and stays above 2.", 28, weight=650)
+        d.text(m, 90, "Ratio of GPT-2-large generative perplexity, NCM over the AR trained on the same windows · "
+               "TinyStories · lower is better.", 19, muted=True)
+        left, right, top, bottom = 110, 1040, 168, 508
+    low, high = 0.9, 3.7
+
+    def ypos(value: float) -> float:
+        return bottom - (value - low) / (high - low) * (bottom - top)
+
+    slots = [("12M", 0), ("50M", 1), ("87M", 2)]
+    span = right - left
+    slot_x = {name: left + span * (0.15 + index * 0.35) for name, index in slots}
+    for value, label in ((1, "1 · parity"), (2, "2"), (3, "3")):
+        y = ypos(value)
+        dash = ' stroke-dasharray="6 5"' if value == 1 else ""
+        d.parts.append(f'<path d="M{left} {y:.1f}H{right}" stroke="{d.line}"{dash}/>')
+        d.text(left - 10, y + 6, label, 15, muted=True, anchor="end")
+    for name, _ in slots:
+        d.text(slot_x[name], bottom + 30, name if mobile else f"{name} generator", 16 if mobile else 18, muted=True, anchor="middle")
+
+    def dot(x, y, kind, filled):
+        fill = d.ink if filled else d.bg
+        if kind == "circle":
+            d.parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="7" fill="{fill}" stroke="{d.ink}" stroke-width="2"/>')
+        elif kind == "square":
+            d.parts.append(f'<rect x="{x - 7:.1f}" y="{y - 7:.1f}" width="14" height="14" fill="{fill}" '
+                           f'stroke="{d.ink}" stroke-width="2"/>')
+        else:
+            d.parts.append(f'<path d="M{x:.1f} {y - 9:.1f}L{x + 9:.1f} {y:.1f}L{x:.1f} {y + 9:.1f}L{x - 9:.1f} {y:.1f}Z" '
+                           f'fill="{fill}" stroke="{d.muted}" stroke-width="2"/>')
+
+    def path(points, dashed):
+        coords = " ".join(f"{x:.1f},{y:.1f}" for x, y in points)
+        dash = ' stroke-dasharray="7 5"' if dashed else ""
+        d.parts.append(f'<polyline points="{coords}" fill="none" stroke="{d.ink}" stroke-width="2"{dash}/>')
+
+    ratio = {key: runs[key]["ncm_over_ar"] for key in runs if "ncm_over_ar" in runs[key]}
+    one = [("12M", ratio["ladder-12m"]), ("50M", ratio["ladder-50m"]), ("87M", ratio["ladder-87m"])]
+    four_12 = [ratio["ladder-12m-x4-bf16"], ratio["ladder-12m-x4-bf16-seed1"]]
+    four = [("12M", sum(four_12) / 2), ("50M", ratio["ladder-50m-x4-bf16"]), ("87M", ratio["ladder-87m-x4-bf16"])]
+    path([(slot_x[n], ypos(v)) for n, v in one], False)
+    path([(slot_x[n], ypos(v)) for n, v in four], True)
+    for n, v in one:
+        dot(slot_x[n], ypos(v), "circle", False)
+        left_side = n == "12M"
+        d.text(slot_x[n] + (-12 if left_side else 12), ypos(v) - 12, f"{v:.2f}", 17, weight=600,
+               anchor="end" if left_side else "start")
+    mac = [data["mac_fp32_references"][k]["ncm_over_ar"] for k in ("e21", "e24")]
+    for v in mac:
+        d.parts.append(f'<circle cx="{slot_x["12M"]:.1f}" cy="{ypos(v):.1f}" r="3" fill="{d.muted}"/>')
+    for v in four_12:
+        dot(slot_x["12M"], ypos(v), "square", True)
+    d.parts.append(f'<path d="M{slot_x["12M"]:.1f} {ypos(four_12[0]):.1f}V{ypos(four_12[1]):.1f}" '
+                   f'stroke="{d.ink}" stroke-width="2"/>')
+    d.text(slot_x["12M"] - 14, ypos(four_12[0]) + 6, f"{four_12[0]:.2f}", 17, weight=600, anchor="end")
+    d.text(slot_x["12M"] - 14, ypos(four_12[1]) + 6, f"{four_12[1]:.2f}", 17, weight=600, anchor="end")
+    for n, v in four[1:]:
+        dot(slot_x[n], ypos(v), "square", True)
+        d.text(slot_x[n] + 4, ypos(v) + 34, f"{v:.2f}", 17, weight=600, anchor="middle")
+    ly = 124 if mobile else 118
+    lx = m
+    dot(lx + 9, ly + 24 if mobile else ly + 10, "circle", False)
+    d.text(lx + 28, ly + (30 if mobile else 16), "1× data · 960k windows · fp32", 16)
+    ly2 = ly + 30 if mobile else ly
+    lx2 = m if mobile else 440
+    dot(lx2 + 9, ly2 + 24 if mobile else ly2 + 10, "square", True)
+    d.text(lx2 + 28, ly2 + (30 if mobile else 16), "4× data · 3.84M windows · bf16", 16)
+    notes = [
+        ("Dashed line joins the 4× points; the 12M point is the mean of two seeds. "
+         "Small dots at 12M: the Mac fp32 repeats (E21, E24)."),
+        "Frozen E21 codec · 5 sampling seeds × 256 outputs per point · one training seed per point except 12M at 4×.",
+        ("The two 12M seeds at 4× differ more than the 50M and 87M points do. "
+         "The released checkpoint (16.259) is not plotted: no AR baseline here matches its budget."),
+        "Compute is not matched; GPU and precision differ between the two series.",
+    ]
+    ny = bottom + 66
+    row = 0
+    for note in notes:
+        for line in textwrap.wrap(note, 50 if mobile else 100):
+            d.text(m, ny + row * (24 if mobile else 25), line, 14 if mobile else 16, muted=True)
+            row += 1
+    save(d, "scaling-ladder", theme, mobile)
+
+
 COMPLETED = [
     ("TinyWorld", ["Synthetic grammar", "Codec, generator, AR", "Latency and quality"]),
     ("Sudoku", ["E6 to E20, two seeds", "Easy 98.1%, medium 83.4%", "Hard boards still behind"]),
-    ("Checkpoint port", ["Runs Kumbong et al.", "TinyStories and Sudoku", "Agrees with PyTorch, tested"]),
-    ("TinyStories", ["E21 to E24, two seeds", "Lower loss, worse text", "Best NCM perplexity 3x AR"]),
+    ("Checkpoint port", ["Runs Kumbong et al.", "TinyStories, Sudoku, XSum", "Agrees with PyTorch, tested"]),
+    ("TinyStories", ["E21 to E32, size and data", "NCM/AR ratio 3.3 to 2.1", "Still above 2 (single seeds)"]),
 ]
 PLANNED = [
-    ("Close the gap at small scale", ["Best NCM perplexity is about 3x AR;", "corruption and loss-weighting ablations"]),
-    ("Prompt-conditioned training", ["Official XSum and WMT14 codecs", "Red-fuchs/ncm-modular, issue #3"]),
-    ("Mixed-precision throughput", ["Measure speed before scaling up"]),
+    ("Understand the remaining gap", ["Released recipe details, Muon,", "neighbour corruption, codec seeds"]),
+    ("Prompt-conditioned training", ["Prefix training of our own models;", "released XSum generator ported"]),
+    ("Mixed-precision throughput", ["bf16 done for the 12M recipe;", "larger sizes untested"]),
     ("Natural-text corpus", ["Several billion tokens"]),
     ("100M model, about 2B tokens", ["The go / no-go against AR"]),
     ("300M, then about 1B", ["Only if NCM is close to AR", "at matched compute"]),
@@ -201,10 +309,11 @@ PLANNED = [
 def project_roadmap(theme: str, mobile: bool) -> None:
     d = Drawing(420 if mobile else 1080, 1620 if mobile else 735, theme,
                 "From a laptop study to a text model: completed work and planned steps.",
-                "Four completed milestones: TinyWorld, Sudoku, the released-checkpoint port and the TinyStories "
-                "ablation. Six planned steps in order: close the gap to the autoregressive baseline at small scale, "
-                "prompt-conditioned training, mixed-precision throughput, a natural-text corpus, a 100M go/no-go "
-                "run, then 300M and about 1B only if NCM is close to the baseline. Planned steps are plans, not results.")
+                "Four completed milestones: TinyWorld, Sudoku, the released-checkpoint port (TinyStories, Sudoku, "
+                "XSum) and TinyStories training up to E32, where the NCM/AR ratio falls from 3.3 to 2.1. Six planned "
+                "steps in order: understand the remaining gap, prompt-conditioned training, mixed-precision "
+                "throughput (done for the 12M recipe), a natural-text corpus, a 100M go/no-go run, then 300M and "
+                "about 1B only if NCM is close to the baseline. Planned steps are plans, not results.")
     m = 28 if mobile else 32
     d.text(m, 49, "Roadmap" if mobile else "Roadmap: measured so far, planned next", 26 if mobile else 32, weight=650)
     goal = ["Goal: about 1B parameters, text not worse than", "a matched autoregressive baseline."]
@@ -254,7 +363,7 @@ def project_roadmap(theme: str, mobile: bool) -> None:
         d.text(m, yf + 68, "No delivery dates.", 16, muted=True)
     else:
         d.text(1048, yf + 38, "No delivery dates.", 17, muted=True, anchor="end")
-    save(d, "project-roadmap", theme, mobile)
+    save(d, "roadmap-2026-11", theme, mobile)
 
 
 def main() -> None:
@@ -262,8 +371,9 @@ def main() -> None:
         for mobile in (False, True):
             sudoku(theme, mobile)
             seed_chart(theme, mobile)
+            scaling_chart(theme, mobile)
             project_roadmap(theme, mobile)
-    print("Rendered Sudoku workflow, two-seed evidence and roadmap in both themes and layouts")
+    print("Rendered Sudoku workflow, two-seed evidence, scaling ladder and roadmap in both themes and layouts")
 
 
 if __name__ == "__main__":

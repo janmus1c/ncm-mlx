@@ -43,6 +43,75 @@ Matching generator presentations does not match FLOPs, training time, optimizer 
 
 The strongest small-generator result is easy-board accuracy of 98.10% versus Original NCM’s 99.50%, with 6.44M versus 25.46M generator parameters (3.95× smaller) and 16.384M versus 51.2M generator presentations. Medium/hard gaps are 13.10/45.80 percentage points. This does not establish general quality parity or matched-cost efficiency; the codec is additional.
 
+## TinyWorld E1 in detail
+
+Experiment E1 in [EXPERIMENTS](EXPERIMENTS.md). Hardware: M5 Pro, 64 GB, macOS 26.5, MLX 0.32.3. Other local GPU services were running (16% GPU utilisation before the run).
+
+**Codec** (held-out): 100% of sentences rebuilt exactly; 100% codebook use at every level.
+
+**Generator vs an autoregressive baseline** of the same width and depth, trained on identical data:
+
+| | MLX implementation | MLX AR baseline + KV cache |
+|---|---|---|
+| Parameters | 1.3M codec + 5.0M generator | 4.8M |
+| Training time | 52 s + 266 s | 134 s |
+| Valid sentences, T = 1.0 | 89.8% | **98.6%** |
+| Valid sentences, T = 0.7 | 95.8% | **99.8%** |
+| Number agreement when well-formed | 99.8% | 100% |
+| Valid *and* not in the training set, T = 1.0 | 16.3% | **23.5%** |
+| Model calls per sequence | **6** + 1 decode | 32 |
+
+**Latency.** p50 over 30 iterations after 3 warm-ups, timed until the tokens are copied back to the CPU:
+
+| Batch | MLX implementation p50 | MLX AR baseline p50 | MLX implementation sequences/s | MLX AR baseline sequences/s |
+|---|---|---|---|---|
+| 1 | **4.5 ms** | 30.5 ms* | 222 | 33 |
+| 16 | **5.8 ms** | 22.9 ms | 2,779 | 698 |
+| 64 | **10.8 ms** | 26.9 ms | 5,907 | 2,383 |
+| 256 | **37.8 ms** | 49.8 ms | 6,769 | 5,137 |
+
+\* AR batch-1 p50 was 19.8 ms in the otherwise identical E0 run; small-batch AR timings are sensitive to other GPU load. Peak memory at batch 256: NCM 1.7 GB, AR 0.46 GB.
+
+**Reading.** On this task at this size, the recorded small-batch latency advantage varies with GPU contention; batch 16 is about 4× faster and batch 256 about 1.3× faster. It is less accurate: about 9 points lower validity at T = 1.0. Its errors are mostly local spelling slips (`ret fox`, `coxs`), while the sentence-wide agreement rule is almost always kept. [E2](EXPERIMENTS.md) shows these errors come from every level, not only the finest.
+
+The upstream paper's 10–31× speedups compare NCM with **diffusion** language models on GPUs. Nothing here claims a speedup over large LLMs.
+
+## Sudoku: MLX implementation compared with Original NCM
+
+“MLX implementation” means this repository’s independently trained NCM model; “Original NCM” means the model reported by Kumbong et al. These are different implementations and checkpoints. All E-numbered runs are local MLX experiments.
+
+<picture>
+  <source media="(max-width: 600px)" srcset="assets/sudoku-generation-mobile-dark.svg">
+  <img src="assets/sudoku-generation-dark.svg" alt="Sudoku inference: an 81-cell puzzle prefix conditions twelve code levels; decode once, then independently check grid validity and every clue. Failures remain in the denominator." width="1080">
+</picture>
+
+Puzzle-conditioned models, scored on Kumbong et al.’s published test boards (2,000 per difficulty) with its "solved" rule: a valid grid that keeps every given. Greedy decoding. E11, E14 and E15 trained on an RTX 3080; full recipes and timings are in [EXPERIMENTS](EXPERIMENTS.md).
+
+| Model | Generator params | Generator presentations | Easy (40 givens) | Medium (35) | Hard (30) |
+|---|---|---|---|---|---|
+| **MLX implementation, larger corpus and schedule (E19-funded)** | 6.44M | 16.384M | **98.10%** | **83.40%** | **40.30%** |
+| MLX implementation, same recipe with training seed 1 (E20) | 6.44M | 16.384M | 97.25% | 79.60% | 33.25% |
+| MLX implementation, stronger corruption + unique puzzles (E15) | 6.4M | 8.2M | 96.25% | 76.65% | 31.90% |
+| MLX implementation, conditioning corruption (E14) | 6.4M | 8.2M | 87.4% | 53.4% | 11.2% |
+| MLX AR baseline, same width and depth (E11) | 6.3M | 2.05M | 20.5% | 4.9% | 0.5% |
+| MLX AR baseline (E4) | 6.3M | 0.64M | 13.8% | 3.0% | 0.4% |
+| Qwen3.8 27B 4-bit, no reasoning, 50 boards each | 27B | Pretrained reference | 0% | 0% | 0% |
+| Original AR baseline (Kumbong et al.) | 25M | Not stated here | 14.6% | 5.1% | 1.0% |
+| **Original NCM (Kumbong et al.)** | 25.46M | 51.2M | **99.5%** | **96.5%** | **86.1%** |
+
+The MLX AR baseline is close to the Original AR baseline row, a limited sanity check on the boards, scoring and conditioning path. The best local NCM result (E19-funded) remains below the paper, especially on hard boards. At the matched 2.05M-sequence budget, NCM E11 solves 55.2 / 18.1 / 1.6% against AR's 20.5 / 4.9 / 0.5%; the larger-budget E15 and E19-funded comparisons are not budget-matched. Training data and conditioning corruption are the strongest levers measured so far. These parameter columns count generators; the Sudoku codec stores another 13.9M scalar values, including learned resampling layers and EMA state. See [parameter accounting](#parameter-accounting).
+
+<picture>
+  <source media="(max-width: 600px)" srcset="assets/sudoku-seeds-mobile-dark.svg">
+  <img src="assets/sudoku-seeds-dark.svg" alt="Measured Sudoku solve rates: E19 seed 0 scores 98.10, 83.40 and 40.30%; E20 seed 1 scores 97.25, 79.60 and 33.25%. Original NCM reference scores use a different model and budget." width="1080">
+</picture>
+
+Both seeds use the same scientific recipe and 16.384M generator presentations. E19-funded remains the best observed seed; E20 is 0.85, 3.80 and 7.05 percentage points lower on easy, medium and hard boards. Two seeds do not establish population training variability or identify the cause. Historical aggregate reports lack per-board predictions and complete remote evaluation/source manifests; see the [two-seed assessment](research/e20-seed-report.md).
+
+**Smaller-generator result.** The MLX implementation reaches **98.10% on easy boards versus Original NCM’s 99.50%**, using a **6.44M versus 25.46M generator** (3.95× smaller) and **16.384M versus 51.2M generator presentations**. Medium and hard remain 13.10 and 45.80 percentage points behind. The size ratio covers generators only: the MLX codec stores another 13.9M values. Different recipes and system costs prevent an overall efficiency or parity claim.
+
+**Interruption study (E17).** The completed weights-only continuation solves **71.25 / 31.75 / 3.70%**, close to E13. Its optimizer and random state reset after interruption, so it does not establish a benefit from its data construction. E18 subsequently completed at **84.25 / 49.10 / 10.55%**, below E15; stronger corruption alone did not improve the base-data comparison at this budget. [Reproduction and uncertainty](reproducibility.md) explain which comparisons can be repeated and what the numbers establish.
+
 ## Parameter accounting
 
 `eval` currently reports `params` by summing every public array in each MLX module's parameter tree. For the E6 codec reused by E13/E15/E17, that includes EMA accumulators, so it is not a count of gradient-trained weights alone.
@@ -79,7 +148,7 @@ python -m ncm_mlx bench --config configs/YOUR-RUN.json \
 
 `train.compile: true` wraps the generator training step with `mx.compile`, including optimizer and MLX random state. It does not compile the sampling loop. Codec training, AR training and both samplers are currently uncompiled. Backend kernel optimizations still apply; “uncompiled” here refers specifically to the absence of an explicit `mx.compile` wrapper. Compiled-training speed measurements cannot be presented as compiled-inference speedups.
 
-Verified execution includes Apple M5 Pro/Metal and NVIDIA RTX 3080 and A40/CUDA using MLX 0.32.3. CPU runs support exactness and recovery tests; they are not published GPU latency measurements. The recorded configurations use fp32 weights; exploratory bfloat16 tests are not the reported training recipe. Metal fp32 matrix products have reduced numerical precision, so exact algorithmic equivalence tests use CPU and device tests use tolerances. Cross-backend bitwise equivalence has not been established.
+Verified execution includes Apple M5 Pro/Metal and NVIDIA RTX 3080, A40, RTX A6000, RTX PRO 6000 Blackwell and RTX 5090/CUDA using MLX 0.32.3. CPU runs support exactness and recovery tests; they are not published GPU latency measurements. The recorded Sudoku, TinyWorld and E21–E24 configurations use fp32; the four-times-data TinyStories runs of [E31 and E32](EXPERIMENTS.md#e32-50m-and-87m-generators-at-four-times-the-data-bf16-2026-11-04) use optional bf16 mixed precision, whose quality parity was checked only for the 12M recipe at one times the data ([E29](EXPERIMENTS.md#e29-bf16-mixed-precision-quality-parity-at-the-e21-recipe-2026-11-03)). Metal fp32 matrix products have reduced numerical precision, so exact algorithmic equivalence tests use CPU and device tests use tolerances. Cross-backend bitwise equivalence has not been established.
 
 | E17 recovery, Apple M5 Pro | Batch 1 | Batch 16 | Batch 64 | Batch 256 |
 |---|---:|---:|---:|---:|

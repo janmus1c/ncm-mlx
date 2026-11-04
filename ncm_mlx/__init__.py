@@ -1,3 +1,3 @@
 """Independent MLX implementation of coarse-to-fine next-concept text generation."""
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"

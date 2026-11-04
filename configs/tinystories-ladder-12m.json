@@ -1,0 +1,82 @@
+{
+  "name": "tinystories-ladder-12m",
+  "out_dir": "artifacts/tinystories-ladder-12m",
+  "data": {
+    "seq_len": 128,
+    "val_rows": 2048,
+    "unigram_rows": 200000
+  },
+  "codec": {
+    "dim": 256,
+    "n_head": 4,
+    "codebook_sizes": [
+      2048,
+      2048,
+      2048,
+      2048,
+      2048,
+      2048,
+      2048,
+      2048,
+      2048,
+      2048,
+      2048,
+      2048
+    ],
+    "dropout": 0.3,
+    "decay": 0.95,
+    "commitment": 0.25,
+    "fine_drop_prob": 0.5,
+    "fine_drop_min_keep": 1,
+    "restart_threshold": 0.01
+  },
+  "generator": {
+    "n_layer": 6,
+    "n_head": 6,
+    "dim": 384,
+    "rope_base": 100000.0,
+    "dropout": 0.1,
+    "corrupt_first": 0.75,
+    "corrupt_last": 0.25,
+    "loss_alpha": 0.0
+  },
+  "train": {
+    "seed": 0,
+    "log_every": 200,
+    "eval_every": 1000,
+    "compile": true,
+    "codec": {
+      "steps": 14000,
+      "batch_size": 256,
+      "lr": 0.0005,
+      "lr_floor": 5e-05,
+      "warmup": 1000,
+      "beta2": 0.95,
+      "weight_decay": 0.01,
+      "grad_clip": 1.0,
+      "max_minutes": 120
+    },
+    "generator": {
+      "steps": 15000,
+      "batch_size": 64,
+      "lr": 0.0005,
+      "lr_floor": 5e-05,
+      "warmup": 500,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "grad_clip": 1.0,
+      "max_minutes": 1500
+    },
+    "ar": {
+      "steps": 7500,
+      "batch_size": 128,
+      "lr": 0.0005,
+      "lr_floor": 5e-05,
+      "warmup": 500,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "grad_clip": 1.0,
+      "max_minutes": 600
+    }
+  }
+}

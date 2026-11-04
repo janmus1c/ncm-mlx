@@ -1,15 +1,30 @@
 ---
 title: Released NCM checkpoints in MLX
-description: Convert and run the official HazyResearch TinyStories and Sudoku checkpoints natively in MLX, with parity evidence against upstream PyTorch.
+description: Convert and run the official HazyResearch TinyStories, Sudoku and XSum checkpoints natively in MLX, with parity evidence against upstream PyTorch.
 status: current
-updated: 2026-10-29
+updated: 2026-11-03
 ---
 
 # Released NCM checkpoints in MLX
 
-`ncm_mlx/official/` runs the released checkpoints of the original Next-Concept Modeling work in MLX on Apple Silicon. It covers TinyStories (unconditional BPE text) and the three Sudoku checkpoints (easy, medium, hard). The XSum and WMT14 releases are supported at the codec level only, see [XSum and WMT14 codecs](#xsum-and-wmt14-codecs). It is an inference-only reimplementation, written from the upstream architecture and released configurations. It is separate from this repository's own training models and contains no upstream source code.
+`ncm_mlx/official/` runs the released checkpoints of the original Next-Concept Modeling work in MLX on Apple Silicon. It covers TinyStories (unconditional BPE text), the three Sudoku checkpoints (easy, medium, hard) and XSum summarization ([XSum summarization](#xsum-summarization)). The WMT14 release is supported at the codec level only, see [XSum and WMT14 codecs](#xsum-and-wmt14-codecs). It is an inference-only reimplementation, written from the upstream architecture and released configurations. It is separate from this repository's own training models and contains no upstream source code.
 
 **Credit and license.** The checkpoints, configurations and reference PyTorch implementation are by HazyResearch: [checkpoints](https://huggingface.co/hazyresearch/ncm-checkpoints), [code](https://github.com/HazyResearch/ncm) and the paper [Kumbong et al., arXiv:2610.14162](https://arxiv.org/abs/2610.14162). They are MIT licensed, Copyright (c) 2025 Hermann Kumbong. Weights are downloaded from Hugging Face on demand and never redistributed here.
+
+## At a glance
+
+<picture>
+  <source media="(max-width: 600px)" srcset="assets/tinystories-refinement-mobile-dark.svg">
+  <img src="assets/tinystories-refinement-dark.svg" alt="Recorded sample from the official TinyStories model running in MLX: the first sentence resolves from punctuation at level 1 of 12 to 'One day, a seal was walking on the white sand.' at level 12." width="1080">
+</picture>
+
+- **Same outputs as upstream PyTorch in the tested cases.** Greedy generation is identical on 8 TinyStories samples and all 2,000 easy Sudoku boards; per-level logits agree to floating-point rounding ([parity evidence](#parity-with-upstream-pytorch)).
+- **Sudoku solve rates within 0.2 points of the paper:** 99.40 / 96.30 / 86.20% easy/medium/hard on all 2,000 published boards per difficulty, against 99.5 / 96.5 / 86.1% reported.
+- **About 7× lower latency than upstream on the same Mac:** 39.8 ms on the GPU against 280 ms for upstream PyTorch on the CPU, for one 128-token TinyStories sample on an M5 Pro (p50, desktop load present). PyTorch's MPS backend rejects an interpolation these models need, so upstream was timed on the CPU.
+
+NCM writes a whole level of the output in one model call, coarse to fine, instead of one token per call. The method is by Kumbong et al.; this is an independent implementation.
+
+No install needed to look: the [refinement demo](https://huggingface.co/spaces/janmusic/ncm-refinement-demo) replays recorded outputs in the browser. Converted weights: [ncm-tinystories-mlx](https://huggingface.co/janmusic/ncm-tinystories-mlx), [ncm-sudoku-mlx](https://huggingface.co/janmusic/ncm-sudoku-mlx). [How the MLX port was verified](research/checkpoint-parity.md): conversion rules, tokenizer checks, numerical parity and measured performance.
 
 ## Commands
 
@@ -31,7 +46,7 @@ Conversion does not need PyTorch. `.pt` files are read by `torch_reader`, which 
 
 ## XSum and WMT14 codecs
 
-The `xsum` and `wmt14` tasks convert and run the tokenizer checkpoint (the codec) only. There is no generator, no classifier-free guidance, no decoding penalties and no source tokenizer, so nothing here summarizes or translates. The codec encodes token ids into per-level codes and decodes cumulative reconstructions back to ids.
+The `wmt14` task converts and runs the tokenizer checkpoint (the codec) only: it has no generator, no source tokenizer and no decoding, so nothing there translates. The `xsum` codec is the same file that the summarizer below uses; `official codec` still runs it alone. The codec encodes token ids into per-level codes and decodes cumulative reconstructions back to ids.
 
 ```bash
 python -m ncm_mlx official fetch --task xsum      # config.yaml and tokenizer.pt only, SHA-256 checked
@@ -66,6 +81,83 @@ The first two rows are stored in `tests/fixtures/official_codec_parity.json` and
 **Limits.** No Metal run, no float64 run of the real checkpoints, and no evidence about summarization or translation quality. The inputs are few and mostly short.
 
 **Credit.** The finding that these codecs need normalized level-0 resampling, and the pinned configuration facts above, come from [Red-fuchs/ncm-modular](https://github.com/Red-fuchs/ncm-modular) (MIT; reviewed at `eae154b`), discussed in [issue 3](https://github.com/janmus1c/ncm-mlx/issues/3). No code from that repository is copied; it was used as a cross-check. The checkpoints and reference implementation are by Kumbong et al. and HazyResearch as above.
+
+## XSum summarization
+
+`official summarize` runs the released XSum generator: the first 512 GPT-2 tokens of an article are the prefix, and the 48-token summary is generated level by level (4, 6, 10, 14, 20, 26, 32, 40, 48 tokens) in nine generator calls. The settings are those of the released `config.yaml`, restated in `ncm_mlx/official/spec.py` and checked against it by a test.
+
+```bash
+python -m ncm_mlx official fetch --task xsum          # checkpoints, GPT-2 vocabulary and merges, test set; SHA-256 checked (about 0.9 GB)
+python -m ncm_mlx official convert --task xsum        # codec + generator + token unigram + gpt2.json; no PyTorch
+python -m ncm_mlx official summarize --task xsum --input article.txt
+python -m ncm_mlx official summarize --task xsum --n 200 --sample-seed 0 --out xsum.json   # test-set mode; ROUGE needs: uv sync --group xsum-eval
+```
+
+Pinned inputs: checkpoint revision `d342ce8` (`generator.pt` SHA-256 `f152f390...`), GPT-2 vocabulary and merges at `openai-community/gpt2` revision `607a30d`, and the test set (`passages.pickle`, `reference_summaries.pickle`, already GPT-2 token ids and reference strings) from `hazyresearch/ncm-datasets` revision `6580ba4`. Conversion uses the strict rules above: every tensor of `generator.pt` needs exactly one rule, the stored level ids and block-diagonal mask are checked against the configured levels, and the stored token unigram must be a distribution over the 50,304-token decoder vocabulary. A missing, extra or misshapen tensor stops it.
+
+**What it does, following the released configuration and upstream's evaluation script:**
+
+- **Prefix.** Article ids, no special tokens added, cut to 512 and padded with `<|pad|>` (id 50257). Padded positions are masked as keys. The prefix is embedded with the codec's token table and attends only to itself, so its keys and values are computed once per batch and reused by all nine level forwards.
+- **Level 0.** Four learned queries, one forward pass of their own; there is no unigram sample and no level-0 prediction head.
+- **Codes.** Temperature 1, top-k 1, top-p 0, which selects the highest-scoring code at every position. The command uses `argmax` for top-k 1.
+- **Classifier-free guidance.** Off by default (`cfg_scale: 0.0`). `--cfg-scale s` doubles the batch with a null prefix (end-of-text, then padding) and mixes the two logits at level `k` of nine as `(1+t)·cond − t·null` with `t = s·k/8`.
+- **Token readout.** The final reconstruction is decoded left to right, one token at a time, with a frequency penalty of 2.0 on tokens used more often than `token_unigram × 48` allows, a deficit bonus of 1.0, and an adjacency penalty of 5, 2.5, 1.25 and 0.625 on the previous four tokens. The summary is cut at the first end-of-text token. `--no-penalties` gives the plain argmax.
+- **Text.** Decoded as the GPT-2 tokenizer does, without the optional space clean-up (`--clean-up` turns it on; ROUGE does not change at the printed precision).
+
+**Parity scope** (CPU, upstream PyTorch 2.15 at `c702742`, transformers 5.22, `scripts/official_xsum_parity.py`). Eight fixed inputs: test articles 0 to 3 and four raw texts (one with 509 padding tokens, one of 700 tokens that is cut), compared with upstream:
+
+| Check | Result |
+|---|---|
+| GPT-2 encoding, 11 cases (Unicode, newlines, special token) and 500 reference summaries | identical ids |
+| GPT-2 decoding, 201 id rows | identical text |
+| Free-running greedy codes, 9 levels, 8 inputs | identical at every level; upstream's `temperature 1, top-k 1, top-p 0` call equals its argmax |
+| Per-level logits, teacher-forced, fp32 | max abs diff 6.7e-4 at logit scale up to 1,118 |
+| Same, both sides in exact fp64 | 6.8e-13 |
+| Decoder logits of the final reconstruction | 3.7e-4 at scale 41 |
+| Penalized token readout and decoded summaries | identical on 8 of 8 (the penalties change the plain argmax in all 8) |
+| Classifier-free guidance, scale 1.0 | identical codes at every level; the guided output differs from the unguided |
+| Prefix cache against recomputing the prefix | 0 difference |
+
+The reference readout and text cleanup are upstream's own `pick_tokens` and `dec` functions, executed from the checkout's `scripts/eval_shard.py` (parsed, not copied). Upstream's evaluation script needs CUDA, so its sampler is replaced by the model's own `generate` on CPU. `tests/test_official_summarize.py` replays four of these inputs from `tests/fixtures/official_xsum_parity.json` and skips without converted weights; the rest of the file runs without weights (spec against the pinned config, readout against a plain-Python restatement, guidance on a tiny model, strict conversion).
+
+**ROUGE** (rouge-score 0.1.2 with stemming, F-measure, mean over articles, times 100; this is the metric and package family of upstream's `eval_merge.py`, which leaves the package unpinned). MLX on Metal, batch 16, seed 0. The paper's numbers are Table 2 in Section 4.3 of Kumbong et al., which Appendix F.2 says use the full test set and the XSum NCM generator in 8 NFE; our run makes nine generator calls per batch (the level-0 pass is one of them). The paper counts generator calls per output and two per guided step, so it presumably leaves out the level-0 pass; that is not confirmed.
+
+| Articles | Setting | ROUGE-1 | ROUGE-2 | ROUGE-L |
+|---|---|---:|---:|---:|
+| 11,334 (full test set) | released defaults | **34.93** | **12.71** | **27.94** |
+| Paper, Section 4.3, Table 2 | NCM, no guidance | 35.0 | 12.8 | 28.0 |
+| 200, random sample (`default_rng(0)`, indices 30, 59, 92, ...) | released defaults | 34.51 | 12.72 | 27.55 |
+| 200, first 200 | released defaults | 34.08 | 12.48 | 27.50 |
+| 200, same sample | `--no-penalties` | 34.51 | 12.73 | 27.48 |
+| 11,334 | `--cfg-scale 1.0` | 35.15 | 12.61 | 27.98 |
+| 11,334 | `--cfg-scale 0.5` | 35.20 | 12.83 | 28.11 |
+| Paper, Section 4.3, Table 2 | NCM + CFG (16 NFE) | 35.3 | 13.0 | 28.2 |
+
+The 200-article rows are samples and carry a few tenths of a point of sampling noise (the two 200-article sets differ by 0.4 in ROUGE-1). The full-set row is within 0.1 of the paper for all three scores. The paper's guided row uses guidance weight 0.5 (Appendix F.4, Figure 14, where its ROUGE curves peak); our full-set run at 0.5 is within 0.2 of it on all three scores, and the run at 1.0 is lower on ROUGE-2 and ROUGE-L. The repetition penalties barely move ROUGE on this sample while changing the text of every parity input.
+
+**Speed and memory** (Apple M5 Pro, 64 GB, MLX 0.32.4, Metal, 200 articles, includes prefix building and the readout, excludes ROUGE; the GPU was idle when the runs started and showed 87% after, from other applications on the machine):
+
+| Mode | Articles per second | Peak MLX memory |
+|---|---:|---:|
+| batch 1 | 20.4 | 0.9 GB |
+| batch 16 | 36.1 | 2.8 GB |
+| batch 16, prefix recomputed in every level | 10.9 | 2.3 GB |
+| batch 32 | 38.6 | 4.2 GB |
+| batch 64 | 33.2 | 6.6 GB |
+| batch 16, `--compile` (200 articles, includes tracing) | 28.1 | 5.7 GB |
+| batch 16, full test set | 35.8 (317 s for 11,334) | 2.8 GB |
+
+Nine generator forwards run per batch (6,381 for the full set). With a 512-token prefix the cache is a clear gain: 3.3 times at batch 16.
+
+**Limits.** Only the released defaults (greedy codes) are checked against upstream; sampling at a temperature above 0 with larger top-k or top-p uses MLX's random numbers and cannot match upstream sample for sample. Minimum-Bayes-risk decoding from the paper is not implemented. Parity was run on CPU; the ROUGE rows were run on Metal, whose reduced-precision matmul can flip a near-tie. On the 200-article sample the CPU run gives the same summary as Metal for 181 articles (ROUGE 34.63 / 12.64 / 27.50 against 34.51 / 12.72 / 27.55) at 3.5 articles per second. The summaries are the model's own and often contain broken words and wrong facts (see the examples below); ROUGE overlap does not measure faithfulness. The GPT-2 pre-tokenizer inherits the whitespace caveat in [Limitations](#limitations). The decode follows `transformers` 5.x defaults; releases that clean up spaces by default would change the text slightly.
+
+Examples, first three articles of the random sample, shown verbatim:
+
+| Article | Model summary | Reference |
+|---:|---|---|
+| 30 | Britain's Jessica Ennis-Hill won herptptathlon for the second day running second in the Isisisyi final in Amsterdam. | Jessica Ennis-Hill has fallen from fourth to eighth place after six events at the Hypo-Meeting in Gotzis. |
+| 59 | Manchester City midfielder Kevin de Bruyne is set to miss Wednesday's Champions semi-final- second leg against Everton in his 4-0 win over Everton. | Manchester City midfielder Kevin de Bruyne says he will be out for about 10 weeks after injuring his right knee during Wednesday's League Cup semi-final victory over Everton. |
+| 92 | Stevenage striker Miuyura has signed a contract extension with the Japanese at the age of 34. | Japanese footballer Kazuyoshi Miura has signed a one-year contract extension with Yokohama FC at the age of 48. |
 
 ## What the port implements
 
@@ -178,7 +270,7 @@ Reading, with the contention caveat. For Sudoku (91-token prefix) the cache give
 ## Limitations
 
 - The port itself is inference-only. Training new models in the TinyStories architecture family is a separate, experimental recipe; see [text training](text-training.md). It does not fine-tune or reproduce the released weights.
-- Not converted: LM1B and OpenWebText. WMT14 and XSum are converted at the codec level only; their generators, source tokenizers and decoding penalties are not implemented. Upstream's experimental options outside the released configs, such as a context encoder, `predict_level0` and block-causal attention, are rejected by the pinned specs rather than supported.
+- Not converted: LM1B and OpenWebText. WMT14 is converted at the codec level only; its generator, source tokenizer and decoding are not implemented. Upstream's experimental options outside the released configs, such as a context encoder, `predict_level0` and block-causal attention, are rejected by the pinned specs rather than supported.
 - The pinned spec restates each `config.yaml`. The converter refuses a config whose SHA-256 differs, and a test compares the spec field by field with the downloaded YAML.
 - The BPE pre-tokenizer reimplements upstream's `regex` pattern with `unicodedata`. It is verified on the parity cases, including Unicode, but rare whitespace classes such as `\x1c`–`\x1f` may differ.
 - Metal fp32 matmul is reduced precision (see E-precision), so GPU outputs can differ from CPU at near-ties. On the 2,000 easy boards, Metal and CPU outputs were identical.
@@ -194,7 +286,9 @@ uv run --with torch --with omegaconf --with hydra-core --with regex \
     python scripts/official_torch_reference.py sudoku --upstream /path/to/ncm --task sudoku-easy --n 0
 uv run --with torch --with omegaconf --with hydra-core --with regex \
     python scripts/official_codec_parity.py --upstream /path/to/ncm --task xsum    # or wmt14; add --inputs FILE for other rows
-uv run pytest -q tests/test_official.py tests/test_official_codec.py    # skips parity checks when converted weights are absent
+uv run --with torch --with omegaconf --with hydra-core --with regex --with transformers \\
+    python scripts/official_xsum_parity.py --upstream /path/to/ncm    # XSum summarization; --fixture FILE rewrites the test fixture
+uv run pytest -q tests/test_official.py tests/test_official_codec.py tests/test_official_summarize.py    # skips parity checks when converted weights are absent
 ```
 
 PyTorch is used only in these ephemeral runs. It is not a dependency of `ncm_mlx`.

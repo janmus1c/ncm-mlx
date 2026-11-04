@@ -8,6 +8,8 @@ updated: 2026-10-24
 
 Codec and generator training save full state at each `train.log_every` boundary, at the final step, and after a requested pause. Use the same code, configuration, datasets, codec and MLX version when resuming. A weights file alone cannot reproduce an interrupted optimizer trajectory.
 
+Long runs support full-state pause/resume and atomic checkpoints. Start Mac experiments with `scripts/launch_experiment.sh` so terminal closure does not kill them.
+
 ## Checkpoint contents
 
 Each stage writes `<stage>-training.safetensors` and retains the preceding readable file as `<stage>-training.previous.safetensors`. A temporary file is written and flushed before atomic replacement; readers see a complete old or new snapshot. An unreadable latest snapshot falls back to the previous one, with a log message.

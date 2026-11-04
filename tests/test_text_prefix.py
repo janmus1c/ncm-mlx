@@ -413,3 +413,20 @@ def test_prefix_evaluation_runs_end_to_end_on_tiny_models(tmp_path, patched_pref
         assert len(entry["examples_seed_first"]) == 6
     rows = [json.loads(line) for line in (tmp_path / "eval" / "continuations-ncm.jsonl").read_text().splitlines()]
     assert len(rows) == 12 and all(len(r["ids"]) == L for r in rows)
+
+
+def test_continue_text_cli_continues_a_prompt_on_cpu(tmp_path, patched_prefix_rows, capsys):
+    """The documented command: ``python -m ncm_mlx official continue-text --weights EXPORT --prompt TEXT --cpu``."""
+    from ncm_mlx.cli import main
+
+    cfg, _ = trained_prefix_run(tmp_path)
+    bpe = trainer.export_dir(cfg) / "bpe.json"
+    vocab = json.loads(bpe.read_text())
+    vocab["vocab"] += [f"w{i}".encode().hex() for i in range(8192 - len(vocab["vocab"]))]
+    bpe.write_text(json.dumps(vocab))
+    export = str(trainer.export_dir(cfg))
+    argv = ["official", "continue-text", "--weights", export, "--prompt", "ab", "--n", "2", "--seed", "3", "--cpu"]
+    assert main(argv) == 0
+    out = capsys.readouterr().out
+    assert out.count("--- continuation") == 2 and "[|]" in out
+    assert main(argv) == 0 and capsys.readouterr().out == out

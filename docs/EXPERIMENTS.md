@@ -11,6 +11,190 @@ Every measured run, newest first. Unless a run specifies another device, hardwar
 
 **GPU contention.** Mac experiments generally ran alongside other local GPU services; per-run notes record exceptions and other hardware. `ioreg` reported 15% GPU utilisation from other processes just before the v0 benchmark started. Treat those latency numbers as "typical busy desktop" rather than an idle machine.
 
+## Official checkpoints: XSum summarisation and ROUGE (2026-11-03)
+
+Inference only, no training. The released XSum generator and codec of Kumbong et al. (same pinned upstream code and checkpoint revisions as the TinyStories and Sudoku port) are converted and run by `python -m ncm_mlx official summarize --task xsum`. Commands, the readout (frequency penalty, allowance and adjacency rules), the cache and the limits are in [released checkpoints](official-checkpoints.md); the parity script is `scripts/official_xsum_parity.py`. These are upstream-trained weights, not models trained here.
+
+**Parity (CPU, upstream PyTorch 2.15.0 and upstream code `c702742`).** Eight fixed inputs: test articles 0 to 3 and four raw texts. GPT-2 encoding (11 cases, 500 references) and decoding (201 id rows) are identical. Free-running greedy codes at all nine levels are identical for the eight inputs, and the penalised readout gives identical ids and texts for 8 of 8. Teacher-forced per-level logits differ by at most 6.7e-4 in fp32 (logit scale up to 1,118) and 6.8e-13 in exact fp64; fp32 rounding itself is 7.6e-4 for upstream and 5.4e-4 for MLX against the fp64 reference. Final decoder logits differ by 3.7e-4 at scale 41. Classifier-free guidance at 1.0 gives identical codes with raw logits within 7.9e-4. The prefix cache and the recompute path agree exactly.
+
+**ROUGE (MLX, Metal, batch 16, seed 0, F-measure with stemming, scores × 100).**
+
+| Articles | Setting | R-1 | R-2 | R-L | Mean words |
+|---|---|---:|---:|---:|---:|
+| 11,334 (full test set) | released defaults, greedy | 34.93 | 12.71 | 27.94 | 20.7 |
+| 11,334 | guidance 1.0 | 35.15 | 12.61 | 27.98 | 20.6 |
+| 11,334 | guidance 0.5 | 35.20 | 12.83 | 28.11 | 20.6 |
+| Quoted from Kumbong et al., Sec. 4.3 and Table 2 | no guidance, "8 NFE" | 35.0 | 12.8 | 28.0 | n/a |
+| Quoted from Kumbong et al., Sec. 4.3 and Table 2 | with guidance, "16 NFE" | 35.3 | 13.0 | 28.2 | n/a |
+| 200, random sample | released defaults | 34.51 | 12.72 | 27.55 | 20.4 |
+| 200, same sample, CPU | released defaults | 34.63 | 12.64 | 27.50 | 20.4 |
+| 200, same sample | no penalties | 34.51 | 12.73 | 27.48 | 20.5 |
+
+On the full test set the default run is within 0.1 of the quoted scores on all three measures. The paper reports its guided row at guidance weight 0.5 (its Appendix F.4 and Figure 14, where the ROUGE curves peak); at 0.5 the port is within 0.2 of the quoted guided scores on all three measures, and at 1.0 it is lower on ROUGE-2 and ROUGE-L. The paper counts generator calls per output (8 for XSum, two per guided step), whereas this port makes 9 generator forwards (a level-0 query pass plus eight); presumably the paper does not count the level-0 pass, which is not confirmed. The 200-article rows are samples, with about 0.4 R-1 of noise between sets. On the 200-article sample the CPU run reproduces 181 of the 200 Metal summaries; reduced-precision Metal matrix products flip near-ties. Speed on the M5 Pro (MLX 0.32.4, busy desktop, 200 articles, excluding ROUGE): 20.4 articles/s at batch 1 and 36.1 at batch 16 (10.9 without the prefix cache), 0.9 and 2.8 GB peak MLX memory; the full test set at batch 16 took 317 s.
+
+**Limits.** The summaries are fluent-looking but contain broken words and wrong facts (for example "herptptathlon" and a different team and score than the source), and ROUGE overlap does not measure faithfulness. Only greedy decoding is checked against upstream; minimum-Bayes-risk decoding and sampled outputs are not. There is no Metal parity run. The decode follows `transformers` 5.x defaults without the optional space clean-up; whether 4.x defaults clean up differs, and ROUGE is unchanged at two decimals on the sample. The penalty readout has no visible ROUGE effect at 200 articles although it changes every parity text. Training XSum is out of scope here, and `bench` does not time summarisation.
+
+## E32: 50M and 87M generators at four times the data, bf16 (2026-11-04)
+
+Question: do the size gains hold, and does the NCM/AR ratio keep falling, when 50M and 87M generators see four times the TinyStories windows? Configs: `configs/tinystories-ladder-50m-x4-bf16.json` and `configs/tinystories-ladder-87m-x4-bf16.json` (out_dir under `artifacts/`). They are the 1× size-ladder configs of E30 with generator updates 15,000 to 60,000 (60,000 × 64 = 3,840,000 windows), AR updates 7,500 to 30,000 (30,000 × 128), no time limit, and `train.precision = "bfloat16"` (E29). The frozen E21 codec, corruption 0.75 to 0.25, optimiser and every other setting are unchanged. Training seed 0, one run per size.
+
+Hardware: rented NVIDIA GPUs through MLX's CUDA backend (MLX 0.32.3, Python 3.12.3). The 50M pair ran on an NVIDIA A40 and the 87M pair on an NVIDIA RTX PRO 6000 Blackwell, so wall-clock times are not comparable between rows.
+
+| Run | Generator | Clean code CE | NCM GPT-2-large PPL (SD, 5 sampling seeds) | AR parameters | AR PPL (SD) | AR token CE | NCM / AR | Generator training |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| 50M, 4×, bf16 | 49,644,683 (12 × 576, 9 heads) | 1.62073 | 26.148 (0.547) | 52,586,880 | 11.838 (0.436) | 1.04535 | 2.209 | 53,243 s, 75.3 seq/s, 21.15 GB peak MLX memory |
+| 87M, 4×, bf16 | 87,426,059 (12 × 768, 12 heads) | 1.51620 | 24.404 (0.848) | 91,348,992 | 11.484 (0.341) | 1.01081 | 2.125 | 22,440 s, 172.1 seq/s, 29.84 GB peak |
+
+Against the 1× fp32 runs of E30 (50M 32.226, 87M 30.688), four times the data lowers NCM perplexity by 18.9% (50M) and 20.5% (87M), and the AR baselines by 10.7% and 10.9%. At 4× data the 50M to 87M step lowers NCM perplexity from 26.148 to 24.404 (-6.7%), against -4.8% at 1×. The NCM/AR ratio is 2.209 at 50M and 2.125 at 87M: lower than every 12M value, still above 2. The 87M run is the best NCM of this study (clean code CE 1.5162, perplexity 24.404, distinct-3 0.4792); the held-out text scores 8.529 and the released checkpoint 16.259 under the same scorer.
+
+**Limitations.**
+- One training seed per row. At 12M the two 4× seeds differ by 2.230 perplexity (E31), larger than the 1.74 separating the 50M and 87M rows here, so the size step from 50M to 87M is not distinguishable from training-seed variation.
+- **Precision and data change together.** These rows train in bf16 while the 1× rows they are compared with train in fp32. E29 supports parity only for the 12M recipe at 1× data; no fp32 run exists at 50M or 87M, or at 4× data, so a precision effect there cannot be excluded.
+- The AR baselines also see four times the windows and use bf16, with logits rounded to bf16 before the fp32 loss.
+- Equal window exposure is not equal compute; the NCM stage costs more per window, and more again at larger width. Wall time is not comparable across rows (different GPUs).
+- Frozen E21 codec (trained on TinyStories at 12M scale and never adapted); synthetic data; 128-token unconditional samples; one external scorer; no human rating. Evaluation (sampling and GPT-2 scoring) ran in fp32.
+- Peak memory is the value printed by the training log, not a controlled measurement.
+
+**Summary figure (E30 to E32).** The ratio of NCM to AR GPT-2-large perplexity by generator size, at one and four times the data. The released checkpoint is not plotted, because no AR baseline here matches its budget. Values are copied from the saved evaluation reports into [`research/tinystories-scaling.json`](research/tinystories-scaling.json), which the figure script reads.
+
+<picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="assets/scaling-ladder-mobile-dark.svg">
+  <source media="(max-width: 600px)" srcset="assets/scaling-ladder-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/scaling-ladder-dark.svg">
+  <img src="assets/scaling-ladder-light.svg" alt="NCM over AR ratio of GPT-2-large generative perplexity on TinyStories by generator size. At 1× data and fp32: 3.33 at 12M, 2.43 at 50M, 2.38 at 87M. At 4× data and bf16: 3.05 and 2.89 for two 12M seeds, 2.21 at 50M, 2.13 at 87M. One training seed per point except the 12M point at 4× data." width="1080">
+</picture>
+
+
+## E31: four times the data at 12M, two seeds, bf16 (2026-11-03 to 2026-11-04)
+
+Question: how much does four times the windows help the 12M recipe of E21 on its own? Configs: `configs/tinystories-ladder-12m-x4-bf16.json` (seed 0) and `configs/tinystories-ladder-12m-x4-bf16-seed1.json` (seed 1). These are `tinystories-e21-bf16.json` (E29) with 60,000 generator updates × 64 (3,840,000 windows), 30,000 AR updates × 128 and no time limit; the frozen E21 codec is reused. One RTX 3080 (12 GB) through MLX's CUDA backend, MLX 0.32.3, Python 3.12.15.
+
+| Run | Clean code CE | NCM GPT-2-large PPL (SD) | AR PPL (SD) | AR token CE | NCM / AR | Generator training |
+|---|---:|---:|---:|---:|---:|---|
+| 12M, 4×, bf16, seed 0 | 2.01235 | 38.416 (1.316) | 12.601 (0.264) | 1.16798 | 3.049 | 13,855 s, 283.4 seq/s, 7.85 GB |
+| 12M, 4×, bf16, seed 1 | 2.01741 | 36.186 (0.467) | 12.525 (0.195) | 1.16871 | 2.889 | 13,700 s, 283.9 seq/s, 7.84 GB |
+| 12M, 1×, fp32 (E30) | 2.24708 | 48.964 (1.236) | 14.705 (0.260) | 1.31481 | 3.330 | 5,949 s on a different GPU |
+
+Against the 1× run of E30, four times the data lowers seed-0 NCM perplexity by 21.5% and the AR baseline's by 14.3%, so NCM gains more, but the ratio only moves from 3.33 to 3.05 (seed 0) and 2.89 (seed 1). The two 4× seeds differ by 2.230 perplexity and 0.005 code CE. Clean code CE falls from 2.247 to 2.012 and 2.017.
+
+**Limitations.** Two seeds on one frozen codec do not estimate full-training variability. The seed-1 AR control was trained in the seed-1 run and the seed-0 AR in the seed-0 run (30,000 × 128 each). The 1× comparison row was trained in fp32 on another GPU, and bf16 parity is shown only at 1× (E29). A 12M model is capacity-limited, so these runs do not show what four times the data does at larger sizes (E32). Equal exposure is not equal compute, and the codec is frozen from E21, synthetic prose, 128-token unconditional generation.
+
+## E30: size ladder at 1× data, fp32 (2026-11-03)
+
+Question: does the NCM/AR gap shrink with generator size when the data are held at E21's 960,000 windows? Configs: `configs/tinystories-ladder-12m.json`, `configs/tinystories-ladder-50m.json` and `configs/tinystories-ladder-87m.json` (out_dir under `artifacts/`). They differ from `tinystories-e21.json` only in generator shape (6 × 384 × 6 heads, 12 × 576 × 9 heads, 12 × 768 × 12 heads) and in raising the time limits from E21's 390 minutes (generator) and 90 minutes (AR) to 1,500 and 600; all three runs completed their 15,000 generator updates. The AR baseline is built from the same block stack at each width. All runs reuse the frozen seed-0 E21 codec (non-padding reconstruction 99.816%), corruption 0.75 to 0.25, 15,000 × 64 = 960,000 generator windows and 7,500 × 128 AR windows, fp32, training seed 0. The 12M run reruns E21's recipe on a different GPU and library state, so it is a fresh trained model and not E21.
+
+Hardware: rented NVIDIA GPUs through MLX's CUDA backend (MLX 0.32.3, Python 3.12.3): an RTX A6000 for 12M and 50M, an RTX PRO 6000 Blackwell for 87M. Evaluation is the audited protocol of E21 (4,096 ordered held-out windows; 256 outputs × five sampling seeds; GPT-2 large).
+
+| Run | Generator | Clean code CE | NCM GPT-2-large PPL (SD) | AR parameters | AR PPL (SD) | AR token CE | NCM / AR | Generator training |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| 12M | 11,832,587 (6 × 384, 6 heads) | 2.24708 | 48.964 (1.236) | 13,794,048 | 14.705 (0.260) | 1.31481 | 3.330 | 5,949 s, 150.5 seq/s, 12.31 GB peak |
+| 50M | 49,644,683 (12 × 576, 9 heads) | 1.90405 | 32.226 (0.609) | 52,586,880 | 13.254 (0.232) | 1.18791 | 2.431 | 16,896 s, 58.0 seq/s, 34.27 GB peak |
+| 87M | 87,426,059 (12 × 768, 12 heads) | 1.80314 | 30.688 (0.985) | 91,348,992 | 12.888 (0.446) | 1.15069 | 2.381 | 8,970 s, 110.1 seq/s, 46.74 GB peak |
+
+Going from 12M to 50M lowers NCM perplexity by 34.2% and the AR's by 9.9%, and the ratio from 3.33 to 2.43. From 50M to 87M the changes are 4.8% and 2.8% (ratio 2.43 to 2.38): the gain nearly stops at fixed data. Clean code CE keeps falling (2.247, 1.904, 1.803). The 12M row is consistent with E21 (3.26) and E24 (3.18), which scored 47.897 and 45.568 against ARs of 14.676 and 14.311.
+
+**Limitations.** One training seed per row; the 12M repeats (E21, E24 and this run) show that seed and hardware changes move the ratio by about 0.1 to 0.15 at 12M, so the 50M to 87M difference of 0.05 is not resolved. Sampling-seed SDs (0.6 to 1.2) are not training-seed variability. The 12M and 50M runs use a different GPU than the 87M run, so training time is not comparable. Total compute is not matched between NCM and AR or between sizes, the codec is frozen from E21 (it was trained at the 12M scale and never rescaled), the corpus is synthetic, and the AR parameters grow with the NCM generator (13.8M to 91.3M) rather than being held fixed. Peak memory is the value printed by the training log.
+
+## E29: bf16 mixed-precision quality parity at the E21 recipe (2026-11-03)
+
+Question: does bf16 mixed-precision training change the quality of the E21 recipe? Config: `configs/tinystories-e21-bf16.json`, identical to `tinystories-e21.json` except `train.precision = "bfloat16"` (code: [text training](text-training.md#optional-bfloat16-mixed-precision)). It reuses the frozen E21 codec; the codec stage is never trained in bf16. fp32 master weights and fp32 optimiser state are kept; norms, tied level heads, rotary application and the loss stay fp32. Evaluation runs in fp32 on the exported master weights. One NVIDIA GeForce RTX 3080 (12 GB) through MLX's CUDA backend, MLX 0.32.3, Python 3.12.15, generator batch 64, seed 0.
+
+| Run | Precision | Clean code CE | NCM GPT-2-large PPL (SD, 5 sampling seeds) |
+|---|---|---:|---:|
+| E21 (Apple M5 Pro) | fp32 | 2.24875 | 47.897 (0.797) |
+| E24 (seed 1, Apple M5 Pro) | fp32 | 2.24909 | 45.568 (0.909) |
+| 12M run of E30 (RTX A6000) | fp32 | 2.24708 | 48.964 (1.236) |
+| E29 (RTX 3080) | bf16 | 2.24705 | 49.091 (1.766) |
+
+The bf16 perplexity is 0.13 above the highest of the three fp32 runs (45.568 to 48.964), well inside its own sampling-seed SD of 1.77, and its clean code CE differs from every fp32 value by at most 0.0021. Distinct-3 is 0.5006 and repeated 4-grams 0.57%. Training took 3,456 s for 15,000 updates (about 283 sequences/s) with about 7.8 GB peak MLX memory; fp32 at batch 64 did not fit the 12 GB card.
+
+**Step timing** (`scripts/text_step_timing.py`, RTX 3080, compiled, batch 32, 5 warmups and 30 timed steps): the generator step takes 0.15689 s in fp32 and 0.10438 s in bf16 (1.50x faster), with peak MLX memory 7.464 and 4.766 GB (-36%); the AR step 0.03016 and 0.01977 s (1.53x), 2.142 and 1.793 GB (-16%). One measurement session.
+
+**Limitations.** One training seed; parity is judged against only three fp32 perplexities across different hardware, so a small systematic difference cannot be excluded. It is shown at 12M and 1× data only; the larger and 4× runs of E31 and E32 rely on it by extension. The bf16 run had no AR baseline of its own (E31 and E32 do). Frozen E21 codec, synthetic data, unconditional 128-token generation, one external scorer. The bf16 AR path rounds logits to bf16 before an fp32 loss.
+
+## E28: stronger corruption and equal level loss, two seeds each (2026-11-02)
+
+Question: after the E21 to E24 ablation, can either of two further training-side changes close part of the AR gap? Configs: `configs/tinystories-stronger-corruption.json` and `configs/tinystories-stronger-corruption-seed1.json` (conditioning corruption 0.90 to 0.50, loss alpha 0), and `configs/tinystories-equal-level-loss.json` and `configs/tinystories-equal-level-loss-seed1.json` (E21's corruption 0.75 to 0.25 with loss alpha 1, so each level carries equal weight; with alpha 0 the first predicted level carries 1.25% of the loss weight and with alpha 1 it carries one eleventh). Everything else is E21's recipe, with the frozen E21 codec and the AR baselines of the matching seed. Each run is 15,000 × 64 windows in fp32. One RTX 3080 (12 GB) through MLX's CUDA backend, using gradient accumulation of 2 × 32 to reach batch 64 on that card (a training option in the private frozen source that ran these jobs, not a key of the public config); about 4,900 s per generator. The AR controls are those of E21 and E24, evaluated again in these reports.
+
+| Run | Seed | Clean code CE | NCM GPT-2-large PPL (SD) | AR PPL (SD) | NCM / AR | Distinct-3 |
+|---|---:|---:|---:|---:|---:|---:|
+| Stronger corruption 0.90 to 0.50 | 0 | 2.84962 | 55.329 (2.039) | 14.675 (0.466) | 3.770 | 0.4606 |
+| | 1 | 2.83754 | 53.297 (1.735) | 14.278 (0.216) | 3.733 | 0.4470 |
+| Equal level loss (alpha 1) | 0 | 2.27875 | 47.543 (1.338) | 14.675 (0.466) | 3.240 | 0.4819 |
+| | 1 | 2.27559 | 45.740 (1.138) | 14.278 (0.216) | 3.204 | 0.4732 |
+| E21 / E24 reference | 0 / 1 | 2.24875 / 2.24909 | 47.897 (0.797) / 45.568 (0.909) | 14.676 / 14.311 | 3.264 / 3.184 | 0.4951 / 0.4787 |
+
+Both are negative or null results. Stronger corruption is worse than E21/E24 by 7.43 (seed 0) and 7.73 (seed 1) perplexity and its clean code CE rises to about 2.84, so the corruption setting of E21 is not below a useful level in the sense of this test. Equal level weighting differs from E21/E24 by -0.354 (seed 0) and +0.172 (seed 1), below the sampling-seed SDs of 0.8 to 1.3 and below the 2.3 spread between the E21 and E24 seeds: indistinguishable. Neither closes the AR gap (ratios 3.2 to 3.8). The stronger-corruption change alters both the amount and the per-level placement of noise, so it is read separately from E25.
+
+**Limitations.** Two generator seeds on one frozen codec; the seed pairs have wide spreads at this size. Single hyperparameter points (one stronger schedule, alpha 1 only). Gradient accumulation with 2 × 32 need not be bitwise equal to one batch of 64. The FineWeb version of the stronger-corruption test (E26) was interrupted and has no result.
+
+## E27: sampling-policy studies of E21 and E24 (2026-11-01 to 2026-11-02)
+
+Question: how much of the AR gap is sampling? Evaluation only; no training. Two studies reuse the E21 and E24 checkpoints and their matched AR baselines, with the audited protocol (GPT-2 large; seeds [42, 0, 1, 2, 3] × 256 for the gate, a disjoint seed set [10 to 14] × 256 for confirmation). The driver is `scripts/sampling_study.py` with the 98-run list `scripts/sampling_study_runs.json` ([how to run it](text-training.md#sampling-study)); its self-test checks that the per-level sampler is token-identical to `sample.generate` at default settings. The tables below were produced by the private script it was cleaned up from, and the published version has not been re-run on a clean checkout. Per-run results and every generated sample are in the evidence archive of the paper release.
+
+**Reproduction.** E21 NCM scores 48.1 +- 1.0 (E21's own report: 47.897), the AR 14.7 +- 0.5, ratio 3.3; held-out data 8.6.
+
+**Matched-diversity comparison.** Because lowering temperature lowers perplexity for both models, NCM settings are compared with the AR at the same distinct-3 (read off an AR temperature curve). Confirmation seeds [10 to 14], E21:
+
+| NCM setting | NCM PPL | Distinct-3 | AR PPL at the same distinct-3 | NCM / AR |
+|---|---:|---:|---:|---:|
+| temperature 1 (default) | 47.9 | 0.496 | 14.5 (lower bound; the AR at T=1 is the nearest point) | 3.29 |
+| global temperature 0.85 | 37.1 | 0.448 | 11.9 | 3.11 |
+| global temperature 0.7 | 32.8 | 0.408 | 9.9 | 3.30 |
+| levels 4 to 11 at temperature 0.7 | 34.6 | 0.439 | 11.4 | 3.03 |
+| levels 4 to 11 at temperature 0.5 | 31.2 | 0.415 | 10.2 | 3.06 |
+| levels 4 to 11 at temperature 0.3 | 30.0 | 0.402 | 9.7 | 3.09 |
+| top-p 0.9 | 40.8 | 0.470 | 13.4 | 3.05 |
+| top-k 50 | 30.6 | 0.351 | 8.3 | 3.68 |
+
+The AR scores 14.5 at temperature 1 (distinct-3 0.486) and 7.6 at 0.7 (0.314). On E24 (seed 1), confirmation ratios are 3.25 (T=1), 3.30 (global 0.7) and 2.99 (levels 4 to 11 at 0.5). Across every sampler, the ratio at matched diversity stays between about 3.0 and 3.7. Sharpening the stored level-0 unigram (temperature 0.8 to 0.2) changes nothing beyond noise (48.1 to 49.0 against 47.9). The best sampler, cooling only the fine levels, shrinks the gap by about 6% in log terms (ln 3.29 = 1.19 against ln 3.06 = 1.12); we attribute roughly 5 to 10% of the gap to sampling, with an uncertainty of a few points, and the remainder to the learned model.
+
+**Earlier Mac study** (128 development and 384 confirmation samples per policy, disjoint sampling seeds, Apple M5 Pro): temperature 0.85 lowers E21 from 44.193 to 35.610 (development) and from 47.796 to 37.155 (confirmation), and E24 from 45.086 to 34.443 and from 44.663 to 35.147, while the AR falls from 14.308 to 9.671 (E21's AR, temperature 0.85) and nucleus 0.9 takes it to 9.449. Diversity falls with perplexity in every case. These studies agree: lowering temperature looks like a large NCM gain but the AR gains as much.
+
+**Conditioning diagnostics** (64 held-out windows, original target-code cross-entropy; a sensitivity measure, not language perplexity): clean, training-corruption and generated-prefix code CE are 2.1779, 3.3897 and 11.2566 for E21, 1.6127, 2.1508 and 13.1064 for E22, and 1.3355, 1.3355 and 17.7663 for E23. The less a generator is corrupted in training, the worse it predicts target codes once its own sampled prefix diverges from the data, which fits the opposite orderings of clean loss and free-running quality in E21 to E24. It is a consistent description, not a causal proof.
+
+**Limitations.** Matching on distinct-3 is one choice among several; at low temperature the NCM's unigram entropy (3.86 to 3.88) falls below the AR's (3.92 to 3.95) and the AR copies 5 to 19% of its 32-token openings against about 0% for the NCM, so low-temperature AR scores are partly memorised openings and slightly flatter the AR. Perplexity under GPT-2 large rewards fluent and repetitive text. Two checkpoints, one training seed each; the 2-seed sweeps carry sampling-seed SDs of 1 to 2 perplexity, so differences under about 3 are unresolved there. Iterated refinement or reranking with the AR would change the algorithm and was not tried.
+
+## E26: FineWeb-Edu pilot, 100M and 250M generators at matched exposure (2026-11-01 to 2026-11-02)
+
+Question: does the NCM/AR gap and the size result carry over from synthetic stories to naturally occurring web text, and does a larger generator help at fixed exposure? This is a pilot on a bounded sample, not a trained language model, and the paper reports it only as a pipeline check. The curated data cache and preparation code are not in this repository, so no config is published for this entry; the settings follow.
+
+**Data.** `HuggingFaceFW/fineweb-edu` (ODC-By), revision `87f0914`, first shard of `sample-10BT`. Documents are assigned to train, validation or test before windowing; the first 16 non-overlapping 128-token windows of each retained document are used, with the unchanged TinyStories 8,192-entry BPE (not learned on this text). Train: 92,759 documents, 800,000 windows, 102.4M positions (98.6M non-padding tokens); validation and test: 4,096 windows each. 94,720 documents scanned; repeated documents and windows were removed. This is a bounded sample, not representative of FineWeb-Edu. A near-duplicate screen on 667 candidate pairs found none at the 0.8 threshold; it cannot exclude all overlap.
+
+**Models.** A new 15.5M-value codec trained on this data (same 12-level hierarchy); its provisional gate was 99% non-padding reconstruction and the held-out value is 99.061% on 256 test windows (exact-window 42.969%, against 99.816% on TinyStories). NCM generators with 101,602,059 parameters (14 blocks, width 768, 12 heads) and 255,087,115 parameters (20 blocks, width 1024, 16 heads); an AR baseline of about 105.5M parameters on the 100M budget. Batch 16 (100M) and batch 8 (250M), peak learning rate 3e-4, planned schedules of 500,000 and 1,000,000 updates; the compared checkpoints are early points of those schedules (50,000 and 100,000 updates at batch 16, and 76,900 and 100,000 at batch 8), so they are not converged. fp32, one training seed each, corruption 0.75 to 0.25. One rented NVIDIA RTX 5090 through MLX's CUDA backend, about 15 hours.
+
+**Evaluation.** Unconditional samples, 192 per model (sampling seeds 42, 0 and 1 × 64), temperature 1, scored by GPT-2 large with no BOS token and up to 1,024 tokens; held-out real text windows score 31.0. This is a smaller and different protocol from E21's, so values are not comparable with TinyStories scores.
+
+| Model | Text positions seen | GPT-2-large PPL | Teacher-forced loss |
+|---|---:|---:|---:|
+| Held-out real text | n/a | 31.0 | n/a |
+| MLX AR baseline, 100M | 102.4M | 412.1 | 3.338 (token CE) |
+| MLX AR baseline, 100M | 204.8M | 384.1 | 3.259 (token CE) |
+| MLX NCM, 101.6M generator | 102.4M | 1,167.0 | 2.747 (code CE) |
+| MLX NCM, 101.6M generator | 204.8M | 1,113.2 | 2.601 (code CE) |
+| MLX NCM, 255.1M generator | 78.7M | 1,206.1 | 2.806 (code CE) |
+| MLX NCM, 255.1M generator | 102.4M | 1,279.3 | 2.752 (code CE) |
+
+At matched exposure the NCM's perplexity is 2.8 to 2.9 times the AR's (1,167.0 against 412.1 at 102.4M; 1,113.2 against 384.1 at 204.8M), and 3.1 times for the 255M generator, a gap of the same order as on TinyStories. The learning rate had barely decayed at these checkpoints. A second pass over the same windows modestly improves both. The 255M generator is no better than the 101.6M one at 102.4M positions (equal code CE, 1,279.3 against 1,167.0 perplexity), although batch size differs (8 against 16). Every model is far from real text (31.0), and nothing here is coherent prose; the exposure is about a twentieth of a compute-optimal token budget. Code CE and AR token CE are different targets and are not compared.
+
+**Interrupted run.** A FineWeb stronger-corruption test (corruption 0.90 to 0.50 on the 100M configuration) was started on a rented GPU on 2026-11-02 and interrupted. It has no evaluation and no result, and nothing is reported for it.
+
+**Limitations.** One seed per row; the 100M-to-250M and batch 8-to-16 comparison is confounded; early checkpoints of long schedules; compute and parameters are not matched between NCM and AR; the codec was trained for this pilot and its own quality gap (99.061%) differs from TinyStories; the scorer sample is small (192) and its sampling seeds are not training seeds; the data are a classifier-selected web sample with navigation text, and no factual audit was done. Not reproducible from this repository alone.
+
+## E25: matched-constant corruption control (2026-11-01)
+
+Question: is the *taper* of E21's conditioning corruption (0.75 falling to 0.25 across levels) responsible for its behaviour, or only the overall amount? E21's expected replacement count is 198.95 of the 513 conditioning positions per window (11 conditioning levels of 1, 8, 16, 24, 32, 40, 52, 64, 76, 92 and 108 codes). A constant probability of 198.95 / 513 = 0.38781676 reproduces that expectation. Config: `configs/tinystories-matched-constant.json` (corruption 0.3878 to 0.3878, everything else E21's). Frozen E21 codec, fresh generator, training seed 0, 15,000 × 64 windows, fp32; the AR control is E21's own (not retrained). Apple M5 Pro, MLX 0.32.3, Metal.
+
+| Run | Corruption | Clean code CE | NCM GPT-2-large PPL (SD) | AR PPL |
+|---|---|---:|---:|---:|
+| Matched constant | 0.3878 constant | 2.05726 | 47.052 (1.245) | 14.676 |
+| E21 | 0.75 to 0.25 | 2.24875 | 47.897 (0.797) | 14.676 |
+| E24 (seed 1) | 0.75 to 0.25 | 2.24909 | 45.568 (0.909) | 14.311 |
+
+The matched-constant control scores within 0.85 perplexity of E21 and inside the 2.33 spread between E21 and E24, while its clean code CE is lower (2.057 against 2.249). We read this as no evidence that the per-level taper matters at this expected amount; equal expected replacement does not mean equal semantic perturbation at coarse and fine levels. Distinct-3 is 0.510, repeated 4-grams 0.54%.
+
+**Limitations.** One training seed; the seed-1 repeat was queued and never run. Generator training was paused and resumed from full-state snapshots by a resource guard about 25 times while other work used the machine (one clean stop at update 2, then at 1,444 and 1,978, and later pauses), and the allocator cache limit was lowered from 2 GiB to 256 MiB for later segments. Resumption is exact within a backend in CPU tests, but GPU bitwise equivalence across allocation profiles is not asserted. The generator training loop took 21,582 s in total and is not a speed measurement. The result is one of several: the AR control, the frozen codec, the synthetic corpus and the single seed limits apply as in E21 to E24.
+
 ## E21–E24: TinyStories corruption ablation and generator-seed repeats (2026-10-30)
 
 The [assessment](research/e21-e23-assessment.md) audits retained local experiments run with the text-training workflow (see [text training](text-training.md)). No model run was repeated for this audit. The [sanitized evidence extract](research/e21-e23-evidence.json) preserves configurations, source and checkpoint hashes, ordered evaluation identities, individual sample excerpts and reaggregated scorer values. Public clean-checkout reproduction remains pending.

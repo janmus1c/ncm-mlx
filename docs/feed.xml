@@ -5,17 +5,40 @@
   <subtitle>Software, research articles and working-paper releases for an independent MLX implementation of Next-Concept Modeling.</subtitle>
   <link rel="self" type="application/atom+xml" href="https://janmus1c.github.io/ncm-mlx/feed.xml" />
   <link rel="alternate" href="https://janmus1c.github.io/ncm-mlx/" />
-  <updated>2026-11-02T23:00:00Z</updated>
+  <updated>2026-11-04T15:00:00Z</updated>
   <author>
     <name>NCM-MLX project</name>
     <uri>https://github.com/janmus1c/ncm-mlx</uri>
   </author>
+  <entry>
+    <id>https://doi.org/10.5281/zenodo.23953213</id>
+    <title>Working paper v0.13: scaling, data and precision on TinyStories</title>
+    <link rel="alternate" href="https://janmus1c.github.io/ncm-mlx/paper/" />
+    <link rel="related" href="https://doi.org/10.5281/zenodo.23953213" />
+    <link rel="related" href="https://github.com/janmus1c/ncm-mlx/releases/tag/paper-v0.13" />
+    <published>2026-11-04T15:00:00Z</published>
+    <updated>2026-11-04T15:00:00Z</updated>
+    <author><name>Jan Music</name><uri>https://orcid.org/0009-0001-5376-7913</uri></author>
+    <summary type="text">With one frozen codec and one external scorer, a larger generator and more data narrow the gap between the MLX NCM and an AR baseline built from the same blocks without closing it: the ratio of GPT-2-large generative perplexity falls from 3.33 (11.8M generator) to 2.38 (87.4M) at the original data and to 2.13 with four times the data (best NCM 24.404 against 11.484). The step from 49.6M to 87.4M is smaller than the difference between two seeds at 11.8M, most rows are single-seed, bf16 and fp32 rows are mixed and compute is not matched, so this is a trend and not a scaling law. bf16 training matches fp32 quality at 11.8M; a matched-constant corruption control, stronger corruption, equal level loss and sampling policies give no gain. The released XSum generator runs in the port and scores ROUGE-1/2/L 34.93 / 12.71 / 27.94 on the full test set against 35.0 / 12.8 / 28.0 quoted. Unreviewed working paper; synthetic text, unconditional generation.</summary>
+  </entry>
+  <entry>
+    <id>https://github.com/janmus1c/ncm-mlx/releases/tag/v0.4.0</id>
+    <title>Software 0.4.0: bf16 training, XSum summarization and the scaling-study configurations</title>
+    <link rel="alternate" href="https://janmus1c.github.io/ncm-mlx/releases/" />
+    <link rel="related" href="https://pypi.org/project/ncm-mlx/0.4.0/" />
+    <link rel="related" href="https://github.com/janmus1c/ncm-mlx/releases/tag/v0.4.0" />
+    <published>2026-11-04T15:00:00Z</published>
+    <updated>2026-11-04T15:00:00Z</updated>
+    <author><name>Jan Music</name><uri>https://orcid.org/0009-0001-5376-7913</uri></author>
+    <summary type="text">Adds optional bf16 mixed-precision training, the Muon optimiser and neighbour corruption (both off by default), the released XSum generator through `official summarize` (matches upstream PyTorch on the eight inputs tested; ROUGE within 0.1 of the published unguided scores), the sampling-study script and the configurations of the scaling study in working paper v0.13. MLX is pinned to 0.32.4. No model trained here is a useful text generator yet.</summary>
+  </entry>
   <entry>
     <id>https://github.com/janmus1c/ncm-mlx/releases/tag/v0.3.0</id>
     <title>Software 0.3.0: XSum and WMT14 codecs and prompt-prefix text training</title>
     <link rel="alternate" href="https://janmus1c.github.io/ncm-mlx/releases/" />
     <link rel="related" href="https://pypi.org/project/ncm-mlx/0.3.0/" />
     <link rel="related" href="https://github.com/janmus1c/ncm-mlx/releases/tag/v0.3.0" />
+    <link rel="related" href="https://doi.org/10.5281/zenodo.23898701" />
     <published>2026-11-02T23:00:00Z</published>
     <updated>2026-11-02T23:00:00Z</updated>
     <author><name>Jan Music</name><uri>https://orcid.org/0009-0001-5376-7913</uri></author>

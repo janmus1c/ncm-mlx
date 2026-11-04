@@ -5,7 +5,7 @@ description: Install NCM-MLX on Apple Silicon or verified NVIDIA CUDA hardware a
 
 # Metal and CUDA setup
 
-NCM-MLX uses MLX 0.32.3 on Apple Silicon through Metal and on NVIDIA GPUs through MLX's Linux CUDA backend. Training and evaluation have run on an Apple M5 Pro, NVIDIA RTX 3080 and NVIDIA A40. This is evidence for those configurations, rather than a claim that every supported MLX device has been tested. The experiment log records hardware with each result.
+NCM-MLX uses MLX 0.32.4 on Apple Silicon through Metal and on NVIDIA GPUs through MLX's Linux CUDA backend. Training and evaluation have run on an Apple M5 Pro and on NVIDIA RTX 3080, A40, RTX A6000, RTX PRO 6000 Blackwell and RTX 5090 GPUs (the recorded GPU runs used MLX 0.32.3). This is evidence for those configurations, rather than a claim that every supported MLX device has been tested. The experiment log records hardware with each result.
 
 Python 3.11 or later is declared; the reproducible development environment pins Python 3.12.14. Ordinary Linux CI installs no MLX and tests the portable configuration, tokenizer, data, scoring, process-control and remote-runner components. GPU execution and CPU exactness tests require MLX and are skipped when it is absent. Windows and Intel Mac GPU execution are unsupported.
 

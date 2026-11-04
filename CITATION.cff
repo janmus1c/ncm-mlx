@@ -9,9 +9,9 @@ authors:
     given-names: Jan
     orcid: "https://orcid.org/0009-0001-5376-7913"
 license: MIT
-version: 0.3.0
+version: 0.4.0
 doi: "10.5281/zenodo.23781233"
-date-released: 2026-11-02
+date-released: 2026-11-04
 repository-code: "https://github.com/janmus1c/ncm-mlx"
 url: "https://janmus1c.github.io/ncm-mlx/"
 keywords:

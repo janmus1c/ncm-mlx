@@ -24,7 +24,7 @@ Read this file, then `docs/STATUS.md` (what is true now) and `docs/NEXT.md` (wha
 | TinyStories text training | `python -m ncm_mlx official prepare-data|train-codec|train-generator|train-ar|eval-text --config configs/tinystories-*.json` (see `docs/text-training.md`) |
 | Resume full training state | `python -m ncm_mlx train --config CONFIG --resume` (read `docs/RECOVERY.md`) |
 
-The `mise` tasks use the TinyWorld quickstart. Pass `--config configs/NAME.json` to CLI commands for other recipes. `demo` starts training when its checkpoint is absent; check artifacts before running it. Several Sudoku configs reuse a codec checkpoint, so they are not self-contained fresh-checkout commands. See the training guide and experiment log for prerequisites. Dependencies are pinned in `uv.lock`; accelerator MLX is 0.32.3.
+The `mise` tasks use the TinyWorld quickstart. Pass `--config configs/NAME.json` to CLI commands for other recipes. `demo` starts training when its checkpoint is absent; check artifacts before running it. Several Sudoku configs reuse a codec checkpoint, so they are not self-contained fresh-checkout commands. See the training guide and experiment log for prerequisites. Dependencies are pinned in `uv.lock`; accelerator MLX is 0.32.4.
 
 ## Map
 

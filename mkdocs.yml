@@ -28,6 +28,7 @@ hooks:
 nav:
   - Start: index.md
   - Install: platforms.md
+  - Demos: demos.md
   - Architecture: architecture.md
   - Train: training.md
   - Benchmarks: benchmarks.md

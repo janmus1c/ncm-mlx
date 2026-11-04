@@ -67,7 +67,7 @@ Released checkpoint shapes (from `config/eval/*.yaml`): TinyStories uses BPE-819
 
 ## Checkpoint compatibility
 
-The training models in this repository remain incompatible with released `.pt` checkpoints: tokenization, target/prefix lengths, decoder positions and update semantics differ. A separate inference-only port in `ncm_mlx/official/` reproduces the released TinyStories and Sudoku models exactly and is checked against upstream PyTorch: per-level logits agree to 3e-10 (TinyStories) and 1e-13 (Sudoku) in float64, and greedy generation is identical in float32. See [official checkpoints](../official-checkpoints.md). Other released tasks (LM1B, OWT, WMT14, XSum, Sudoku medium/hard) are not converted; WMT14/XSum would also need classifier-free guidance and a pretrained source tokenizer.
+The training models in this repository remain incompatible with released `.pt` checkpoints: tokenization, target/prefix lengths, decoder positions and update semantics differ. A separate inference-only port in `ncm_mlx/official/` reproduces the released TinyStories and Sudoku models exactly and is checked against upstream PyTorch: per-level logits agree to 3e-10 (TinyStories) and 1e-13 (Sudoku) in float64, and greedy generation is identical in float32. See [official checkpoints](../official-checkpoints.md). The released Sudoku medium/hard checkpoints and the XSum generator (with its GPT-2 tokenizer and classifier-free guidance) were converted later; LM1B, OWT and the WMT14 generator are not converted.
 
 ## Limitations and open hypotheses
 

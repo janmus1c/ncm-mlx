@@ -1,7 +1,7 @@
 ---
 title: Research roadmap
 status: current
-updated: 2026-10-30
+updated: 2026-11-04
 ---
 
 # Research roadmap
@@ -16,10 +16,27 @@ Before new runs, retain per-board predictions and ordered source/data/checkpoint
 
 **Controlled-text update, 2026-11-02:** the [E21–E23 assessment](research/e21-e23-assessment.md) records completed seed-0 TinyStories pilots and their remaining AR quality gap. The completed generator-seed repeats (E24, E22-seed1, E23-seed1) repeat the corruption ranking conditional on one codec. Verify the public evaluation recipe from a clean checkout, and test a second codec seed, before choosing a larger training run. The roadmap's natural-document and conditional-task gates remain unmet.
 
+**Scaling update, 2026-11-04:** with the codec frozen, the NCM/AR gap in GPT-2-large perplexity falls from 3.33 (12M generator) to 2.43 (50M) and 2.38 (87M) at the original data, and to 2.21 and 2.13 at four times the data (the 12M ratio is 3.05 and 2.89 for two seeds). The step from 50M to 87M is within the variation between training seeds. Further corruption and loss-weighting variants and sampling policies gave no comparable gain, and a FineWeb-Edu pilot shows a gap of the same order on web text; see E25 to E32 in [EXPERIMENTS](EXPERIMENTS.md). bf16 mixed precision matched fp32 quality for the 12M recipe and is used by the four-times-data runs. These are single-seed, unmatched-compute results on synthetic prose with one frozen codec, and the gap remains above two.
+
 <picture>
-  <source media="(max-width: 600px)" srcset="assets/project-roadmap-mobile-dark.svg">
-  <img src="assets/project-roadmap-dark.svg" alt="Roadmap: four completed milestones and six planned steps, from closing the gap to the autoregressive baseline at small scale to a go/no-go 100M model. Planned steps are plans, not results." width="1080">
+  <source media="(max-width: 600px)" srcset="assets/roadmap-2026-11-mobile-dark.svg">
+  <img src="assets/roadmap-2026-11-dark.svg" alt="Roadmap: four completed milestones (TinyWorld, Sudoku, the released-checkpoint port and TinyStories up to E32) and six planned steps, from understanding the remaining gap to the autoregressive baseline to a go/no-go 100M model. Planned steps are plans, not results." width="1080">
 </picture>
+
+## Roadmap in short
+
+The long-term aim is a model of about 1B parameters that writes good text and is not worse than an autoregressive baseline trained with the same compute. Nothing here shows that NCM can get there yet. Completed so far: TinyWorld, Sudoku (E6 to E20), the released-checkpoint port (TinyStories, Sudoku and the XSum generator), TinyStories training (E21 to E24), and the TinyStories follow-ups: bf16 parity, size and data, and several negative results (E25 to E32). The steps below are plans in dependency order, without delivery dates.
+
+1. **Understand and narrow the remaining gap.** With the codec frozen, the NCM/AR ratio of GPT-2 large generative perplexity falls from 3.33 (12M generator) to 2.13 (87M, four times the data) and stays above two ([E30 to E32](EXPERIMENTS.md#e32-50m-and-87m-generators-at-four-times-the-data-bf16-2026-11-04)). Further uniform-corruption, loss-weighting and sampling variants did not help (E25, E27, E28). Next, none trained yet: the details that the released configuration and the paper fix (4,096 codes per level, a wider codec, a lower generator learning rate; `configs/tinystories-official-recipe.json`), the Muon optimizer and neighbour-code corruption (both options in the code), codec seeds and a codec sized with the generator, more training seeds per cell and a human comparison of outputs.
+2. **Prompt-conditioned (prefix) training of our own models.** Red-fuchs described an MLX port of the official XSum and WMT14 codecs and a prefix-conditioned training loop in [issue #3](https://github.com/janmus1c/ncm-mlx/issues/3) ([Red-fuchs/ncm-modular](https://github.com/Red-fuchs/ncm-modular)). Software 0.3.0 added both, written independently, and the released XSum generator now runs in the port. No prefix-conditioned model of ours has been trained yet.
+3. **Mixed-precision throughput**, measured before a larger run is sized. Done for the 12M recipe: bf16 matches fp32 quality and runs about 1.5 times faster per step with 36% less memory on one RTX 3080 ([E29](EXPERIMENTS.md#e29-bf16-mixed-precision-quality-parity-at-the-e21-recipe-2026-11-03)); parity at larger sizes is untested.
+4. **A natural-text corpus of several billion tokens.**
+5. **A 100M-parameter model on about 2B tokens**, as the go/no-go comparison against AR.
+6. **About 300M, then about 1B parameters**, only if NCM is close to AR at matched compute.
+
+The completed **E19-funded** run is the local Sudoku best: **98.10 / 83.40 / 40.30%** solved on easy/medium/hard boards (2,000 each). It uses 16.384M generator presentations, twice E15's budget; it does not establish an equal-budget advantage. The short E19 pilot scores 90.20 / 59.75 / 16.55% at 3.059M presentations. [Full report and machine-readable results](research/e19-funded-report.md) retain timings, checkpoint identity, uncertainty, failures and comparison limits. E20 completed the same recipe with seed 1 at 97.25 / 79.60 / 33.25%; both seeds and their evidence limits are retained in the [assessment](research/e20-seed-report.md). The original million-step recipe remains unstarted.
+
+The [prefix-caching and speculative-drafting review](research/prefix-caching-and-speculative-drafting.md) connects primary literature to this implementation. It separates analytic opportunities from measured performance and future text capabilities. Follow releases through the [research updates feed](feed.xml).
 
 ## Priorities and dependencies
 
@@ -27,8 +44,8 @@ Before new runs, retain per-board predictions and ordered source/data/checkpoint
 |---|---|---|---|
 | P0 | Evaluation integrity | Batch coverage guard implemented; broader audit planned | Required for every new comparison |
 | P1 | Close current Sudoku evidence | E18, both E19 runs and E20 completed; two-seed assessment recorded | Retain provenance limits; new paired evaluation is a separate measurement |
-| P1 | Establish an upstream-checkpoint reference | TinyStories and Sudoku easy/medium/hard converted with CPU parity; see [released checkpoints](official-checkpoints.md) | Text checkpoints needing CFG or other tokenizers remain |
-| P1 | Establish a real-text baseline | Planned; no real-text quality validation today | Dataset rights, tokenizer/padding contract and matched budgets |
+| P1 | Establish an upstream-checkpoint reference | TinyStories, Sudoku easy/medium/hard and the XSum generator converted with CPU parity; see [released checkpoints](official-checkpoints.md) | LM1B, OpenWebText and the WMT14 generator remain |
+| P1 | Establish a real-text baseline | A small FineWeb-Edu pilot (E26) is a pipeline check, not a quality validation | Dataset rights, tokenizer/padding contract and matched budgets |
 | P2 | Measure fixed level budgets and Sudoku early exit | Planned; full hierarchy remains the only sampling policy | Evaluation integrity and full-depth per-board baseline |
 | P2 | Implement prefix KV caching | Implemented in the released-checkpoint sampler; pending for the independent training sampler | Preserve separate attention contracts and correctness gates |
 | P2 | Compile inference and measure dispatch costs | Opt-in compiled level steps in the released-checkpoint sampler; pending for the independent training sampler | Stable inference policies and recorded contention |
@@ -65,7 +82,7 @@ Map the released Sudoku vocabulary, prefix/target formatting, normalization, res
 
 **Completion gate:** the same released weights and boards produce a documented, tolerance-qualified reference result. Distinguish conversion parity from reproducing the original training recipe.
 
-**Status (2026-10-29): gate met for TinyStories and Sudoku.** `ncm_mlx/official/` converts the released checkpoints without PyTorch. Per-level logits match upstream PyTorch to 3e-10 / 1e-13 in exact float64, and greedy outputs are identical on all 2,000 easy boards. Released Sudoku solves 99.40 / 96.30 / 86.20% on Metal; see [released checkpoints](official-checkpoints.md). This is conversion parity, not a reproduction of the training recipe. The XSum and WMT14 codecs convert and match upstream on CPU (software 0.3.0; one WMT14 level-9 float32 near-tie is open, see [released checkpoints](official-checkpoints.md#xsum-and-wmt14-codecs)). Next: LM1B/OWT (same text path, larger weights), then the WMT14/XSum generators, which need classifier-free guidance and a pretrained source tokenizer. The released checkpoints also give a fixed reference for prefix KV caching and level-budget experiments.
+**Status (2026-10-29): gate met for TinyStories and Sudoku.** `ncm_mlx/official/` converts the released checkpoints without PyTorch. Per-level logits match upstream PyTorch to 3e-10 / 1e-13 in exact float64, and greedy outputs are identical on all 2,000 easy boards. Released Sudoku solves 99.40 / 96.30 / 86.20% on Metal; see [released checkpoints](official-checkpoints.md). This is conversion parity, not a reproduction of the training recipe. The XSum and WMT14 codecs convert and match upstream on CPU (software 0.3.0; one WMT14 level-9 float32 near-tie is open, see [released checkpoints](official-checkpoints.md#xsum-and-wmt14-codecs)). Next: LM1B/OWT (same text path, larger weights), then the WMT14/XSum generators, which need classifier-free guidance and a pretrained source tokenizer. *Update, 2026-11-04:* the XSum generator, its GPT-2 tokenizer and guidance are now ported (see [released checkpoints](official-checkpoints.md)); the WMT14 generator is still codec-only. The released checkpoints also give a fixed reference for prefix KV caching and level-budget experiments.
 
 ## P1 — real-text validation
 

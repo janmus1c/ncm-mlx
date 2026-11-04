@@ -27,6 +27,32 @@ python -m ncm_mlx eval --config configs/toy-grammar-12k.json \
 
 The quickstart uses 12,000 training sentences, 1,000 validation sentences, six latent levels, and 3,000 updates per stage. A previous measured run took about 5.5 minutes on an Apple M5 Pro; runtime depends on hardware, software version and contention. The demonstration command trains automatically if no generator checkpoint exists, so use `eval` to inspect existing weights without triggering training.
 
+### The mise tasks
+
+The commands below target an Apple Silicon Mac with [mise](https://mise.jdx.dev) and [uv](https://docs.astral.sh/uv/). Python 3.12 and MLX 0.32.4 are pinned. For Linux NVIDIA CUDA installation or portable tests without MLX, see [supported platforms](platforms.md).
+
+```bash
+git clone https://github.com/janmus1c/ncm-mlx.git && cd ncm-mlx
+mise trust && mise install && mise run setup   # Python env, ~1 min
+mise run smoke                                 # Metal check + one untrained step
+mise run test                                  # core invariants and recovery tests
+mise run train                                 # ~5.5 min on M5 Pro: codec 52 s, generator ~4.5 min
+mise run demo                                  # level-by-level samples
+mise run eval                                  # codec + sample quality (JSON)
+mise run bench                                 # synchronized latency, batch 1–256
+uv run python -m ncm_mlx baseline --config configs/toy-grammar-12k.json --bench
+```
+
+| Command | Reads | Writes |
+|---|---|---|
+| `train` | `configs/toy-grammar-12k.json` | `artifacts/toy-grammar-12k/{codec,generator}.safetensors` + `.json` metadata |
+| `demo`, `eval`, `bench` | the artifacts above | stdout; `--out file.json` |
+| `baseline` | config | `artifacts/.../ar.safetensors` |
+
+### The task: TinyWorld
+
+A synthetic language with 15,360 sentences of the form `<name> <verb> <count> <adjective> <noun>.`, for example `ann sees two red cats.`. One rule spans the sentence: `one` takes a singular noun and any other count a plural, so a model that gets characters right independently will still break agreement. Every output is graded by a parser (`ncm_mlx/text/toygrammar.py`). Training uses 12,000 sentences; 1,000 are for validation and 2,360 are never seen, which measures generalisation, not memorisation.
+
 ## Reproduce the Sudoku codec before a generator experiment
 
 `configs/sudoku-e6.json` describes the shared Sudoku codec used by later experiments, but points `codec_checkpoint` at its already-trained file. A fresh checkout has no model weights. Make a training configuration with that field cleared and a separate output directory:

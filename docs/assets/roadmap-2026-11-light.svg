@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 735" role="img" aria-labelledby="title description">
-<title id="title">From a laptop study to a text model: completed work and planned steps.</title><desc id="description">Four completed milestones: TinyWorld, Sudoku, the released-checkpoint port and the TinyStories ablation. Six planned steps in order: close the gap to the autoregressive baseline at small scale, prompt-conditioned training, mixed-precision throughput, a natural-text corpus, a 100M go/no-go run, then 300M and about 1B only if NCM is close to the baseline. Planned steps are plans, not results.</desc>
+<title id="title">From a laptop study to a text model: completed work and planned steps.</title><desc id="description">Four completed milestones: TinyWorld, Sudoku, the released-checkpoint port (TinyStories, Sudoku, XSum) and TinyStories training up to E32, where the NCM/AR ratio falls from 3.3 to 2.1. Six planned steps in order: understand the remaining gap, prompt-conditioned training, mixed-precision throughput (done for the 12M recipe), a natural-text corpus, a 100M go/no-go run, then 300M and about 1B only if NCM is close to the baseline. Planned steps are plans, not results.</desc>
 <rect width="1080" height="735" rx="16" fill="#ffffff"/>
 <g font-family="Inter, Helvetica Neue, Arial, sans-serif" fill="#20252b">
 <text x="32" y="49" font-size="32" font-weight="650" fill="#20252b" text-anchor="start">Roadmap: measured so far, planned next</text>
@@ -18,26 +18,27 @@
 <rect x="544" y="148" width="246" height="146" rx="4" fill="#f3f5f7"/>
 <text x="564" y="184" font-size="24" font-weight="600" fill="#20252b" text-anchor="start">Checkpoint port</text>
 <text x="564" y="220" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Runs Kumbong et al.</text>
-<text x="564" y="247" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">TinyStories and Sudoku</text>
+<text x="564" y="247" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">TinyStories, Sudoku, XSum</text>
 <text x="564" y="274" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Agrees with PyTorch, tested</text>
 <rect x="800" y="148" width="246" height="146" rx="4" fill="#f3f5f7"/>
 <text x="820" y="184" font-size="24" font-weight="600" fill="#20252b" text-anchor="start">TinyStories</text>
-<text x="820" y="220" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">E21 to E24, two seeds</text>
-<text x="820" y="247" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Lower loss, worse text</text>
-<text x="820" y="274" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Best NCM perplexity 3x AR</text>
+<text x="820" y="220" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">E21 to E32, size and data</text>
+<text x="820" y="247" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">NCM/AR ratio 3.3 to 2.1</text>
+<text x="820" y="274" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Still above 2 (single seeds)</text>
 <path d="M32 324H1048" stroke="#d6dce2"/>
 <text x="32" y="364" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">PLANNED, IN ORDER</text>
 <rect x="32" y="384" width="328" height="112" rx="4" fill="none" stroke="#d6dce2" stroke-dasharray="5 5"/>
-<text x="52" y="418" font-size="19" font-weight="600" fill="#20252b" text-anchor="start">01  Close the gap at small scale</text>
-<text x="52" y="446" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Best NCM perplexity is about 3x AR;</text>
-<text x="52" y="470" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">corruption and loss-weighting ablations</text>
+<text x="52" y="418" font-size="19" font-weight="600" fill="#20252b" text-anchor="start">01  Understand the remaining gap</text>
+<text x="52" y="446" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Released recipe details, Muon,</text>
+<text x="52" y="470" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">neighbour corruption, codec seeds</text>
 <rect x="376" y="384" width="328" height="112" rx="4" fill="none" stroke="#d6dce2" stroke-dasharray="5 5"/>
 <text x="396" y="418" font-size="19" font-weight="600" fill="#20252b" text-anchor="start">02  Prompt-conditioned training</text>
-<text x="396" y="446" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Official XSum and WMT14 codecs</text>
-<text x="396" y="470" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Red-fuchs/ncm-modular, issue #3</text>
+<text x="396" y="446" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Prefix training of our own models;</text>
+<text x="396" y="470" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">released XSum generator ported</text>
 <rect x="720" y="384" width="328" height="112" rx="4" fill="none" stroke="#d6dce2" stroke-dasharray="5 5"/>
 <text x="740" y="418" font-size="19" font-weight="600" fill="#20252b" text-anchor="start">03  Mixed-precision throughput</text>
-<text x="740" y="446" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Measure speed before scaling up</text>
+<text x="740" y="446" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">bf16 done for the 12M recipe;</text>
+<text x="740" y="470" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">larger sizes untested</text>
 <rect x="32" y="510" width="328" height="112" rx="4" fill="none" stroke="#d6dce2" stroke-dasharray="5 5"/>
 <text x="52" y="544" font-size="19" font-weight="600" fill="#20252b" text-anchor="start">04  Natural-text corpus</text>
 <text x="52" y="572" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Several billion tokens</text>

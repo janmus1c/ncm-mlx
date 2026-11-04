@@ -34,4 +34,4 @@ No NCM-MLX weights, upstream checkpoints, tokenizer assets or training datasets 
 
 ## Runtime and build dependencies
 
-MLX is [MIT licensed](https://github.com/ml-explore/mlx/blob/v0.32.3/LICENSE). NumPy uses a [BSD license](https://github.com/numpy/numpy/blob/main/LICENSE.txt). Optional NVIDIA CUDA libraries have their own terms and are installed from their published packages, rather than redistributed here. `pyproject.toml` declares dependencies; `uv.lock` records resolved packages and hashes. Paper and documentation tools are optional dependency groups. Installing this repository does not replace or relicense any dependency.
+MLX is [MIT licensed](https://github.com/ml-explore/mlx/blob/v0.32.4/LICENSE). NumPy uses a [BSD license](https://github.com/numpy/numpy/blob/main/LICENSE.txt). Optional NVIDIA CUDA libraries have their own terms and are installed from their published packages, rather than redistributed here. `pyproject.toml` declares dependencies; `uv.lock` records resolved packages and hashes. Paper and documentation tools are optional dependency groups. Installing this repository does not replace or relicense any dependency.

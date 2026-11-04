@@ -28,9 +28,12 @@ from ncm_mlx.official.trainer import (
     block_forward,
     compiled,
     export_dir,
+    fp32_norm,
     load_rows,
+    precision_note,
     scaled_residual_init,
     to_batch,
+    value_and_grad_for,
 )
 from ncm_mlx.training.checkpoint import atomic_arrays
 from ncm_mlx.training.common import BatchStream
@@ -64,7 +67,7 @@ class TextAR(nn.Module):
         rope = (self._rope[0][:T], self._rope[1][:T])
         for blk in self.blocks:
             h = block_forward(blk, h, self._mask[:T, :T], rope, p)
-        return self.wte.as_linear(self.ln_f(h))[:, max(P - 1, 0):]
+        return self.wte.as_linear(fp32_norm(self.ln_f, h))[:, max(P - 1, 0):]
 
     def target(self, tokens: mx.array) -> mx.array:
         return tokens[:, self.prefix_len :]
@@ -123,7 +126,7 @@ def build_ar(cfg: TextConfig, seed: int) -> TextAR:
 
 
 def ar_loss(m: TextAR, tokens: mx.array, p: float):
-    return nn.losses.cross_entropy(m(tokens, p), m.target(tokens), reduction="mean")
+    return nn.losses.cross_entropy(m(tokens, p).astype(mx.float32), m.target(tokens), reduction="mean")
 
 
 def ar_report(m: TextAR, rows: np.ndarray, batch: int = 256) -> dict:
@@ -141,8 +144,22 @@ def ar_report(m: TextAR, rows: np.ndarray, batch: int = 256) -> dict:
     return {"token_ce": round(tot / n, 5), "nonpad_token_ce": round(tot_np / n_np, 5)}
 
 
-def train_ar(cfg: TextConfig, resume: bool = False, log=print) -> dict:
+def ar_step(cfg: TextConfig, model: TextAR, opt):
+    """The (optionally compiled) AR training step; shared with ``scripts/text_step_timing.py``."""
     st, g = cfg.train.ar, cfg.generator
+    grad_fn = value_and_grad_for(cfg, model, lambda m, t: ar_loss(m, t, g.dropout))
+
+    def step(tokens):
+        loss, grads = grad_fn(model, tokens)
+        grads, norm = optim.clip_grad_norm(grads, st.grad_clip)
+        opt.update(model, grads)
+        return loss, {"grad_norm": norm}
+
+    return compiled(model, opt, step, cfg.train.compile)
+
+
+def train_ar(cfg: TextConfig, resume: bool = False, log=print) -> dict:
+    st = cfg.train.ar
     train_rows, val_rows, manifest = load_rows(cfg, log)
     model = build_ar(cfg, cfg.train.seed + 2)
     model.train()
@@ -150,16 +167,8 @@ def train_ar(cfg: TextConfig, resume: bool = False, log=print) -> dict:
     run = Run(cfg, "ar", st, model, data, log)
     if resume:
         run.resume()
-    log(f"ar: {sum(v.size for _, v in tree_flatten(model.parameters())):,} values; train rows {len(train_rows):,}")
-    grad_fn = nn.value_and_grad(model, lambda m, t: ar_loss(m, t, g.dropout))
-
-    def step(tokens):
-        loss, grads = grad_fn(model, tokens)
-        grads, norm = optim.clip_grad_norm(grads, st.grad_clip)
-        run.opt.update(model, grads)
-        return loss, {"grad_norm": norm}
-
-    step = compiled(model, run.opt, step, cfg.train.compile)
+    log(f"ar: {sum(v.size for _, v in tree_flatten(model.parameters())):,} values; train rows {len(train_rows):,}" + precision_note(cfg))
+    step = ar_step(cfg, model, run.opt)
 
     def evaluate():
         model.eval()

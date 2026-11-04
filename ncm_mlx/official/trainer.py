@@ -36,6 +36,13 @@ Stage 2 (generator), with the codec frozen:
   the cumulative reconstruction of the (corrupted) levels ``< k`` area-pooled
   to ``l_k``. Heads are tied to the frozen codebooks.
 * Loss ``sum_k l_k^(1-alpha) CE_k / sum_k l_k^(1-alpha)`` (paper eq. 10).
+* ``train.precision = "bfloat16"`` runs the generator forward and backward in
+  bfloat16 on a per-step cast of float32 master weights (see :func:`mixed_value_and_grad`);
+  the codec stage and every frozen-codec computation stay float32.
+* Options (defaults reproduce the behaviour above exactly): ``train.<stage>.optimizer = "muon"`` puts the
+  2-D block weights on Muon and everything else on AdamW; ``generator.corruption_mode = "neighbor"``
+  replaces a corrupted code by one of its ``corruption_neighbors`` nearest codebook entries, and
+  ``generator.corruption_rate_jitter`` scales each sequence's rates by a factor in ``[1 - j, 1 + j]``.
 * Level 0 is not predicted: its empirical unigram over training sequences is
   stored and sampled at generation time, as in the released checkpoint.
 
@@ -51,6 +58,7 @@ codes only. ``P = 0`` takes exactly the code paths above.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import time
 from functools import partial
@@ -60,10 +68,10 @@ import mlx.core as mx
 import mlx.optimizers as optim
 import numpy as np
 from mlx import nn
-from mlx.utils import tree_flatten
+from mlx.utils import tree_flatten, tree_unflatten
 
 from ncm_mlx.official import tinystories as ts
-from ncm_mlx.official.model import Codec, Generator, _rotate, rope_tables
+from ncm_mlx.official.model import Codec, Generator, TiedHead, _rotate, rope_tables
 from ncm_mlx.official.train_config import Stage, TextConfig
 from ncm_mlx.training.checkpoint import (
     StopRequest,
@@ -85,10 +93,82 @@ def dropout(x: mx.array, p: float) -> mx.array:
     return mx.where(keep, x / (1.0 - p), mx.zeros_like(x))
 
 
+def compute_dtype(cfg: TextConfig) -> mx.Dtype:
+    return mx.bfloat16 if cfg.train.precision == "bfloat16" else mx.float32
+
+
+def fp32_norm(norm: nn.Module, x: mx.array) -> mx.array:
+    """Apply a LayerNorm/RMSNorm with its statistics computed in float32; a no-op wrapper for float32 input."""
+    if x.dtype == mx.float32:
+        return norm(x)
+    return norm(x.astype(mx.float32)).astype(x.dtype)
+
+
+def rotated_qk(attn, q: mx.array, k: mx.array, rope, dtype) -> tuple[mx.array, mx.array]:
+    """QK RMSNorm and RoPE in float32, returned in ``dtype``; the official computation when ``dtype`` is float32."""
+    if q.dtype != mx.float32:
+        q, k = q.astype(mx.float32), k.astype(mx.float32)
+    q, k = attn.q_norm(q), attn.k_norm(k)
+    if rope is not None:
+        q, k = _rotate(q, *rope), _rotate(k, *rope)
+    return q.astype(dtype), k.astype(dtype)
+
+
+def attention_forward(attn, x: mx.array, mask, rope) -> mx.array:
+    """The official ``Attention`` forward with float32 QK norm and RoPE under reduced-precision input."""
+    B, T, _ = x.shape
+    q, k, v = (t.reshape(B, T, attn.n_head, attn.head_dim).transpose(0, 2, 1, 3)
+               for t in mx.split(attn.qkv(x), 3, axis=-1))
+    q, k = rotated_qk(attn, q, k, rope, v.dtype)
+    y = mx.fast.scaled_dot_product_attention(q, k, v, scale=attn.head_dim**-0.5, mask=mask)
+    return attn.proj(y.transpose(0, 2, 1, 3).reshape(B, T, -1))
+
+
 def block_forward(blk, x: mx.array, mask, rope, p: float) -> mx.array:
-    """The official ``Block`` with residual dropout; identical to ``blk(x, mask, rope)`` at ``p = 0``."""
-    x = x + dropout(blk.attn(blk.ln1(x), mask, rope), p)
-    return x + dropout(blk.out(nn.gelu(blk.fc(blk.ln2(x)))), p)
+    """The official ``Block`` with residual dropout; identical to ``blk(x, mask, rope)`` at ``p = 0`` in float32."""
+    x = x + dropout(attention_forward(blk.attn, fp32_norm(blk.ln1, x), mask, rope), p)
+    return x + dropout(blk.out(nn.gelu(blk.fc(fp32_norm(blk.ln2, x)))), p)
+
+
+def float32_prefixes(model: nn.Module) -> tuple[str, ...]:
+    """Parameter-name prefixes that stay float32 under autocast: norm layers and the tied level heads."""
+    keep = (nn.LayerNorm, nn.RMSNorm, TiedHead)
+    return tuple(f"{name}." for name, m in model.named_modules() if name and isinstance(m, keep))
+
+
+def cast_parameters(params: dict, keep: tuple[str, ...], dtype) -> dict:
+    flat = [(k, v if v.dtype != mx.float32 or k.startswith(keep) else v.astype(dtype))
+            for k, v in tree_flatten(params)]
+    return tree_unflatten(flat)
+
+
+def mixed_value_and_grad(model: nn.Module, fn, dtype):
+    """``nn.value_and_grad`` over float32 master parameters with the forward run on a ``dtype`` cast of them.
+
+    The cast sits inside the differentiated function, so gradients come back in
+    float32 for the float32 master weights, and the optimizer, gradient clipping
+    and checkpoints never see a reduced-precision value. Norm layers and tied
+    heads are not cast. The model holds the original arrays again on return.
+    """
+    keep = float32_prefixes(model)
+
+    def wrapped(m, *args):
+        master = m.trainable_parameters()
+        m.update(cast_parameters(master, keep, dtype))
+        try:
+            return fn(m, *args)
+        finally:
+            m.update(master)
+
+    return nn.value_and_grad(model, wrapped)
+
+
+def value_and_grad_for(cfg: TextConfig, model: nn.Module, fn):
+    """The float32 path is exactly ``nn.value_and_grad``; bfloat16 adds the autocast above."""
+    dtype = compute_dtype(cfg)
+    if dtype == mx.float32:
+        return nn.value_and_grad(model, fn)
+    return mixed_value_and_grad(model, fn, dtype)
 
 
 def schedule(st: Stage):
@@ -99,10 +179,27 @@ def schedule(st: Stage):
     return optim.join_schedules([warm, decay], [st.warmup])
 
 
+MUON_PATH = re.compile(r"(^|\.)(blocks\.\d+|dec_block|in_proj)\.")
+
+
+def muon_matrix(key: str, value: mx.array) -> bool:
+    """Weights Muon orthogonalises: 2-D projections inside the transformer blocks (generator, AR and the codec's decoder block) and the generator input projection.
+
+    Embeddings, tied level heads, codebooks, norms and biases stay on AdamW.
+    """
+    return value.ndim == 2 and key.endswith(".weight") and MUON_PATH.search(key) is not None
+
+
 def optimizer(st: Stage, offset: int = 0):
     lr = schedule(st)
-    return optim.AdamW(learning_rate=(lambda step: lr(step + offset)) if offset else lr,
-                       betas=[st.beta1, st.beta2], weight_decay=st.weight_decay)
+    shifted = (lambda step: lr(step + offset)) if offset else lr
+    adamw = optim.AdamW(learning_rate=shifted, betas=[st.beta1, st.beta2], weight_decay=st.weight_decay)
+    if st.optimizer == "adamw":
+        return adamw
+    ratio = st.muon_lr / st.lr
+    muon = optim.Muon(learning_rate=lambda step: shifted(step) * ratio, momentum=st.muon_momentum,
+                      weight_decay=st.muon_weight_decay, ns_steps=st.muon_ns_steps)
+    return optim.MultiOptimizer([muon, adamw], [muon_matrix])
 
 
 def scaled_residual_init(blocks, n_layer: int, seed: int) -> None:
@@ -386,6 +483,8 @@ def train_codec(cfg: TextConfig, resume: bool = False, log=print) -> dict:
     train_rows, val_rows, manifest = load_rows(cfg, log)
     if cfg.data.prefix_len:
         train_rows, val_rows = (np.ascontiguousarray(split_prefix(cfg, r)[1]) for r in (train_rows, val_rows))
+    if cfg.train.precision != "float32":
+        log(f"codec: precision {cfg.train.precision} applies to the generator and AR stages; the codec trains in float32")
     tr = CodecTrainer(cfg, cfg.train.seed)
     tr.train()
     data = BatchStream(train_rows, st.batch_size, np.random.default_rng(cfg.train.seed))
@@ -463,8 +562,7 @@ def segmented_attention(attn, x: mx.array, prefix_len: int, lengths: list[int], 
     B, T, C = x.shape
     H, hd = attn.n_head, attn.head_dim
     q, k, v = (t.reshape(B, T, H, hd).transpose(0, 2, 1, 3) for t in mx.split(attn.qkv(x), 3, axis=-1))
-    q, k = attn.q_norm(q), attn.k_norm(k)
-    q, k = _rotate(q, *rope), _rotate(k, *rope)
+    q, k = rotated_qk(attn, q, k, rope, v.dtype)
     P = prefix_len
     kp, vp = k[:, :, :P], v[:, :, :P]
     scale = hd**-0.5
@@ -487,27 +585,27 @@ def segmented_attention(attn, x: mx.array, prefix_len: int, lengths: list[int], 
 class TeacherForced:
     """Teacher-forced forward of an official ``Generator`` over all target levels at once."""
 
-    def __init__(self, gen: Generator):
-        self.gen = gen
+    def __init__(self, gen: Generator, dtype=mx.float32):
+        self.gen, self.dtype = gen, dtype
         P, hd = gen.spec.prefix_len, gen.spec.dim // gen.spec.n_head
         self.lengths = list(gen.target_levels)
         pos = np.concatenate([np.arange(P)] + [np.arange(n) for n in self.lengths])
         self.rope = rope_tables(pos, hd, gen.spec.rope_base)
 
     def logits(self, level_inputs: list[mx.array], prefix_tokens: mx.array, p: float = 0.0) -> list[mx.array]:
-        gen = self.gen
+        gen, dt = self.gen, self.dtype
         P = gen.spec.prefix_len
-        prefix_emb = gen.prefix_embedding(prefix_tokens)
-        xs = [gen.in_proj(x) + gen.level_emb.weight[j] for j, x in enumerate(level_inputs)]
+        prefix_emb = gen.in_proj(gen.codec.tok(prefix_tokens[:, :P]).astype(dt))
+        xs = [gen.in_proj(x.astype(dt)) + gen.level_emb.weight[j] for j, x in enumerate(level_inputs)]
         h = mx.concatenate([prefix_emb, *xs], axis=1)
         keep = None
         if gen.spec.prefix_pad_id is not None:
             keep = prefix_tokens[:, :P] != gen.spec.prefix_pad_id
         for blk in gen.blocks:
-            a = segmented_attention(blk.attn, blk.ln1(h), P, self.lengths, self.rope, keep)
+            a = segmented_attention(blk.attn, fp32_norm(blk.ln1, h), P, self.lengths, self.rope, keep)
             h = h + dropout(a, p)
-            h = h + dropout(blk.out(nn.gelu(blk.fc(blk.ln2(h)))), p)
-        h = gen.ln_f(h)
+            h = h + dropout(blk.out(nn.gelu(blk.fc(fp32_norm(blk.ln2, h)))), p)
+        h = fp32_norm(gen.ln_f, h).astype(mx.float32)
         out, off = [], P
         for j, n in enumerate(self.lengths):
             out.append(gen.head_logits(j, h[:, off : off + n]))
@@ -531,12 +629,53 @@ def teacher_inputs(codec: Codec, codes: list[mx.array]) -> list[mx.array]:
     return [mx.stop_gradient(x) for x in out]
 
 
-def corrupt(codes: list[mx.array], rates: list[float], sizes) -> list[mx.array]:
+def nearest_code_table(codebook: mx.array, k: int) -> mx.array:
+    """``(V, k)`` indices of each code's ``k`` nearest other codes by Euclidean distance between codebook vectors."""
+    cb = mx.stop_gradient(codebook).astype(mx.float32)
+    sq = (cb * cb).sum(-1)
+    d = sq[:, None] + sq[None, :] - 2 * (cb @ cb.T)
+    d = d + mx.where(mx.eye(cb.shape[0], dtype=mx.bool_), mx.array(float("inf")), mx.array(0.0))
+    return mx.argsort(d, axis=-1)[:, :k].astype(mx.int32)
+
+
+class Corruption:
+    """Non-default conditioning corruption: replacement from codebook neighbours and/or per-example rate scaling."""
+
+    def __init__(self, tables: list[mx.array] | None, jitter: float):
+        self.tables, self.jitter = tables, jitter
+
+
+def make_corruption(cfg: TextConfig, codec: Codec) -> Corruption | None:
+    """``None`` for the default uniform, unjittered corruption, which keeps the original random-number stream."""
+    g = cfg.generator
+    if g.corruption_mode == "uniform" and g.corruption_rate_jitter == 0:
+        return None
+    tables = None
+    if g.corruption_mode == "neighbor":
+        tables = [nearest_code_table(cb, g.corruption_neighbors) for cb in codec.codebooks[:-1]]
+        mx.eval(tables)
+    return Corruption(tables, g.corruption_rate_jitter)
+
+
+def corrupt(codes: list[mx.array], rates: list[float], sizes, extra: Corruption | None = None) -> list[mx.array]:
     out = []
+    scale = None
+    if extra is not None and extra.jitter > 0:
+        scale = 1.0 + extra.jitter * (2 * mx.random.uniform(shape=(codes[0].shape[0], 1)) - 1)
     for k, c in enumerate(codes):
         if k < len(rates) and rates[k] > 0:
-            flip = mx.random.bernoulli(rates[k], c.shape)
-            c = mx.where(flip, mx.random.randint(0, sizes[k], c.shape).astype(c.dtype), c)
+            if extra is None:
+                flip = mx.random.bernoulli(rates[k], c.shape)
+                new = mx.random.randint(0, sizes[k], c.shape)
+            else:
+                rate = rates[k] if scale is None else mx.minimum(rates[k] * scale, 1.0)
+                flip = mx.random.uniform(shape=c.shape) < rate
+                if extra.tables is None:
+                    new = mx.random.randint(0, sizes[k], c.shape)
+                else:
+                    pick = mx.random.randint(0, extra.tables[k].shape[1], c.shape)
+                    new = extra.tables[k][c, pick]
+            c = mx.where(flip, new.astype(c.dtype), c)
         out.append(c)
     return out
 
@@ -548,7 +687,7 @@ def level_weights(levels: list[int], alpha: float) -> list[float]:
 
 
 def generator_loss(tf: TeacherForced, codec: Codec, tokens: mx.array, rates, alpha: float, p: float,
-                   prefix_len: int = 0):
+                   prefix_len: int = 0, corruption: Corruption | None = None):
     """Weighted code cross-entropy. With ``prefix_len > 0``, ``tokens`` are ``[prefix, target]`` rows and
     only the target is encoded and predicted."""
     if prefix_len:
@@ -556,7 +695,7 @@ def generator_loss(tf: TeacherForced, codec: Codec, tokens: mx.array, rates, alp
     else:
         prefix = mx.full((tokens.shape[0], 1), ts.EOS_ID, dtype=mx.int32)
     codes = [mx.stop_gradient(c).astype(mx.int32) for c in codec.encode(tokens)]
-    seen = corrupt(codes[:-1], rates, codec.spec.codebook_sizes) if rates else codes[:-1]
+    seen = corrupt(codes[:-1], rates, codec.spec.codebook_sizes, corruption) if rates else codes[:-1]
     inputs = teacher_inputs(codec, seen)
     first = tf.gen.first
     if not first:
@@ -590,35 +729,48 @@ def build_generator(cfg: TextConfig, codec: Codec, seed: int) -> Generator:
     return gen
 
 
+def precision_note(cfg: TextConfig) -> str:
+    return "" if cfg.train.precision == "float32" else f"; {cfg.train.precision} compute, float32 master weights"
+
+
+def generator_step(cfg: TextConfig, gen: Generator, codec: Codec, tf: TeacherForced, opt, rates, prefix_len: int = 0):
+    """The (optionally compiled) generator training step; shared with ``scripts/text_step_timing.py``."""
+    st, g = cfg.train.generator, cfg.generator
+    extra = make_corruption(cfg, codec)
+    grad_fn = value_and_grad_for(
+        cfg, gen, lambda m, t: generator_loss(tf, codec, t, rates, g.loss_alpha, g.dropout, prefix_len, extra))
+
+    def step(tokens):
+        (loss, ce), grads = grad_fn(gen, tokens)
+        grads, norm = optim.clip_grad_norm(grads, st.grad_clip)
+        opt.update(gen, grads)
+        return loss, {"grad_norm": norm, "ce_level0" if prefix_len else "ce_level1": ce[0],
+                           "ce_last": ce[-1]}
+
+    return compiled(gen, opt, step, cfg.train.compile)
+
+
 def train_generator(cfg: TextConfig, resume: bool = False, log=print) -> dict:
     st, g = cfg.train.generator, cfg.generator
     codec = load_codec(cfg)
     train_rows, val_rows, _manifest = load_rows(cfg, log)
     gen = build_generator(cfg, codec, cfg.train.seed + 1)
     gen.train()
-    tf = TeacherForced(gen)
+    tf, tf_eval = TeacherForced(gen, compute_dtype(cfg)), TeacherForced(gen)
     data = BatchStream(train_rows, st.batch_size, np.random.default_rng(cfg.train.seed + 1))
     run = Run(cfg, "generator", st, gen, data, log)
     if resume:
         run.resume()
     log(f"generator: {sum(v.size for _, v in tree_flatten(gen.parameters())):,} values; "
-        f"train rows {len(train_rows):,}")
+        f"train rows {len(train_rows):,}" + precision_note(cfg))
     rates = corruption_rates(g.corrupt_first, g.corrupt_last, len(codec.levels) - 1)
     rates = rates if any(rates) else None
     P = cfg.data.prefix_len
-    grad_fn = nn.value_and_grad(gen, lambda m, t: generator_loss(tf, codec, t, rates, g.loss_alpha, g.dropout, P))
-
-    def step(tokens):
-        (loss, ce), grads = grad_fn(gen, tokens)
-        grads, norm = optim.clip_grad_norm(grads, st.grad_clip)
-        run.opt.update(gen, grads)
-        return loss, {"grad_norm": norm, "ce_level0" if P else "ce_level1": ce[0], "ce_last": ce[-1]}
-
-    step = compiled(gen, run.opt, step, cfg.train.compile)
+    step = generator_step(cfg, gen, codec, tf, run.opt, rates, P)
 
     def evaluate():
         gen.eval()
-        r = generator_report(tf, codec, val_rows, prefix_len=P)
+        r = generator_report(tf_eval, codec, val_rows, prefix_len=P)
         gen.train()
         return r
 
@@ -626,7 +778,7 @@ def train_generator(cfg: TextConfig, resume: bool = False, log=print) -> dict:
     gen.eval()
     out = export_dir(cfg)
     atomic_arrays(dict(tree_flatten(gen.parameters())), out / "generator.safetensors")
-    report = generator_report(tf, codec, val_rows, prefix_len=P)
+    report = generator_report(tf_eval, codec, val_rows, prefix_len=P)
     meta = {"steps": last, "planned_steps": st.steps, "time_limited": run.time_limited,
             "train_seconds": round(run.elapsed_before, 2), "sequences_seen": last * st.batch_size,
             "corruption_rates": rates, "val": report, "history": run.history}

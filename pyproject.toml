@@ -1,6 +1,6 @@
 [project]
 name = "ncm-mlx"
-version = "0.3.0"
+version = "0.4.0"
 description = "Independent Next-Concept Modeling research implementation in MLX for Metal and CUDA"
 dynamic = ["readme"]
 license = "MIT"
@@ -24,14 +24,14 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "mlx==0.32.3; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "mlx==0.32.4; sys_platform == 'darwin' and platform_machine == 'arm64'",
     "numpy>=1.26",
 ]
 
 [project.optional-dependencies]
 # Linux NVIDIA: pip install "ncm-mlx[cuda]". Apple Silicon installs MLX by default.
 cuda = [
-    "mlx[cuda12]==0.32.3; sys_platform == 'linux'",
+    "mlx[cuda12]==0.32.4; sys_platform == 'linux'",
     "nvidia-cuda-runtime-cu12==12.9.*; sys_platform == 'linux'",
     "nvidia-cuda-cccl-cu12==12.9.*; sys_platform == 'linux'",
 ]
@@ -48,7 +48,7 @@ Changelog = "https://github.com/janmus1c/ncm-mlx/releases"
 dev = ["pytest>=8", "ruff>=0.6", "pyyaml>=6.0.2"]
 docs = ["mkdocs==1.6.1"]
 cuda = [
-    "mlx[cuda12]==0.32.3; sys_platform == 'linux'",
+    "mlx[cuda12]==0.32.4; sys_platform == 'linux'",
     # MLX compiles some kernels at run time with NVRTC 12.9; it needs headers of the same version.
     "nvidia-cuda-runtime-cu12==12.9.*; sys_platform == 'linux'",
     "nvidia-cuda-cccl-cu12==12.9.*; sys_platform == 'linux'",
@@ -58,6 +58,9 @@ paper = [
 ]
 text-eval = [
     "mlx-lm==0.32.2",
+]
+xsum-eval = [
+    "rouge-score==0.1.2",
 ]
 
 [build-system]

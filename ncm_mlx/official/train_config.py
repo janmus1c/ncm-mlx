@@ -15,6 +15,9 @@ from pathlib import Path
 
 from ncm_mlx.official import spec as specs
 
+PRECISIONS = ("float32", "bfloat16")
+OPTIMIZERS = ("adamw", "muon")
+CORRUPTION_MODES = ("uniform", "neighbor")
 OFFICIAL_TS_LEVELS = [1, 8, 16, 24, 32, 40, 52, 64, 76, 92, 108, 128]
 
 
@@ -58,6 +61,13 @@ class TextGenerator:
     corrupt_first: float = 0.75
     corrupt_last: float = 0.25
     loss_alpha: float = 0.0
+    corruption_mode: str = "uniform"
+    corruption_neighbors: int = 8
+    corruption_rate_jitter: float = 0.0
+
+
+STAGE_OPTIONAL = {"optimizer": "adamw", "muon_lr": 0.02, "muon_momentum": 0.95,
+                  "muon_weight_decay": 0.0, "muon_ns_steps": 5}
 
 
 @dataclass
@@ -72,6 +82,11 @@ class Stage:
     weight_decay: float = 0.1
     grad_clip: float = 1.0
     max_minutes: float = 0.0
+    optimizer: str = "adamw"
+    muon_lr: float = 0.02
+    muon_momentum: float = 0.95
+    muon_weight_decay: float = 0.0
+    muon_ns_steps: int = 5
 
 
 @dataclass
@@ -80,6 +95,7 @@ class TextTrain:
     log_every: int = 100
     eval_every: int = 500
     compile: bool = True
+    precision: str = "float32"
     codec: Stage = field(default_factory=lambda: Stage(lr=5e-4, lr_floor=5e-5, weight_decay=0.01))
     generator: Stage = field(default_factory=Stage)
     ar: Stage = field(default_factory=Stage)
@@ -115,6 +131,20 @@ class TextConfig:
         d = asdict(self)
         if not self.data.prefix_len:
             del d["data"]["prefix_len"]
+        if self.train.precision == "float32":
+            del d["train"]["precision"]
+        for name in ("codec", "generator", "ar"):
+            stage = d["train"][name]
+            if stage["optimizer"] == "adamw":
+                for key in STAGE_OPTIONAL:
+                    del stage[key]
+        gen = d["generator"]
+        if gen["corruption_mode"] == "uniform":
+            del gen["corruption_neighbors"]
+        if gen["corruption_rate_jitter"] == 0:
+            del gen["corruption_rate_jitter"]
+        if gen["corruption_mode"] == "uniform":
+            del gen["corruption_mode"]
         return d
 
     @classmethod
@@ -157,8 +187,20 @@ class TextConfig:
                 raise ValueError("dropout and corruption probabilities must be in [0, 1)")
         if not 1 <= c.fine_drop_min_keep <= len(c.levels):
             raise ValueError("codec.fine_drop_min_keep must be a level count")
+        if self.train.precision not in PRECISIONS:
+            raise ValueError(f"train.precision must be one of {list(PRECISIONS)}")
+        if g.corruption_mode not in CORRUPTION_MODES:
+            raise ValueError(f"generator.corruption_mode must be one of {list(CORRUPTION_MODES)}")
+        if not 0.0 <= g.corruption_rate_jitter < 1.0:
+            raise ValueError("generator.corruption_rate_jitter must be in [0, 1)")
+        if g.corruption_mode == "neighbor" and not 1 <= g.corruption_neighbors < min(c.codebook_sizes):
+            raise ValueError("generator.corruption_neighbors must be in [1, smallest codebook size)")
         for name in ("codec", "generator", "ar"):
             st = getattr(self.train, name)
+            if st.optimizer not in OPTIMIZERS:
+                raise ValueError(f"train.{name}.optimizer must be one of {list(OPTIMIZERS)}")
+            if st.muon_lr <= 0 or not 0 <= st.muon_momentum < 1 or st.muon_ns_steps < 1:
+                raise ValueError(f"train.{name}: invalid muon_lr, muon_momentum or muon_ns_steps")
             if st.steps < 1 or st.batch_size < 1 or not 0 <= st.warmup < st.steps or st.lr_floor > st.lr:
                 raise ValueError(f"train.{name}: invalid steps, batch, warmup or learning rates")
 

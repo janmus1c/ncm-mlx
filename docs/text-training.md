@@ -98,9 +98,18 @@ Without the copy the pipeline trains a new codec on the continuation windows.
 - Generative perplexity under the same GPT-2 large scorer. The scorer reads prompt plus continuation; only tokens after the prompt count. The boundary is the number of GPT-2 tokens the prompt encodes on its own, so a token that straddles it counts as continuation. Gold continuations are scored the same way.
 - A prompt-faithfulness **diagnostic**, labelled as such in the report: share of continuations that mention a character name from the prompt (capitalised words that do not start a sentence), content-word overlap, and the share of continuation 4-grams copied verbatim from the prompt, each next to a control that pairs every continuation with the next story's prompt. These are surface heuristics. They do not measure coherence, and verbatim copying is a failure mode, not a success.
 
-Latency is not measured in this mode. A single prompt can be continued with `python -m ncm_mlx official continue-text --weights artifacts/tinystories-prefix-p32/export --prompt "..."`; the model reads the first P tokens of the prompt, and shorter prompts are padded, which training never showed it.
+Latency is not measured in this mode. A single prompt can be continued with `python -m ncm_mlx official continue-text --weights artifacts/tinystories-prefix-p32/export --prompt "..."`; the model reads the first P tokens of the prompt, and shorter prompts are padded, which training never showed it. Options: `--n` continuations (default 2), `--temperature`, `--top-k`, `--top-p`, `--seed`, `--cpu`. Output is one block per continuation, `prompt[|]continuation`, and is repeatable for a fixed seed. `tests/test_text_prefix.py::test_continue_text_cli_continues_a_prompt_on_cpu` runs exactly this command on a tiny CPU model and checks the format and repeatability; it does not check quality.
 
 No prefix-conditioned model has been trained or evaluated yet; the tests use tiny CPU models and check shapes, masking, equivalence and resume, not quality.
+
+Example, for a model trained with `data.prefix_len > 0`:
+
+```bash
+python -m ncm_mlx official continue-text --weights artifacts/tinystories-prefix-p32/export \
+    --prompt "Once upon a time, a little fox found a red kite." --n 2 --seed 0
+```
+
+It prints `prompt[|]continuation` per sample. A CPU test runs this command on a tiny model; no prompt-conditioned model has been trained at a useful scale yet.
 
 ## Assumptions where the paper and code are silent
 
@@ -117,8 +126,49 @@ No prefix-conditioned model has been trained or evaluated yet; the tests use tin
 | Dropout placement | Residual branches only. No attention-probability dropout (MLX fused attention); the codec's 0.3 also applies to the input embedding | Upstream uses attention and residual dropout |
 | Weight decay | All gradient-trained parameters | Not stated |
 | LR schedule | Linear warmup, cosine decay to the stated floor | Paper gives peak, floor and warmup only |
-| Precision | float32 (Metal reduced-precision matmul) | Paper: BF16 mixed precision, `torch.compile` |
+| Precision | float32 by default (Metal reduced-precision matmul); optional bfloat16 mixed precision for the generator and AR stages, see below | Paper: BF16 mixed precision, `torch.compile` |
 | Best checkpoint | Final weights exported; validation is monitored only | Not stated |
+
+## Optional Muon optimizer, neighbour corruption and the official-recipe config
+
+Three more options, all off by default. With the defaults the config dictionary has none of the new keys, so config hashes, checkpoints and `--resume` are unchanged, and tiny three-stage CPU runs give byte-identical checkpoints before and after (also across the MLX 0.32.3 to 0.32.4 bump; the tests compare the default path with a copy of the old corruption function and train with the options spelled out).
+
+- `train.<stage>.optimizer = "muon"` (default `"adamw"`) puts the 2-D weight matrices inside the transformer blocks (and the generator's input projection) on `mlx.optimizers.Muon` and everything else (embeddings, tied heads, codebooks, norms, biases, convolutions) on AdamW. `muon_lr` (default 0.02, on the same warmup and cosine shape as `lr`), `muon_momentum` (0.95), `muon_weight_decay` (0.0) and `muon_ns_steps` (5) apply to the Muon part; the logged `lr` is the Muon rate. The fused `qkv` matrix is orthogonalised as one matrix.
+- `generator.corruption_mode = "neighbor"` (default `"uniform"`) replaces a corrupted conditioning code with one of its `corruption_neighbors` (default 8) nearest other codes by distance between codebook vectors, instead of a uniform draw. `generator.corruption_rate_jitter = j` (default 0) multiplies each sequence's per-level rates by a factor drawn uniformly from `[1 - j, 1 + j]`, so the mean schedule is kept. Labels stay the true codes. Neither has been trained at a useful scale; the experiment configs are `configs/tinystories-muon-12m.json` and `configs/tinystories-neighbor-12m.json` (bfloat16, otherwise E21 with the frozen E21 codec copied in).
+- `configs/tinystories-official-recipe.json` trains a new codec and generator with the details that the released TinyStories config and the paper fix: 4,096 codes per level, codec width 384 with 6 heads, block-diagonal attention, corruption mean 0.50 falling linearly, generator learning rate 3e-4, at E21's size and budget. The released `config.yaml` holds inference settings only, so the corruption endpoints, batch size and step count are not public beyond the paper's numbers.
+
+## Optional bfloat16 mixed precision
+
+`"train": {"precision": "bfloat16"}` (default `"float32"`) switches the generator and AR stages to bfloat16 compute. The codec stage always trains in float32: its nearest-code assignments and EMA codebook statistics are the part most sensitive to rounding, and it is the smallest stage.
+
+What changes, per training step:
+
+- The model keeps float32 master weights. Each step casts them to bfloat16 inside the differentiated function, runs the forward and backward in bfloat16, and receives float32 gradients for the master weights. Gradient clipping, AdamW (moments and update) and the weight update are float32.
+- LayerNorm, the QK RMSNorm and the codebook-tied heads stay float32 (norm statistics are computed on a float32 copy of the activations). RoPE is applied in float32 and the result is cast back. The softmax inside fused attention is float32 in MLX by its own documentation. Logits and cross-entropy are float32 (the AR's tied output matmul is bfloat16; the generator's tied heads are float32).
+- The frozen codec is not touched: it stays float32, so the codes that serve as generator targets are exactly the float32 codec's codes (checked in the tests).
+- Checkpoints and exports hold the float32 master weights and float32 optimizer state, so `--resume` works as before, and a bfloat16 run and a float32 run cannot resume each other's checkpoints (the config differs). Validation during training and the final reports run in float32 on the master weights, which is how the exported model is used.
+- With the default, the config dictionary (and so the checkpoint metadata and `spec.json`) has no `precision` key and the computation is the pre-existing one. On CPU, tiny three-stage runs gave byte-identical checkpoints before and after this change, compiled and uncompiled. On a GPU the run-to-run results already differ at the bit level, so that comparison does not apply there.
+
+On a tiny CPU model the bfloat16 loss and gradient norm were within 0.01% and 0.15% of float32 at identical weights. This says the implementation is consistent, not that training dynamics are unchanged. At a useful scale, one comparison exists: the E21 recipe trained in bfloat16 on an RTX 3080 matched the fp32 runs closely in quality, and its compiled generator step was about 1.5 times faster with 36% less peak memory at batch 32 ([E29](EXPERIMENTS.md#e29-bf16-mixed-precision-quality-parity-at-the-e21-recipe-2026-11-03)). That is one size, one seed and one device; the speed-up depends on the device and model size. `scripts/text_step_timing.py` times the real compiled training step at a chosen precision and prints step time, tokens per second and peak memory as JSON:
+
+```bash
+python scripts/text_step_timing.py configs/tinystories-e24-seed1.json --stage generator --precision float32
+python scripts/text_step_timing.py configs/tinystories-e24-seed1.json --stage generator --precision bfloat16
+```
+
+It uses random token windows and a randomly initialised frozen codec, so it needs no data. Run each precision on an otherwise idle device and compare like with like. Training logs report peak memory as before.
+
+## Sampling study
+
+`scripts/sampling_study.py` is the evaluation driver behind the sampling-policy study (E27 in the [experiment log](EXPERIMENTS.md)). It trains nothing: it draws samples from a trained NCM and its matched AR baseline under different policies (global and per-level temperature, top-k, top-p, a sharpened level-0 unigram for the NCM), scores them with the pinned GPT-2-large scorer and writes one JSON result and one sample file per run, with the same diversity diagnostics as `official eval-text`.
+
+```bash
+python scripts/sampling_study.py scripts/sampling_study_runs.json \
+    --checkpoint e21=artifacts/tinystories-e21/export --checkpoint e24-seed1=artifacts/tinystories-e24-seed1/export \
+    --data artifacts/tinystories/v2-bpe8192-L128 --out artifacts/sampling-study --selftest
+```
+
+`scripts/sampling_study_runs.json` lists the 98 runs of E27 (seeds, number of samples and sampling parameters). Each name after `--checkpoint` is the `ckpt` field the runs refer to. The first run is a gate: it stops the study if the default-setting NCM perplexity falls outside a known range, so a setup that does not reproduce is caught early. Finished runs are skipped, so an interrupted study resumes. Memory is capped by `NCM_MLX_MEMORY_LIMIT_GB`. The script was cleaned up from the private one that produced the published tables and has not been re-run on a clean checkout.
 
 ## Evaluation
 
@@ -132,6 +182,14 @@ No prefix-conditioned model has been trained or evaluated yet; the tests use tin
 - Synchronized latency at batch 1 and 16 (host-copy completion, 3 warmups, 20 iterations) with GPU-load readings.
 
 Under this scorer the released TinyStories checkpoint scores 16.259 (E21 evaluation). This is a reference value for this protocol, not a reproduction of the paper's reported number.
+
+## Results so far
+
+**Text models trained here from scratch (2026-11-02).** Small TinyStories models reconstruct held-out text accurately (99.8% of tokens) but generate stories that GPT-2 large scores far worse than an autoregressive baseline: generative perplexity 45.6–97.8 against 14.3–14.7, across three corruption schedules and two generator seeds on one codec. Less conditioning corruption lowers teacher-forced loss and worsens generated text. Text training is experimental; see the [controlled-text assessment](research/e21-e23-assessment.md).
+
+**Size and data (2026-11-04).** With the same frozen codec, a larger generator and four times the data narrow the gap without closing it: the ratio of NCM to AR generative perplexity falls from 3.33 (12M generator) to 2.38 (87M) at the original data and to 2.13 (87M, 24.40 against 11.48) at four times the data in bf16. These are single-seed runs except one, compute is not matched, and the 50M-to-87M step is within seed variation; see E30 to E32 in [EXPERIMENTS](EXPERIMENTS.md#e32-50m-and-87m-generators-at-four-times-the-data-bf16-2026-11-04).
+
+The [corruption-ablation figure](../paper/figures/corruption-ablation.svg) from the working paper plots both measures for both generator seeds.
 
 ## Limitations
 

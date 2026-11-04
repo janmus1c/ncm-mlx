@@ -46,7 +46,7 @@ def test_spec_matches_pinned_config_contract(name):
     task, cfg = spec.get(name), CONFIGS[name]
     vq, c = cfg["vqvae"], task.codec
     qc = vq["vector_quantizer_config"]
-    assert task.generator is None and name not in spec.GENERATOR_TASKS
+    assert (task.generator is None) == (name == "wmt14") == (name not in spec.GENERATOR_TASKS)
     assert (vq["in_vocab_size"], vq["context_length"], vq["embed_dim"], vq["n_layers"]) == \
         (c.vocab_size, c.seq_len, c.dim, c.n_head)
     assert tuple(qc["levels"]["manual_levels"]) == c.levels and tuple(vq["vqvae_vocab_size"]) == c.codebook_sizes
@@ -69,16 +69,16 @@ def test_spec_matches_pinned_config_contract(name):
 def test_existing_codecs_keep_plain_cascades():
     for name in spec.GENERATOR_TASKS:
         c = spec.get(name).codec
-        assert not c.cascade_norm and not c.cascade_norm_final
+        assert c.cascade_norm == c.cascade_norm_final == (name == "xsum")
 
 
 @pytest.mark.parametrize("name", CODEC_TASKS)
-def test_task_spec_round_trips_without_generator(name):
+def test_task_spec_round_trips(name):
     task = spec.get(name)
     assert spec.from_json(json.loads(json.dumps(task.to_json()))) == task
 
 
-def test_generator_commands_refuse_codec_only_tasks():
+def test_text_and_sudoku_commands_refuse_the_summarization_and_codec_only_tasks():
     parser = argparse.ArgumentParser()
     register(parser.add_subparsers(dest="cmd"))
     for command in ("generate", "sudoku", "bench"):
@@ -175,7 +175,7 @@ def test_converted_codec_directory_loads_strictly(name, tmp_path, cpu):
     codec = small(task.codec)
     weights, _ = convert.map_state(upstream_state(codec, 0), convert.CODEC_RULES)
     mx.save_safetensors(str(tmp_path / "codec.safetensors"), {k: mx.array(v) for k, v in weights.items()})
-    (tmp_path / "spec.json").write_text(json.dumps({"task": replace(task, codec=codec).to_json()}))
+    (tmp_path / "spec.json").write_text(json.dumps({"task": replace(task, codec=codec, generator=None).to_json()}))
     loaded, model = sample.load_codec(tmp_path)
     assert loaded.generator is None and loaded.codec == codec
     assert [type(m).__name__ for m in model.down0] == ["StridedDown", "CascadeNorm"] * (len(codec.l0_strides) - 1) + \

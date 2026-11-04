@@ -1,10 +1,12 @@
 ---
 title: Status
 status: current
-updated: 2026-10-30
+updated: 2026-11-04
 ---
 
 # Status
+
+**Status, November 2026.** The released NCM checkpoints now run in MLX with outputs matching upstream PyTorch in the tested cases. TinyStories training with two generator seeds gives a negative but useful result: less conditioning corruption lowers teacher-forced loss and worsens generated text. At the original data the best run has about three times the GPT-2 large perplexity of an autoregressive baseline; a larger generator (87M) trained on four times the data brings that to about 2.1 times (single seed, frozen codec, compute not matched; [E30 to E32](EXPERIMENTS.md)). The released XSum generator also runs in the port, with ROUGE within 0.1 of the paper's unguided row. See the [roadmap](NEXT.md) and the [working paper](paper.md).
 
 ## Works today (implemented and tested)
 
@@ -46,7 +48,7 @@ The E19/E20 phase is a partial implementation and small-model success: both seed
 ## Not done
 
 - The upstream Sudoku result is not reproduced. Width-512 runs E10/E12 did not close the gap; a paper-scale training budget remains pending.
-- Released checkpoints other than TinyStories and Sudoku are not converted, except the XSum and WMT14 codecs (codec only, no generators or source tokenizers). The official port is inference-only and has no classifier-free guidance.
+- Released checkpoints other than TinyStories, Sudoku and XSum are not converted, except the WMT14 codec (codec only, no generator or source tokenizer). The official port is inference-only; classifier-free guidance is implemented for XSum and checked against upstream at scale 1.0.
 - Prompt-prefix TinyStories training (`data.prefix_len`, software 0.3.0) is implemented and tested on tiny CPU models; no prefix-conditioned model has been trained or evaluated.
 - Generator training supports `mx.compile` when `train.compile` is true. In the independent TinyWorld/Sudoku training path, codec/AR training and the samplers remain uncompiled, and the NCM sampler has no prefix cache. This differs from the released-checkpoint sampler described above. Quantisation for compressed inference is not implemented.
 - No power or energy measurements (no instrumentation without sudo).
