@@ -63,24 +63,55 @@ held-out text 8.529. Total training compute is not matched, the corpus
 is synthetic, generation is unconditional and no conditional task is
 tested. We characterize the work as a partial implementation, a
 small-model Sudoku success and a documented failure of free-running text
-quality at pilot scale.</p>
+quality at pilot scale. Version 0.13 adds a scaling study in the same
+TinyStories setup, with one frozen codec and one external scorer. With
+the generator raised from 11.8M to 49.6M and 87.4M parameters at the
+original 960,000 windows, the ratio of NCM to AR generative perplexity
+falls from 3.33 to 2.43 and 2.38; with four times the data (and bf16
+training) it is 2.21 and 2.13 for the two larger sizes and 3.05 and 2.89
+for two seeds of the 11.8M generator. Most of the change comes from the
+first size step and from the extra data; the step from 49.6M to 87.4M is
+smaller than the difference between two training seeds of the 11.8M
+generator. The best NCM scores 24.404 against 11.484 for its AR
+baseline. Optional bf16 mixed-precision training matches the fp32
+quality of the 11.8M recipe closely (clean code cross-entropy 2.24705
+against 2.24708–2.24909; generative perplexity 49.091 against
+45.568–48.964 for three fp32 runs, 0.13 above the highest). Several
+follow-ups give no gain: a matched-constant corruption control (47.052),
+stronger corruption (55.329 and 53.297 for two seeds), equal level loss
+(47.543 and 45.740) and a sampling-policy study that attributes roughly
+5–10% of the gap (in log terms) to sampling. A small FineWeb-Edu run is
+reported only as a pipeline check on web text, not as a result. The
+scaling rows are single-seed except one, mix fp32 and bf16, compare
+unequal compute and use synthetic prose, so they describe a trend under
+stated conditions and are not a scaling law. An inference-only port of
+the released XSum generator matches upstream PyTorch in CPU parity
+checks with greedy decoding and scores ROUGE-1/2/L of 34.93/12.71/27.94
+on the 11,334-article test set, against 35.0/12.8/28.0 quoted from
+Kumbong et al.</p>
 </abstract>
 </article-meta>
 </front>
 <body>
 <disp-quote>
-  <p><bold>Status.</bold> Unreviewed working paper, version 0.12
+  <p><bold>Status.</bold> Unreviewed working paper, version 0.13
   (version DOI:
+  <ext-link ext-link-type="uri" xlink:href="https://doi.org/10.5281/zenodo.23953213">10.5281/zenodo.23953213</ext-link>;
+  the previous version, 0.12, is
   <ext-link ext-link-type="uri" xlink:href="https://doi.org/10.5281/zenodo.23897923">10.5281/zenodo.23897923</ext-link>).
   Every number here is copied from a run in the code repository
   (<monospace>runs/</monospace>, summarised in
-  <monospace>paper/data/results.json</monospace>), from the retained
-  evidence extracts under <monospace>docs/research/</monospace>, or
-  quoted from the cited paper and marked as quoted. The TinyStories
-  evidence of Section 10 is retained as described there; its
-  sample-level records are not yet part of a clean public checkout.
-  Experiments still running are marked <italic>in progress</italic> and
-  never estimated. Appendix C lists the changes between versions.</p>
+  <monospace>paper/data/results.json</monospace> and
+  <monospace>docs/research/tinystories-scaling.json</monospace>), from
+  the retained evidence extracts under
+  <monospace>docs/research/</monospace>, or quoted from the cited paper
+  and marked as quoted. The TinyStories evidence of Section 10 is
+  retained as described there; its sample-level records are not yet part
+  of a clean public checkout, and the evidence for Section 11 is
+  attached to the paper release as an archive (see Code and
+  reproducibility). Experiments still running are marked <italic>in
+  progress</italic> and never estimated. Appendix C lists the changes
+  between versions.</p>
 </disp-quote>
 <sec id="reading-guide">
   <title>Reading guide</title>
@@ -94,7 +125,9 @@ quality at pilot scale.</p>
   learned. Section 9 reports how the released checkpoints of the
   original authors run in our MLX port, and Section 10 reports our own
   TinyStories experiments, including the corruption ablation and its
-  seed repeat.</p>
+  seed repeat. Section 11 reports the follow-ups: scaling the generator
+  and the data, bf16 parity, sampling and corruption variants that did
+  not help, and a web-text pilot.</p>
 </sec>
 <sec id="the-idea-in-plain-language">
   <title>The idea in plain language</title>
@@ -187,9 +220,14 @@ quality at pilot scale.</p>
     stories (Section 10). Those models reconstruct held-out story text
     accurately but generate stories that an external language model
     scores far worse than a word-by-word baseline built from the same
-    transformer blocks. NCM is a generation method used here for three
-    tasks, not a Sudoku-specific expansion of the term or an
-    instruction-following language model.</p>
+    transformer blocks. A further set of follow-ups (Section 11) asks
+    whether the gap to the autoregressive baseline shrinks with a larger
+    generator and more data. With the codec held fixed it does, from a
+    ratio of about 3.3 to about 2.1, but it does not close, and the
+    evidence is single-seed and limited. We also added the released XSum
+    generator to the port (Section 9). NCM is a generation method used
+    here for three tasks, not a Sudoku-specific expansion of the term or
+    an instruction-following language model.</p>
   </sec>
 </sec>
 <sec id="glossary">
@@ -1844,10 +1882,11 @@ quality at pilot scale.</p>
 <sec id="released-checkpoints-in-mlx-inference-parity">
   <title>Released checkpoints in MLX: inference parity</title>
   <disp-quote>
-    <p><bold>In short.</bold> The released TinyStories and Sudoku
+    <p><bold>In short.</bold> The released TinyStories, Sudoku and XSum
     checkpoints of Kumbong et al. run in an independent, inference-only
     MLX port. In the tested computations the port agrees with upstream
-    PyTorch on CPU, up to stated floating-point effects. This section
+    PyTorch on CPU, up to stated floating-point effects, and the XSum
+    model scores ROUGE within 0.1 of the quoted values. This section
     concerns upstream-trained weights. It does not reproduce upstream
     training and says nothing about the models we trained ourselves.</p>
   </disp-quote>
@@ -2009,6 +2048,119 @@ quality at pilot scale.</p>
     upstream-trained models. They are separate from E19 and E20 and say
     nothing about our smaller generators.</p>
   </sec>
+  <sec id="released-xsum-summarisation">
+    <title>Released XSum summarisation</title>
+    <p>The same port runs the released XSum generator and codec of
+    Kumbong et al., which write a one-sentence summary of a news article
+    (<xref alt="Narayan et al. 2018" rid="ref-xsum2018" ref-type="bibr">Narayan
+    et al. 2018</xref>). This is the one conditional task in this paper,
+    and it concerns upstream-trained weights: we neither train nor
+    evaluate our own models on it. The article’s first 512 GPT-2 token
+    ids are the prefix. Level 0 comes from four learned queries. The
+    remaining eight levels are decoded greedily (temperature 1, top-k
+    1), as in the released configuration, and a token readout with a
+    frequency penalty and adjacency rules turns the codes into text.
+    These rules follow upstream’s evaluation script; the reference
+    functions used in the parity check are extracted from upstream and
+    not copied into our code. Conversion is strict in the same way as in
+    Section 9.1 and checks the pinned checkpoint, tokeniser and test-set
+    revisions.</p>
+    <p>Against upstream PyTorch on CPU, on eight fixed inputs (four test
+    articles and four raw texts), GPT-2 encoding (11 cases, 500
+    references) and decoding (201 id rows) are identical; free-running
+    greedy codes at all nine levels are identical; and the penalised
+    readout gives identical ids and texts for 8 of 8 inputs.
+    Teacher-forced per-level logits differ by at most 6.7e-4 in fp32, at
+    logit magnitudes up to 1,118, and by 6.8e-13 in exact fp64, the same
+    pattern as the TinyStories checkpoint of Section 9.2.
+    Classifier-free guidance at scale 1.0 also yields identical
+    codes.</p>
+    <table-wrap>
+      <caption>
+        <p>ROUGE F-measures (×100, stemmer on) of the released XSum
+        model in the MLX port, greedy decoding, on the 11,334-article
+        test set. Rows marked quoted are the values reported by Kumbong
+        et al.
+        (<xref alt="Kumbong et al. 2026" rid="ref-ncm2026" ref-type="bibr">Kumbong
+        et al. 2026</xref>, Sec. 4.3 and Table 2), not measured
+        here.</p>
+      </caption>
+      <table>
+        <thead>
+          <tr>
+            <th>Setting</th>
+            <th align="right">ROUGE-1</th>
+            <th align="right">ROUGE-2</th>
+            <th align="right">ROUGE-L</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>MLX port, released defaults, no guidance</td>
+            <td align="right">34.93</td>
+            <td align="right">12.71</td>
+            <td align="right">27.94</td>
+          </tr>
+          <tr>
+            <td>Quoted, no guidance (“8 NFE”)</td>
+            <td align="right">35.0</td>
+            <td align="right">12.8</td>
+            <td align="right">28.0</td>
+          </tr>
+          <tr>
+            <td>MLX port, guidance scale 1.0</td>
+            <td align="right">35.15</td>
+            <td align="right">12.61</td>
+            <td align="right">27.98</td>
+          </tr>
+          <tr>
+            <td>Quoted, with guidance (“16 NFE”)</td>
+            <td align="right">35.3</td>
+            <td align="right">13.0</td>
+            <td align="right">28.2</td>
+          </tr>
+          <tr>
+            <td>MLX port, guidance scale 0.5</td>
+            <td align="right">35.20</td>
+            <td align="right">12.83</td>
+            <td align="right">28.11</td>
+          </tr>
+        </tbody>
+      </table>
+    </table-wrap>
+    <p>The unguided full-set scores are within 0.1 of the quoted values
+    on all three measures. The paper reports its guided row at guidance
+    weight 0.5
+    (<xref alt="Kumbong et al. 2026" rid="ref-ncm2026" ref-type="bibr">Kumbong
+    et al. 2026</xref>, App. F.4, Fig. 14), where its ROUGE curves peak.
+    At scale 0.5 (assuming upstream’s <monospace>cfg_scale</monospace>
+    is that weight) the port is within 0.2 of the quoted guided scores
+    on all three measures; at 1.0 it is lower on ROUGE-2 and ROUGE-L.
+    The paper counts generator calls per output, 8 for the unguided
+    model and two per guided step; our port makes 9 generator forwards
+    (a level-0 query pass and eight levels), so the paper apparently
+    does not count the level-0 pass, which we have not confirmed. ROUGE
+    here is computed with the <monospace>rouge-score</monospace> package
+    at version 0.1.2, whose version upstream does not pin
+    (<xref alt="Lin 2004" rid="ref-rouge2004" ref-type="bibr">Lin
+    2004</xref>). On a 200-article random sample, Metal and CPU produce
+    the same summary for 181 articles and ROUGE-1/2/L of
+    34.51/12.72/27.55 and 34.63/12.64/27.50; Metal’s reduced-precision
+    matrix products flip near-ties. The released defaults run at 36.1
+    articles per second at batch 16 on the Apple M5 Pro (a busy desktop,
+    200 articles, excluding scoring).</p>
+    <p>What this does not show: the summaries are fluent-looking but
+    often contain broken words and wrong facts (one reads “won
+    herptptathlon” for a heptathlon result), and ROUGE overlap measures
+    neither faithfulness nor quality. Only greedy decoding is compared
+    with upstream, and parity was run on CPU only. Minimum-Bayes-risk
+    decoding and sampled summaries are not implemented or checked. The
+    penalty readout changes every parity text but not ROUGE at 200
+    articles, which deserves a larger ablation. The result shows that a
+    released conditional checkpoint runs in our port and reproduces its
+    published scores closely; it does not extend to our trained models,
+    which are all unconditional.</p>
+  </sec>
   <sec id="latency-and-what-this-section-does-not-establish">
     <title>Latency, and what this section does not establish</title>
     <p>The recorded eager TinyStories batch-1 median is 39.8 ms on the
@@ -2028,9 +2180,10 @@ quality at pilot scale.</p>
     generative-perplexity protocol is not reproduced: Section 10 scores
     the Released TinyStories checkpoint with our own pinned scorer.
     Sampled outputs use MLX’s random generator and so do not match
-    upstream sample for sample. The LM1B, OpenWebText, WMT14 and XSum
-    checkpoints are not converted. A fresh-environment installation and
-    inference check on an accelerator remains a verification limit.</p>
+    upstream sample for sample. The LM1B, OpenWebText and WMT14
+    checkpoints are not converted; the XSum generator is (Section 9.4).
+    A fresh-environment installation and inference check on an
+    accelerator remains a verification limit.</p>
   </sec>
 </sec>
 <sec id="controlled-text-tinystories-pilots">
@@ -2730,6 +2883,347 @@ quality at pilot scale.</p>
     measurement is available.</p>
   </sec>
 </sec>
+<sec id="scaling-data-and-precision-tinystories-follow-ups">
+  <title>Scaling, data and precision: TinyStories follow-ups</title>
+  <disp-quote>
+    <p><bold>In short.</bold> After the corruption ablation of Section
+    10 we asked what else might narrow the gap between the MLX NCM and
+    the MLX AR baseline. Training-side tweaks and sampling policies did
+    not (Section 11.2). Making the generator larger and showing it more
+    data did: the ratio of generative perplexities fell from 3.33 to
+    2.13 across the grid we ran (Section 11.4), with bf16
+    mixed-precision training used for the four-times-data runs (Section
+    11.3). A small run on web text (Section 11.5) only checks the
+    pipeline. The ratio remained above two. Every row is a single
+    training seed, except the 12M generator at four times the data,
+    total compute is not matched, the codec is frozen from Section 10,
+    the text is synthetic and the precision differs between some rows.
+    We read the result as a trend under those conditions. It is not a
+    scaling law and it does not predict what happens at a billion
+    parameters.</p>
+  </disp-quote>
+  <sec id="scope-and-labels-1">
+    <title>Scope and labels</title>
+    <p>Everything here uses the setup of Section 10: the same frozen
+    15.5M-value codec (non-padding reconstruction 99.816%), tokeniser,
+    12-level hierarchy, optimiser, evaluation protocol and external
+    scorer (GPT-2 large, 256 outputs for each of five sampling seeds).
+    Unless stated, corruption is 0.75 → 0.25 and the loss weight is
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[\alpha = 0]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>α</mml:mi><mml:mo>=</mml:mo><mml:mn>0</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>.
+    “12M”, “50M” and “87M” are shorthand for MLX NCM generators of
+    11,832,587, 49,644,683 and 87,426,059 parameters (6 × 384, 12 × 576
+    and 12 × 768 blocks). Each size has its own MLX AR baseline built
+    from the same blocks (13.8M, 52.6M and 91.3M parameters), trained on
+    the same windows. They are our models. The Released TinyStories
+    checkpoint of Kumbong et al. appears only as a reference. The AR
+    baseline grows with the NCM generator, so the ratio compares the two
+    methods at each size, not one fixed system. The numbers come from
+    saved evaluation reports and are kept in
+    <monospace>docs/research/tinystories-scaling.json</monospace>, with
+    the experiment log entries E25–E32 in
+    <monospace>docs/EXPERIMENTS.md</monospace>.</p>
+    <p>The runs were made on several machines: an Apple M5 Pro (the Mac,
+    Section 10), an RTX 3080 and rented NVIDIA GPUs (an A40, an RTX
+    A6000, an RTX PRO 6000 and an RTX 5090) through MLX’s CUDA backend,
+    all with MLX 0.32.3. Training time is therefore not compared across
+    rows.</p>
+  </sec>
+  <sec id="follow-ups-that-did-not-narrow-the-gap">
+    <title>Follow-ups that did not narrow the gap</title>
+    <p><bold>Matched-constant corruption (E25).</bold> E21’s corruption
+    falls from 0.75 to 0.25 across levels, and its expected replacement
+    count is 198.95 of 513 conditioning positions per window. A constant
+    probability of 0.3878 reproduces that count. The matched-constant
+    generator (seed 0) scores 47.052 (SD 1.245) with clean code CE
+    2.057, against E21’s 47.897 and 2.249 and E24’s 45.568. The
+    difference is inside the 2.33 spread between E21 and E24, so we find
+    no evidence that the taper itself matters at this amount of noise.
+    Equal expected replacement is not equal semantic perturbation,
+    because a replaced code at a coarse level changes much more of the
+    text than one at a fine level. A second seed was queued and never
+    run.</p>
+    <p><bold>Stronger corruption and equal level loss (E28).</bold> Two
+    further variants were trained with two generator seeds each. Raising
+    corruption to 0.90 → 0.50 made things worse, as the clean code CE
+    rises to about 2.84: perplexity 55.329 (seed 0) and 53.297 (seed 1),
+    against 47.897 and 45.568 for E21 and E24. Giving every level equal
+    loss weight (<inline-formula><alternatives>
+    <tex-math><![CDATA[\alpha = 1]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>α</mml:mi><mml:mo>=</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>,
+    so the first predicted level carries one eleventh instead of 1.25%
+    of the weight) is indistinguishable: 47.543 and 45.740. The NCM/AR
+    ratios are 3.77 and 3.73 for stronger corruption and 3.24 and 3.20
+    for equal level loss, against 3.26 and 3.18 for E21 and E24. These
+    four runs used gradient accumulation (2 × 32 windows per update) on
+    a 12 GB card, which the public configurations do not express (see
+    Code and reproducibility).</p>
+    <p><bold>Sampling policies (E27).</bold> Perhaps the gap is partly a
+    sampling problem. We swept temperature (global and per level),
+    top-k, top-p and the level-0 distribution for the E21 and E24
+    checkpoints, and compared each NCM setting with the AR baseline at
+    the same distinct-3 diversity, because lowering temperature lowers
+    both models’ perplexity. The ratio at matched diversity stayed
+    between about 3.0 and 3.7 for every sampler, with the best one
+    (cooling only levels 4 to 11 to temperature 0.5) at 3.06 against
+    3.29 at temperature 1 (E24: 2.99 against 3.25). A lower temperature
+    drops E21 from 47.9 to 31.2 at that setting, which looks like a
+    large gain, but the AR improves by the same factor for the same
+    diversity cost. In log terms we attribute roughly 5 to 10% of the
+    gap to sampling and the rest to the learned model, with an
+    uncertainty of a few points. Sharpening the stored level-0 unigram
+    changes nothing. The driver is
+    <monospace>scripts/sampling_study.py</monospace> in the repository
+    (see Code and reproducibility). A supporting diagnostic on 64
+    held-out windows (original target-code cross-entropy after the
+    generator’s own sampled prefix) is 11.26, 13.11 and 17.77 for E21,
+    E22 and E23: the less corrupted generator copes worse with its own
+    errors, which fits the opposite orderings of Section 10 without
+    proving the mechanism.</p>
+  </sec>
+  <sec id="mixed-precision-bf16-quality-parity">
+    <title>Mixed precision: bf16 quality parity</title>
+    <p>The larger runs below use optional bf16 mixed precision (fp32
+    master weights and optimiser state; norms, tied level heads, rotary
+    application and the loss in fp32; the codec trained in fp32 and
+    never cast). To check that it does not change quality, we trained
+    the E21 recipe in bf16 (E29, RTX 3080, seed 0, same frozen codec).
+    Its clean code CE is 2.24705 and its generative perplexity 49.091
+    (SD 1.766), against fp32 values of 2.24875 and 47.897 (E21), 2.24909
+    and 45.568 (E24) and 2.24708 and 48.964 (the 12M fp32 run of Section
+    11.4, on a different GPU). The code CE differs from the three fp32
+    runs by at most 0.0021, and the perplexity is 0.13 above the highest
+    of them, well inside its own sampling-seed SD of 1.77. On the same
+    card, the generator training step took 0.157 s in fp32 and 0.104 s
+    in bf16 (about 1.5 times faster) and peaked at 4.77 GB instead of
+    7.46 GB (36% less) at batch 32; the AR step was 1.53 times faster
+    with 16% less memory. At batch 64 fp32 did not fit the 12 GB
+    card.</p>
+    <p>This is a parity check at one size and one seed, against three
+    fp32 values from different hardware. It supports using bf16 for the
+    12M recipe. It does not show parity at 50M or 87M, or at four times
+    the data, where the bf16 runs below have no fp32 counterpart.</p>
+  </sec>
+  <sec id="size-and-data">
+    <title>Size and data</title>
+    <p><bold>Design.</bold> We trained three generator sizes at the
+    original 960,000 windows in fp32 (E30: 15,000 updates at batch 64
+    for the generator and 7,500 at 128 for the AR), and again at four
+    times the data, 3,840,000 windows (60,000 updates, AR 30,000), in
+    bf16 (E31 and E32). The 12M run at four times the data was repeated
+    with training seed 1. Every run uses the frozen E21 codec, so the
+    codec is not retrained or enlarged with the generator, and a larger
+    generator may be limited by it. The AR baselines also see four times
+    the windows.</p>
+    <table-wrap>
+      <caption>
+        <p>Size and data grid. Perplexity is GPT-2 large generative
+        perplexity, the mean of five sampling-seed values (SD in
+        brackets), lower is better. Ratio is NCM over AR perplexity.
+        Rows 1–3 are fp32 at 960,000 windows; rows 4–7 are bf16 at
+        3,840,000 windows. Training seed 0 except row 5.</p>
+      </caption>
+      <table>
+        <colgroup>
+          <col width="13%" />
+          <col width="10%" />
+          <col width="10%" />
+          <col width="13%" />
+          <col width="13%" />
+          <col width="13%" />
+          <col width="13%" />
+          <col width="13%" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th align="right">#</th>
+            <th>Generator</th>
+            <th>Data</th>
+            <th align="right">Clean code CE</th>
+            <th align="right">NCM perplexity</th>
+            <th align="right">AR perplexity</th>
+            <th align="right">AR token CE</th>
+            <th align="right">Ratio</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td align="right">1</td>
+            <td>12M</td>
+            <td>1×</td>
+            <td align="right">2.24708</td>
+            <td align="right">48.964 (1.236)</td>
+            <td align="right">14.705 (0.260)</td>
+            <td align="right">1.31481</td>
+            <td align="right">3.33</td>
+          </tr>
+          <tr>
+            <td align="right">2</td>
+            <td>50M</td>
+            <td>1×</td>
+            <td align="right">1.90405</td>
+            <td align="right">32.226 (0.609)</td>
+            <td align="right">13.254 (0.232)</td>
+            <td align="right">1.18791</td>
+            <td align="right">2.43</td>
+          </tr>
+          <tr>
+            <td align="right">3</td>
+            <td>87M</td>
+            <td>1×</td>
+            <td align="right">1.80314</td>
+            <td align="right">30.688 (0.985)</td>
+            <td align="right">12.888 (0.446)</td>
+            <td align="right">1.15069</td>
+            <td align="right">2.38</td>
+          </tr>
+          <tr>
+            <td align="right">4</td>
+            <td>12M</td>
+            <td>4×</td>
+            <td align="right">2.01235</td>
+            <td align="right">38.416 (1.316)</td>
+            <td align="right">12.601 (0.264)</td>
+            <td align="right">1.16798</td>
+            <td align="right">3.05</td>
+          </tr>
+          <tr>
+            <td align="right">5</td>
+            <td>12M, seed 1</td>
+            <td>4×</td>
+            <td align="right">2.01741</td>
+            <td align="right">36.186 (0.467)</td>
+            <td align="right">12.525 (0.195)</td>
+            <td align="right">1.16871</td>
+            <td align="right">2.89</td>
+          </tr>
+          <tr>
+            <td align="right">6</td>
+            <td>50M</td>
+            <td>4×</td>
+            <td align="right">1.62073</td>
+            <td align="right">26.148 (0.547)</td>
+            <td align="right">11.838 (0.436)</td>
+            <td align="right">1.04535</td>
+            <td align="right">2.21</td>
+          </tr>
+          <tr>
+            <td align="right">7</td>
+            <td>87M</td>
+            <td>4×</td>
+            <td align="right">1.51620</td>
+            <td align="right">24.404 (0.848)</td>
+            <td align="right">11.484 (0.341)</td>
+            <td align="right">1.01081</td>
+            <td align="right">2.13</td>
+          </tr>
+        </tbody>
+      </table>
+    </table-wrap>
+    <fig>
+      <caption><p>NCM over AR ratio of GPT-2 large generative perplexity
+      by generator size, at 1× data (fp32) and 4× data (bf16). The 12M
+      point at 4× is the mean of two seeds, shown individually; small
+      dots are the Mac fp32 runs E21 and E24. One training seed per
+      point otherwise; the two 12M seeds at 4× differ by more than the
+      50M and 87M points. The released checkpoint is not plotted, since
+      no AR baseline here matches its budget. Compute is not matched,
+      and precision and hardware differ between the two
+      series.</p></caption>
+      <graphic mimetype="image" mime-subtype="svg+xml" xlink:href="figures/scaling-ladder.svg" />
+    </fig>
+    <p><bold>What the grid shows.</bold></p>
+    <list list-type="bullet">
+      <list-item>
+        <p><italic>Size, at fixed data.</italic> From 12M to 50M the NCM
+        perplexity falls by 34.2% (48.964 to 32.226) while the AR’s
+        falls by 9.9%, and the ratio from 3.33 to 2.43. From 50M to 87M
+        the changes are 4.8% and 2.8% (ratio 2.43 to 2.38). At a fixed
+        960,000 windows, most of the gain arrives at the first step. The
+        clean code CE keeps falling (2.247, 1.904, 1.803).</p>
+      </list-item>
+      <list-item>
+        <p><italic>Data, at fixed size.</italic> Four times the data
+        lowers the NCM perplexity by 21.5% at 12M, 18.9% at 50M and
+        20.5% at 87M, and the AR’s by 14.3%, 10.7% and 10.9% (against
+        E21’s 47.897 instead of the 12M run of row 1, the 12M reduction
+        is 19.8%). In relative terms, which is what the ratio measures,
+        the NCM gains more from extra data than the AR does at every
+        size, but at 12M the ratio only moves from 3.33 to 3.05 (seed 0)
+        and 2.89 (seed 1).</p>
+      </list-item>
+      <list-item>
+        <p><italic>Both together.</italic> At four times the data the
+        50M and 87M generators reach ratios of 2.21 and 2.13 and the 87M
+        NCM perplexity is 24.404, the best of our NCM models, against
+        11.484 for its AR baseline. That perplexity is 1.5 times the
+        Released TinyStories checkpoint’s 16.259 (a model with a much
+        larger budget) and about 2.9 times the held-out text’s
+        8.529.</p>
+      </list-item>
+      <list-item>
+        <p><italic>The gap persists.</italic> No point reaches parity,
+        and the largest model still has about twice the AR’s
+        perplexity.</p>
+      </list-item>
+    </list>
+    <p><bold>How much of this can be trusted.</bold> The two 12M seeds
+    at four times the data differ by 2.230 perplexity (38.416 and
+    36.186) and the three 12M fp32 runs of Sections 10 and 11.4 differ
+    by 3.4 (45.568 to 48.964), while the difference between the 50M and
+    87M perplexities is 1.54 (1×) and 1.74 (4×). The small size step
+    from 50M to 87M is therefore not distinguishable from the seed and
+    hardware variation measured at 12M; no repeat exists at the larger
+    sizes. The first step from 12M to 50M (a 16.7-perplexity change at
+    1×) clearly is. The sampling-seed SDs (0.5 to 1.3) describe repeated
+    draws from one model, not training-run variation. The 4× rows are
+    bf16 and the 1× rows are fp32, so “data” and “precision” change
+    together at 50M and 87M; Section 11.3 supports parity only for the
+    12M recipe at 1×. The NCM and AR see the same windows but not the
+    same compute: the NCM stage costs more per window, and the model
+    grows with the width. The codec was trained at the 12M scale and not
+    adapted; the corpus is synthetic; samples are 128-token
+    unconditional openings; and there is one external scorer and no
+    human rating.</p>
+  </sec>
+  <sec id="natural-text-a-fineweb-edu-pipeline-check">
+    <title>Natural text: a FineWeb-Edu pipeline check</title>
+    <p>We also ran the pipeline once on web text (E26): a new codec and
+    NCM generators of 101.6M and 255.1M parameters, and a 100M-class AR
+    baseline, trained on 800,000 windows of 128 tokens from one shard of
+    FineWeb-Edu
+    (<xref alt="Penedo et al. 2024" rid="ref-fineweb2024" ref-type="bibr">Penedo
+    et al. 2024</xref>), for one seed and early checkpoints of long
+    schedules (the learning rate had barely decayed; about 5% of a
+    compute-optimal token budget), and scored with a smaller protocol
+    than Section 10’s. Every model is far from real text, no output is
+    coherent prose, and the NCM scored about three times the AR’s
+    perplexity; with one seed, a batch-size confound between the two NCM
+    sizes and a data preparation that is not in the repository, we draw
+    no conclusion from that number and offer the run only as evidence
+    that the pipeline works on natural text. The settings and values are
+    in <monospace>docs/EXPERIMENTS.md</monospace>.</p>
+  </sec>
+  <sec id="what-these-follow-ups-establish-and-what-remains-open">
+    <title>What these follow-ups establish and what remains open</title>
+    <p>They establish that, on synthetic stories with a frozen codec,
+    the NCM/AR perplexity ratio falls as the generator grows and as it
+    sees more data (3.33 to 2.13 over the grid), with the first size
+    step and the extra data carrying most of the gain; that two further
+    training-side changes and every sampling policy tried leave the
+    ratio at 3.0 or above; and that bf16 mixed precision reproduces fp32
+    quality for the 12M recipe while being about 1.5 times faster per
+    step in our measurement.</p>
+    <p>They do not establish a scaling law (three sizes, two data
+    amounts, one training seed per cell except one); whether the trend
+    continues, flattens or reverses at larger sizes; behaviour at
+    matched total compute; parity of bf16 at 50M, 87M or four times the
+    data; the role of the frozen codec; quality on natural text (the
+    FineWeb run is a pipeline check); any conditional task; or
+    human-rated quality.</p>
+  </sec>
+</sec>
 <sec id="discussion">
   <title>Discussion</title>
   <p><bold>What carries over to a laptop.</bold> Measured Apple Silicon
@@ -2793,6 +3287,26 @@ quality at pilot scale.</p>
   share one codec cannot say how large the variation across full
   training runs is, and no experiment here separates corruption strength
   from the other differences between schedules.</p>
+  <p><bold>What the follow-ups show.</bold> On this synthetic task, with
+  this codec, the gap to the autoregressive baseline responds to
+  capacity and data and not to the training-side and sampling-side
+  adjustments we tried (Section 11). Cooling the fine levels buys a few
+  percent of the gap. Stronger corruption hurts, a constant corruption
+  of the same expected amount matches the taper, and equal level
+  weighting changes nothing resolvable. The bigger generator and four
+  times the data lower the ratio from 3.3 to about 2.1. The
+  autoregressive baseline improves as well, so the NCM’s absolute gain
+  (48.964 to 24.404) overstates its gain relative to the baseline. The
+  data suggest a mundane reading, that the NCM at these sizes is
+  capacity- and exposure-limited, and they do not exclude other
+  readings: the codec is frozen and was fitted at the 12M scale, the
+  exposure is small, the scorer favours fluent text, and a single seed
+  per cell leaves the later size steps unresolved. That the ratio stays
+  above two in every cell is better supported than any single step. How
+  the ratio behaves at 100M parameters and billions of tokens is what
+  this study cannot say. We read the bf16 result the same way: it
+  removes one reason not to scale, for the recipe checked, and nothing
+  more.</p>
   <p><bold>How to challenge the text interpretation.</bold> A small
   blinded human comparison of the retained outputs, with recorded
   instructions and sample identities, would test what the external
@@ -2833,7 +3347,20 @@ quality at pilot scale.</p>
   manifests, repeated benchmark-guided development and unknown benchmark
   contention limit independent audit and generalization. The original
   training implementation is not released; unstated recipe details
-  remain uncertain. Existing measurements establish neither production
+  remain uncertain. The scaling study (Section 11) has one training seed
+  per cell except one, and the differences between the 50M and 87M
+  generators are within seed and hardware variation; its rows mix fp32
+  (1× data) and bf16 (4× data) with parity shown only at 12M and 1×
+  data, run on different GPUs, and do not match total compute between
+  the NCM and the AR baseline or between sizes; the codec is frozen at
+  the 12M scale; the sampling-policy driver and the FineWeb data
+  preparation are private, so those results cannot be reproduced from
+  the repository; the FineWeb pilot compares early checkpoints of long
+  schedules with a smaller scoring sample, and its stronger-corruption
+  variant has no result; and the matched-constant control has one seed.
+  The XSum port is checked against upstream on CPU with greedy decoding
+  only, and its guided row uses a different guidance weight from the
+  paper’s. Existing measurements establish neither production
   reliability nor a benefit in a user application.</p>
 </sec>
 <sec id="related-work">
@@ -2873,34 +3400,51 @@ quality at pilot scale.</p>
   <p>The project’s long-term aim is a text model of about one billion
   parameters whose generations are not worse than those of an
   autoregressive baseline trained with the same compute. Nothing in this
-  paper shows that NCM can reach it. At the small scale tested, the best
-  MLX NCM run has about three times the GPT-2 large generative
-  perplexity of the MLX AR baseline (45.568 against 14.311, Section 10).
-  The steps below are plans, ordered by dependency, with no delivery
-  dates; each later step is conditional on the evidence from the earlier
-  ones.</p>
+  paper shows that NCM can reach it. At the small scale tested in
+  Section 10, the best MLX NCM run has about three times the GPT-2 large
+  generative perplexity of the MLX AR baseline (45.568 against 14.311).
+  In the larger runs of Section 11 the ratio falls to about 2.1 (24.404
+  against 11.484 at 87M parameters and four times the data) and stays
+  above two. The steps below are plans, ordered by dependency, with no
+  delivery dates; each later step is conditional on the evidence from
+  the earlier ones.</p>
   <p><bold>Completed.</bold> TinyWorld, a synthetic grammar with codec,
   generator and AR baseline (Section 7). Sudoku, from E6 to the two-seed
   E19 and E20 recipe (Sections 7 and 8). The inference-only port of the
-  released checkpoints, with parity checks (Section 9). The TinyStories
-  corruption ablation, E21 to E24, with two generator seeds (Section
-  10).</p>
+  released checkpoints, with parity checks, including XSum with ROUGE
+  (Section 9). The TinyStories corruption ablation, E21 to E24, with two
+  generator seeds (Section 10). The bf16 parity check, the size-by-data
+  grid on TinyStories, the corruption and sampling follow-ups and a
+  FineWeb-Edu pipeline check at about 100M and 250M parameters (Section
+  11).</p>
   <p><bold>Planned, in order.</bold></p>
   <list list-type="order">
     <list-item>
-      <p>Close the NCM/AR gap at small scale, through further corruption
-      and loss-weighting ablations; the aim is a smaller gap under a
-      fixed scorer, not a claim about larger models.</p>
+      <p>Understand the remaining gap, which is above two at the largest
+      size tried. Candidates, none tested yet: the recipe details that
+      the released configuration and the paper fix (4,096 codes per
+      level, a wider codec, a lower learning rate), the Muon optimiser
+      and corruption by neighbouring codes, all three available as
+      options in the software released with this version; independent
+      codec seeds and a codec trained with the generator’s size; more
+      seeds per cell; a human comparison of outputs; and a design that
+      changes the algorithm (iterated refinement). Further changes to
+      the uniform corruption schedule, the loss weighting and the
+      sampler had no effect in Section 11 and are not repeated.</p>
     </list-item>
     <list-item>
-      <p>Prompt-conditioned (prefix) training and the official XSum and
-      WMT14 codecs. Red-fuchs described an MLX port of both codecs and a
-      prefix-conditioned training loop in issue 3 of the code repository
-      (Red-fuchs/ncm-modular).</p>
+      <p>Prompt-conditioned (prefix) training of our own models, and the
+      released WMT14 generator. Red-fuchs described an MLX port of the
+      official XSum and WMT14 codecs and a prefix-conditioned training
+      loop in issue 3 of the code repository (Red-fuchs/ncm-modular);
+      the codecs and the training option exist in software 0.3.0 and the
+      released XSum generator is ported (Section 9), but no
+      prefix-conditioned model of ours has been trained.</p>
     </list-item>
     <list-item>
-      <p>Mixed-precision training throughput, measured before any larger
-      run is sized.</p>
+      <p>Mixed-precision training throughput. Done for the 12M recipe
+      (Section 11.3); parity at larger sizes and more data is
+      untested.</p>
     </list-item>
     <list-item>
       <p>A natural-text corpus of several billion tokens, with its
@@ -2908,7 +3452,8 @@ quality at pilot scale.</p>
     </list-item>
     <list-item>
       <p>A model of about 100M parameters trained on about 2B tokens, as
-      the go/no-go comparison against an AR baseline.</p>
+      the go/no-go comparison against an AR baseline. Section 11 shows
+      the pilot-scale data and compute are too small to answer it.</p>
     </list-item>
     <list-item>
       <p>About 300M parameters, then about 1B, only if NCM is close to
@@ -2944,9 +3489,23 @@ quality at pilot scale.</p>
   clean teacher-forced code loss and worsened free-running text. These
   text results come from synthetic prose, unconditional generation and
   unmatched total compute, and they establish no conditional capability.
-  The unresolved gaps are the hard-Sudoku deficit, the autoregressive
-  quality gap on text, the single-codec dependence and the absence of
-  human ratings and of naturally occurring text.</p>
+  Follow-up runs with the same frozen codec show that the quality gap
+  falls as the generator grows and sees more data: the ratio of NCM to
+  AR generative perplexity goes from 3.33 (11.8M parameters) to 2.38
+  (87.4M) at the original data and to 2.13 with four times the data,
+  while corruption and loss-weighting variants and sampling policies do
+  not lower it materially (stronger corruption raises it), and bf16
+  training matches fp32 at 11.8M. These runs are single-seed except one,
+  unmatched in compute and mixed in precision, and the step from 49.6M
+  to 87.4M is smaller than the seed-to-seed difference measured at
+  11.8M, so they describe a trend, not a scaling law. The XSum generator
+  released by Kumbong et al. also runs in the port and reproduces its
+  published unguided ROUGE scores to within 0.1 and, at guidance weight
+  0.5, the guided ones to within 0.2. The unresolved gaps are the
+  hard-Sudoku deficit, the autoregressive quality gap on text (still
+  above two at the largest size), the single-codec dependence and the
+  absence of human ratings and of well-trained models on naturally
+  occurring text.</p>
 </sec>
 <sec id="code-and-reproducibility">
   <title>Code and reproducibility</title>
@@ -2974,9 +3533,47 @@ quality at pilot scale.</p>
   aligned evaluation and benchmark driver is not part of the repository
   or the archive. A clean checkout does not yet reproduce those runs end
   to end, and the released package <monospace>ncm-mlx</monospace> 0.2.0
-  does not include the text-training commands; the commands below cover
-  the Sudoku path. Audited reports, sample outputs and per-output scorer
-  records for all six runs are attached to the paper release as
+  did not include the text-training commands (they ship from 0.3.0); the
+  commands below cover the Sudoku path. The Section 11 configurations
+  are <monospace>configs/tinystories-ladder-*.json</monospace>,
+  <monospace>tinystories-e21-bf16.json</monospace>,
+  <monospace>tinystories-matched-constant.json</monospace>,
+  <monospace>tinystories-stronger-corruption*.json</monospace> and
+  <monospace>tinystories-equal-level-loss*.json</monospace> (output
+  directories under <monospace>artifacts/</monospace>), and their
+  evaluation numbers are in
+  <monospace>docs/research/tinystories-scaling.json</monospace>. These
+  runs used the repository’s text-training workflow with its optional
+  bf16 mixed precision (<monospace>train.precision</monospace>). The
+  stronger-corruption and equal-level-loss runs additionally used
+  gradient accumulation of 2 × 32 on a 12 GB card. Accumulation is an
+  option of the unreleased source that ran them; the public code and
+  configurations have no such option and train the same recipe as one
+  batch of 64, which needs more memory and is not bitwise the same
+  computation. The sampling-policy study (Section 11.2) is run by
+  <monospace>scripts/sampling_study.py</monospace> with the 98-run list
+  <monospace>scripts/sampling_study_runs.json</monospace>. It is the
+  private script that produced the tables, cleaned up for release, and
+  it has not been re-run on a clean checkout. The FineWeb-Edu data
+  preparation is private and not in the repository, so Section 11.5
+  cannot be reproduced from it. The audited reports, sample outputs and
+  scorer records for Section 11 are attached to the paper release as the
+  archive
+  <monospace>ncm-mlx-tinystories-evidence-e25-e32.tar.gz</monospace>
+  (SHA-256
+  <monospace>cbe6ec001b53a6f09a2b2b8fed4fce711852379cb42f6c277129b851bdfe430d</monospace>,
+  <ext-link ext-link-type="uri" xlink:href="https://github.com/janmus1c/ncm-mlx/releases/download/paper-v0.13/ncm-mlx-tinystories-evidence-e25-e32.tar.gz">download</ext-link>);
+  the numbers in
+  <monospace>docs/research/tinystories-scaling.json</monospace> were
+  read from its <monospace>report.json</monospace> files. Scorer records
+  exist for E25 and E28 only; the other runs keep their per-seed
+  perplexities in the reports. The archive holds no model weights. The
+  XSum port runs as
+  <monospace>python -m ncm_mlx official summarize --task xsum</monospace>,
+  and <monospace>scripts/official_xsum_parity.py</monospace> reproduces
+  the parity check against upstream PyTorch. Audited reports, sample
+  outputs and per-output scorer records for all six runs are attached to
+  the paper release as
   <monospace>ncm-mlx-tinystories-evidence-e21-e24.tar.gz</monospace>
   (SHA-256
   <monospace>4a744f5306ebef3433abbab9647372d6ad00949f616c7befe9476fbccb0d20b8</monospace>,
@@ -3247,6 +3844,25 @@ paper/build.sh                                     # rebuild this paper</code>
   endpoints: 0.75 → 0.25 (E21, E24), 0.30 → 0.05 (E22) and 0 → 0 (E23);
   E24 and the seed-1 repeats of E22 and E23 differ only in configured
   seed 1 and reuse the seed-0 codec.</p>
+  <p><bold>Section 11 settings.</bold> All runs: the TinyStories codec
+  and settings above, with the frozen E21 codec reused. Generators: 6 ×
+  384 × 6 heads (11,832,587 parameters), 12 × 576 × 9 heads (49,644,683)
+  and 12 × 768 × 12 heads (87,426,059); the AR baseline of each size
+  uses the same blocks (13,794,048, 52,586,880 and 91,348,992
+  parameters). Data multiple 1×: generator 15,000 updates at batch 64,
+  AR 7,500 at batch 128, fp32. Data multiple 4×: generator 60,000
+  updates at batch 64 (3,840,000 windows), AR 30,000 at batch 128,
+  <monospace>train.precision = &quot;bfloat16&quot;</monospace>. The
+  bf16 parity run is the E21 recipe with
+  <monospace>train.precision = &quot;bfloat16&quot;</monospace>.
+  Corruption variants: matched constant 0.3878 (E25); 0.90 → 0.50 (E28);
+  equal level loss <inline-formula><alternatives>
+  <tex-math><![CDATA[\alpha = 1]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>α</mml:mi><mml:mo>=</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+  with the E21 corruption (E28). The FineWeb pipeline check (E26) uses
+  14 × 768 × 12 heads and 20 × 1024 × 16 heads generators, batch 16 and
+  8, peak learning rate 3e-4, corruption 0.75 → 0.25, on 800,000
+  training windows of 128 tokens.</p>
 </sec>
 <sec id="appendix-b-environment">
   <title>Appendix B: Environment</title>
@@ -3258,7 +3874,18 @@ paper/build.sh                                     # rebuild this paper</code>
   TinyStories experiments and parity checks: Apple M5 Pro, 64 GB, macOS
   26.5, Python 3.12.14, MLX 0.32.3, <monospace>mlx-lm</monospace>
   0.32.2, NumPy 2.5.4, PyTorch 2.15.0 for upstream parity only; Metal
-  float32 with reduced-precision matrix products.</p>
+  float32 with reduced-precision matrix products. Section 11 runs: the
+  Apple M5 Pro (the matched-constant control and the earlier sampling
+  study, MLX 0.32.3), an RTX 3080 (12 GB; the bf16 parity, the 12M
+  four-times-data runs, the corruption and loss-weighting variants and
+  the main sampling sweeps), a rented RTX A6000 (12M and 50M at the
+  original data), a rented A40 (50M at four times the data), a rented
+  RTX PRO 6000 Blackwell (87M at both data amounts) and a rented RTX
+  5090 (the FineWeb-Edu pilot), through MLX 0.32.3’s CUDA backend with
+  Python 3.12.3 (3.12.15 on the RTX 3080); the XSum port was measured
+  with MLX 0.32.4 on the Mac, and its parity check used PyTorch 2.15.0
+  and transformers 5.22.0 on CPU. The <monospace>rouge-score</monospace>
+  package is 0.1.2.</p>
 </sec>
 <sec id="appendix-c-version-history">
   <title>Appendix C: Version history</title>
@@ -3359,6 +3986,18 @@ paper/build.sh                                     # rebuild this paper</code>
           latency; text future-work statements replaced by the observed
           bounded result. TinyWorld and Sudoku results unchanged.</td>
         </tr>
+        <tr>
+          <td>0.13</td>
+          <td>2026-11-04</td>
+          <td>Scaling study in the TinyStories setup (generator size ×
+          data, E30–E32), bf16 quality parity (E29), negative follow-ups
+          (matched-constant corruption, stronger corruption, equal level
+          loss, sampling policies; E25, E27, E28), FineWeb-Edu pipeline
+          check (E26), released XSum generator with parity and ROUGE
+          (Section 9.4); abstract, discussion, limitations, roadmap and
+          conclusion updated. v0.12 content, TinyWorld and Sudoku
+          results unchanged.</td>
+        </tr>
       </tbody>
     </table>
   </table-wrap>
@@ -3397,11 +4036,30 @@ paper/build.sh                                     # rebuild this paper</code>
     Quantization’. <italic>Proceedings of the IEEE/CVF Conference on
     Computer Vision and Pattern Recognition</italic>.</mixed-citation>
   </ref>
+  <ref id="ref-rouge2004">
+    <mixed-citation>Lin, Chin-Yew. 2004. ‘ROUGE: A Package for Automatic
+    Evaluation of Summaries’. <italic>Text Summarization Branches
+    out</italic>, 74–81.</mixed-citation>
+  </ref>
+  <ref id="ref-xsum2018">
+    <mixed-citation>Narayan, Shashi, Shay B. Cohen, and Mirella Lapata.
+    2018. ‘Don’t Give Me the Details, Just the Summary! Topic-Aware
+    Convolutional Neural Networks for Extreme Summarization’.
+    <italic>Proceedings of the 2018 Conference on Empirical Methods in
+    Natural Language Processing</italic>.</mixed-citation>
+  </ref>
   <ref id="ref-vqvae2017">
     <mixed-citation>Oord, Aaron van den, Oriol Vinyals, and Koray
     Kavukcuoglu. 2017. ‘Neural Discrete Representation Learning’.
     <italic>Advances in Neural Information Processing
     Systems</italic>.</mixed-citation>
+  </ref>
+  <ref id="ref-fineweb2024">
+    <mixed-citation>Penedo, Guilherme, Hynek Kydlíček, Loubna Ben Allal,
+    et al. 2024. ‘The FineWeb Datasets: Decanting the Web for the Finest
+    Text Data at Scale’. <italic>Advances in Neural Information
+    Processing Systems, Datasets and Benchmarks
+    Track</italic>.</mixed-citation>
   </ref>
   <ref id="ref-gpt2-2019">
     <mixed-citation>Radford, Alec, Jeffrey Wu, Rewon Child, David Luan,

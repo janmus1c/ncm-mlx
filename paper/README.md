@@ -1,6 +1,6 @@
 # Paper
 
-An unreviewed working paper on this independent implementation. Version 0.12 adds an inference-parity study of the released checkpoints, the TinyStories corruption ablation with two generator seeds, and a roadmap. It retains the TinyWorld and Sudoku results, negative outcomes, experimental limitations and the disclosure of OpenAI Codex assistance with implementation, experiments, analysis, figures, documentation and manuscript drafting and revision.
+An unreviewed working paper on this independent implementation. Version 0.13 adds a TinyStories scaling study (generator size and data), bf16 parity, follow-up runs and the released XSum generator; version 0.12 added an inference-parity study of the released checkpoints, the TinyStories corruption ablation with two generator seeds, and a roadmap. It retains the TinyWorld and Sudoku results, negative outcomes, experimental limitations and the disclosure of OpenAI Codex assistance with implementation, experiments, analysis, figures, documentation and manuscript drafting and revision.
 
 | File | What it is |
 |---|---|
@@ -29,7 +29,7 @@ uv sync --group paper
 .venv/bin/python paper/make_figures.py --plot   # fresh checkout: committed data/results.json only
 ```
 
-`figures/project-roadmap.*` is the light edition of `docs/assets/project-roadmap-light.svg`, drawn by `scripts/render_research_visuals.py`.
+`figures/project-roadmap.*` is the light edition of `docs/assets/roadmap-2026-11-light.svg`, drawn by `scripts/render_research_visuals.py` (PDF and PNG printed from the SVG).
 
 ## Build the editions
 

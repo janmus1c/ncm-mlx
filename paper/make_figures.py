@@ -26,6 +26,7 @@ RUNS = ROOT / "runs"
 PAPER = Path(__file__).resolve().parent
 DATA = PAPER / "data" / "results.json"
 CORRUPTION = PAPER / "data" / "tinystories-corruption.json"
+SCALING = ROOT / "docs" / "research" / "tinystories-scaling.json"
 FIGS = PAPER / "figures"
 
 SUDOKU_RUNS = {
@@ -313,6 +314,39 @@ def fig_corruption(_: dict) -> None:
     _save(fig, "corruption-ablation")
 
 
+def fig_scaling(_: dict) -> None:
+    """NCM / AR generative-perplexity ratio by generator size, at 1x and 4x data."""
+    d = json.loads(SCALING.read_text())
+    runs = d["runs"]
+    ratio = {k: v["ncm_over_ar"] for k, v in runs.items() if "ncm_over_ar" in v}
+    sizes = ["12M", "50M", "87M"]
+    xs = [0, 1, 2]
+    one = [ratio["ladder-12m"], ratio["ladder-50m"], ratio["ladder-87m"]]
+    seeds = [ratio["ladder-12m-x4-bf16"], ratio["ladder-12m-x4-bf16-seed1"]]
+    four = [sum(seeds) / 2, ratio["ladder-50m-x4-bf16"], ratio["ladder-87m-x4-bf16"]]
+    fig, ax = plt.subplots(figsize=(5.2, 3.1))
+    ax.plot(xs, one, "-o", color=ACCENT, mfc="white", ms=6, label="1x data (960k windows), fp32")
+    ax.plot(xs, four, "--s", color=WARM, ms=5.5, label="4x data (3.84M windows), bf16")
+    ax.plot([0, 0], seeds, "s", color=WARM, ms=5.5)
+    mac = [d["mac_fp32_references"][k]["ncm_over_ar"] for k in ("e21", "e24")]
+    ax.plot([0, 0], mac, ".", color=MUTED, ms=4, label="Mac fp32 repeats of 12M, 1x (E21, E24)")
+    for x, v in zip(xs, one, strict=True):
+        ax.annotate(f"{v:.2f}", (x, v), textcoords="offset points", xytext=(-6 if x == 0 else 6, 6),
+                    ha="right" if x == 0 else "left", fontsize=7, color=ACCENT)
+    for v in seeds:
+        ax.annotate(f"{v:.2f}", (0, v), textcoords="offset points", xytext=(-7, -2), ha="right", fontsize=7, color=WARM)
+    for x, v in zip(xs[1:], four[1:], strict=True):
+        ax.annotate(f"{v:.2f}", (x, v), textcoords="offset points", xytext=(0, -12), ha="center", fontsize=7, color=WARM)
+    ax.axhline(1, color=MUTED, ls="--", lw=0.7)
+    ax.text(-0.45, 1.04, "parity", fontsize=6.3, color=MUTED)
+    ax.set_xticks(xs, [f"{s} generator" for s in sizes], fontsize=7.5)
+    ax.set_xlim(-0.5, 2.5)
+    ax.set_ylim(0.85, 3.7)
+    ax.set_ylabel("NCM / AR GPT-2 large perplexity")
+    ax.legend(fontsize=6.3, loc="upper right")
+    _save(fig, "scaling-ladder")
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--plot", action="store_true", help="skip collection and plot from data/results.json")
@@ -322,7 +356,7 @@ def main() -> int:
         DATA.write_text(json.dumps(collect(), indent=1) + "\n")
     data = json.loads(DATA.read_text())
     for fig in (fig_overview, fig_codec_refinement, fig_latency, fig_val_curves, fig_sudoku_cells,
-                fig_completed_sudoku, fig_corruption):
+                fig_completed_sudoku, fig_corruption, fig_scaling):
         fig(data)
     print(f"wrote {DATA.relative_to(ROOT)} and {len(list(FIGS.glob('*.svg')))} figures to {FIGS.relative_to(ROOT)}")
     return 0
