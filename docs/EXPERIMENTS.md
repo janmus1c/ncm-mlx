@@ -34,6 +34,45 @@ On the full test set the default run is within 0.1 of the quoted scores on all t
 
 **Limits.** The summaries are fluent-looking but contain broken words and wrong facts (for example "herptptathlon" and a different team and score than the source), and ROUGE overlap does not measure faithfulness. Only greedy decoding is checked against upstream; minimum-Bayes-risk decoding and sampled outputs are not. There is no Metal parity run. The decode follows `transformers` 5.x defaults without the optional space clean-up; whether 4.x defaults clean up differs, and ROUGE is unchanged at two decimals on the sample. The penalty readout has no visible ROUGE effect at 200 articles although it changes every parity text. Training XSum is out of scope here, and `bench` does not time summarisation.
 
+## E33: Muon and neighbour corruption at the 12M recipe (2026-11-04 to 2026-11-08)
+
+Question: do two cheap recipe changes improve the 12M E21 recipe before a larger run is funded? The changes are the Muon optimiser for the generator's 2-D weight matrices (`train.generator.optimizer = "muon"`, `muon_lr` 0.02 unless noted) and neighbour corruption of the conditioning codes (`generator.corruption_mode = "neighbor"`, 8 nearest codes, rate jitter 0.3 unless noted; see [text training](text-training.md#optional-muon-optimizer-neighbour-corruption-and-the-official-recipe-config)). Every run is `tinystories-e21-bf16.json` with only those keys changed (and the time limits removed, as in the tracked configs), on the frozen E21 codec; the tracked configs are `tinystories-muon-12m.json`, `tinystories-muon-12m-x4.json` and `tinystories-neighbor-12m.json`. Evaluation is the E29 protocol: GPT-2-large perplexity of unconditional samples (SD over 5 sampling seeds). The AdamW comparison runs are E29 (seed 0) and two further seeds trained in the same queue.
+
+Hardware: Muon and AdamW runs on one RTX 3080 (12 GB) through MLX's CUDA backend, MLX 0.32.3, Python 3.12.15, `strata.service` (the only other GPU service) stopped for the whole queue, so no competing GPU load. The neighbour-corruption runs on the Apple M5 Pro at `nice` 10 under a 20 GB MLX memory cap, MLX 0.32.4, while the machine was in normal use; their wall times are therefore not comparable with the 3080 rows.
+
+**1× data (15,000 generator updates × 64).**
+
+| Run | Seed | Test code CE | NCM GPT-2-large PPL (SD) | Generator training |
+|---|---:|---:|---:|---|
+| AdamW, E29 | 0 | 2.247 | 49.091 (1.766) | 3,456 s, 283 seq/s |
+| AdamW | 1 | 2.250 | 46.063 (1.079) | 3,435 s, 284 seq/s |
+| AdamW | 2 | 2.254 | 45.100 (1.154) | 3,432 s |
+| Muon, lr 0.02 | 0 | 2.222 | 43.079 (1.103) | 3,857 s, 267 seq/s |
+| Muon, lr 0.02 | 1 | 2.224 | 44.299 (1.262) | 3,638 s, 267 seq/s |
+| Muon, lr 0.02 | 2 | 2.227 | 42.438 (1.120) | 3,640 s |
+| Muon, lr 0.01 | 0 | 2.195 | 43.045 (0.916) | 3,647 s |
+| Muon, lr 0.04 | 0 | 2.242 | 45.347 (0.298) | 3,648 s |
+| Muon + neighbour | 0 | 1.792 | 61.489 (1.455) | 3,672 s |
+| Neighbour (M5 Pro) | 0 | 1.843 | 69.042 (2.065) | 12,301 s, 81 seq/s |
+| Neighbour (M5 Pro) | 1 | 1.839 | 64.496 (0.890) | 11,512 s, 85 seq/s |
+| Neighbour, no jitter (M5 Pro) | 0 | 1.875 | 66.227 (0.766) | 9,653 s, 105 seq/s |
+
+At 1×, the three Muon seeds average 43.3 against 46.8 for the three AdamW seeds (every Muon run is below every AdamW run), with a lower test code CE (2.22 against 2.25). Learning rate 0.01 is as good as 0.02 on one seed and 0.04 is worse. Neighbour corruption lowers the test code CE by about 0.4 to 0.45 nats and makes the text far worse (61 to 69 against 43 to 49), with or without jitter and with or without Muon: lower loss, worse stories, as in the earlier corruption experiments.
+
+**4× data (60,000 generator updates × 64), Muon against E31's AdamW.**
+
+| Run | Seed | Test code CE | NCM GPT-2-large PPL (SD) | Generator training |
+|---|---:|---:|---:|---|
+| AdamW (E31) | 0 | 2.012 | 38.416 (1.316) | 13,855 s, 283 seq/s |
+| AdamW (E31) | 1 | 2.017 | 36.186 (0.467) | 13,700 s, 284 seq/s |
+| Muon, lr 0.02 | 0 | 2.029 | 36.827 (0.809) | 14,686 s, 267 seq/s |
+
+At four times the data the Muon run (36.8) lies between the two AdamW seeds (36.2 and 38.4) and its test code CE is slightly higher (2.029 against 2.012 and 2.017). The 1× advantage does not carry over, so Muon is not adopted for later runs.
+
+Muon ran about 5% fewer sequences per second than AdamW on the 3080 (267 against 283), not at equal speed.
+
+**Limitations.** One Muon seed at 4×, against two AdamW seeds whose own difference is 2.2 perplexity; the 4× comparison cannot show a small effect in either direction. One frozen codec, 12M parameters, synthetic prose, 128-token unconditional generation, one external scorer. The AdamW seeds 1 and 2 and the Muon seeds ran in one queue, the E29 row earlier on the same card. Neighbour-corruption runs used a different machine and, per run, differing background load. Muon was not tested above 12M. Neighbour corruption was tested at one setting (8 neighbours); the no-jitter ablation has one seed. Muon learning rates other than 0.01, 0.02 and 0.04 were not tried.
+
 ## E32: 50M and 87M generators at four times the data, bf16 (2026-11-04)
 
 Question: do the size gains hold, and does the NCM/AR ratio keep falling, when 50M and 87M generators see four times the TinyStories windows? Configs: `configs/tinystories-ladder-50m-x4-bf16.json` and `configs/tinystories-ladder-87m-x4-bf16.json` (out_dir under `artifacts/`). They are the 1× size-ladder configs of E30 with generator updates 15,000 to 60,000 (60,000 × 64 = 3,840,000 windows), AR updates 7,500 to 30,000 (30,000 × 128), no time limit, and `train.precision = "bfloat16"` (E29). The frozen E21 codec, corruption 0.75 to 0.25, optimiser and every other setting are unchanged. Training seed 0, one run per size.
