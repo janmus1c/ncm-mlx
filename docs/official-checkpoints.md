@@ -24,7 +24,7 @@ updated: 2026-11-03
 
 NCM writes a whole level of the output in one model call, coarse to fine, instead of one token per call. The method is by Kumbong et al.; this is an independent implementation.
 
-No install needed to look: the [refinement demo](https://huggingface.co/spaces/janmusic/ncm-refinement-demo) replays recorded outputs in the browser. Converted weights: [ncm-tinystories-mlx](https://huggingface.co/janmusic/ncm-tinystories-mlx), [ncm-sudoku-mlx](https://huggingface.co/janmusic/ncm-sudoku-mlx). [How the MLX port was verified](research/checkpoint-parity.md): conversion rules, tokenizer checks, numerical parity and measured performance.
+No install needed to look: the [refinement replay](https://huggingface.co/spaces/janmusic/NCM-Refinement-Replay) replays recorded outputs in the browser. Converted weights: [NCM-TinyStories-89M-Upstream-MLX](https://huggingface.co/janmusic/NCM-TinyStories-89M-Upstream-MLX), [NCM-Sudoku-25M-Upstream-MLX](https://huggingface.co/janmusic/NCM-Sudoku-25M-Upstream-MLX). [How the MLX port was verified](research/checkpoint-parity.md): conversion rules, tokenizer checks, numerical parity and measured performance.
 
 ## Commands
 

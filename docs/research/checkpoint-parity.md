@@ -29,18 +29,18 @@ In a Python 3.12 environment on Apple Silicon:
 
 ```bash
 python -m pip install "ncm-mlx==0.2.0" huggingface-hub
-hf download janmusic/ncm-tinystories-mlx \
+hf download janmusic/NCM-TinyStories-89M-Upstream-MLX \
   --revision be91c549d5336dd64a476ace9c27589a6f21a7fc \
-  --local-dir ncm-tinystories-mlx
+  --local-dir ncm-tinystories-89m-upstream
 python -m ncm_mlx official generate --task tinystories \
-  --weights ncm-tinystories-mlx --n 2 --levels
+  --weights ncm-tinystories-89m-upstream --n 2 --levels
 ```
 
-The [model card](https://huggingface.co/janmusic/ncm-tinystories-mlx) documents the downloaded files and their provenance. The model stores approximately 500 MB of float32 weights, plus tokenizer and metadata. It uses its own inference path; it is not a Transformers `AutoModelForCausalLM` or an `mlx_lm` checkpoint.
+The [model card](https://huggingface.co/janmusic/NCM-TinyStories-89M-Upstream-MLX) documents the downloaded files and their provenance. The model stores approximately 500 MB of float32 weights, plus tokenizer and metadata. It uses its own inference path; it is not a Transformers `AutoModelForCausalLM` or an `mlx_lm` checkpoint.
 
 `--levels` decodes the accumulated latent representation after each level. TinyStories uses a 12-level hierarchy: level 0 is drawn from a stored unigram distribution, then 11 generator forwards predict the remaining levels in parallel. Output is bounded to 128 BPE token positions. This checkpoint generates unconditionally from a start prefix; it does not accept instructions or continue a user prompt.
 
-For a preview without installation, the [browser demo](https://huggingface.co/spaces/janmusic/ncm-refinement-demo) replays recorded refinement traces. It is a static replay of actual outputs, not live inference. Intermediate text can be incoherent: it shows partial reconstruction, not the model's reasoning.
+For a preview without installation, the [browser demo](https://huggingface.co/spaces/janmusic/NCM-Refinement-Replay) replays recorded refinement traces. It is a static replay of actual outputs, not live inference. Intermediate text can be incoherent: it shows partial reconstruction, not the model's reasoning.
 
 ## Converting the checkpoints
 

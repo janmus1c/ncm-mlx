@@ -11,7 +11,7 @@
   <a href="#quickstart">Quickstart</a> ·
   <a href="#results">Results</a> ·
   <a href="paper/dist/ncm-mlx.pdf">Working paper</a> ·
-  <a href="https://huggingface.co/spaces/janmusic/ncm-refinement-demo">Demo</a>
+  <a href="https://huggingface.co/spaces/janmusic/NCM-Refinement-Replay">Demo</a>
 </p>
 <p align="center">
   <a href="https://arxiv.org/abs/2610.14162"><img src="https://img.shields.io/badge/arXiv-2610.14162-24292f?style=flat-square" alt="Next-Concept Modeling paper by Kumbong et al. (arXiv 2610.14162)"></a>
@@ -19,7 +19,7 @@
   <a href="https://doi.org/10.5281/zenodo.23620913"><img src="https://img.shields.io/badge/paper%20DOI-10.5281%2Fzenodo.23620913-24292f?style=flat-square" alt="Working paper DOI 10.5281/zenodo.23620913"></a>
   <a href="https://pypi.org/project/ncm-mlx/"><img src="https://img.shields.io/pypi/v/ncm-mlx?style=flat-square&color=24292f&label=PyPI" alt="PyPI version"></a>
   <a href="https://huggingface.co/collections/janmusic/next-concept-modeling-in-mlx-6ae3b295f2ed5265df0906bf"><img src="https://img.shields.io/badge/Hugging%20Face-models-24292f?style=flat-square" alt="Models on Hugging Face"></a>
-  <a href="https://huggingface.co/spaces/janmusic/ncm-refinement-demo"><img src="https://img.shields.io/badge/demo-watch%20NCM%20refine-24292f?style=flat-square" alt="Refinement demo on Hugging Face"></a>
+  <a href="https://huggingface.co/spaces/janmusic/NCM-Refinement-Replay"><img src="https://img.shields.io/badge/demo-watch%20NCM%20refine-24292f?style=flat-square" alt="Refinement demo on Hugging Face"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-24292f?style=flat-square" alt="MIT license"></a>
 </p>
 
@@ -54,7 +54,7 @@ python -m ncm_mlx official convert --task tinystories
 python -m ncm_mlx official generate --task tinystories --n 2 --levels   # stories refined level by level
 ```
 
-This runs the released TinyStories checkpoint on an Apple Silicon Mac; Linux with an NVIDIA GPU uses `pip install "ncm-mlx[cuda]"` ([platforms](docs/platforms.md)). The Sudoku checkpoints, benchmarks and parity script are in [released checkpoints](docs/official-checkpoints.md). Converted weights are also on Hugging Face: [ncm-tinystories-mlx](https://huggingface.co/janmusic/ncm-tinystories-mlx), [ncm-sudoku-mlx](https://huggingface.co/janmusic/ncm-sudoku-mlx).
+This runs the released TinyStories checkpoint on an Apple Silicon Mac; Linux with an NVIDIA GPU uses `pip install "ncm-mlx[cuda]"` ([platforms](docs/platforms.md)). The Sudoku checkpoints, benchmarks and parity script are in [released checkpoints](docs/official-checkpoints.md). Converted weights are also on Hugging Face: [NCM-TinyStories-89M-Upstream-MLX](https://huggingface.co/janmusic/NCM-TinyStories-89M-Upstream-MLX), [NCM-Sudoku-25M-Upstream-MLX](https://huggingface.co/janmusic/NCM-Sudoku-25M-Upstream-MLX).
 
 To train from scratch, clone the repository and run `mise trust && mise install && mise run setup && mise run train`; the TinyWorld model takes about 5.5 minutes on an M5 Pro. See [training](docs/training.md) for TinyWorld and Sudoku, and [text training](docs/text-training.md) for TinyStories and [prompt continuation](docs/text-training.md#prompt-continuation-prefix-conditioning) with `official continue-text`.
 
@@ -110,7 +110,7 @@ To cite this implementation, use the [archived software](https://doi.org/10.5281
 
 ## License and acknowledgements
 
-MIT licence, see [`LICENSE`](LICENSE), with provenance notes in [`THIRD_PARTY.md`](THIRD_PARTY.md). The source release contains no model weights or downloaded evaluation data; the weights trained here are on Hugging Face: Sudoku [ncm-mlx-sudoku](https://huggingface.co/janmusic/ncm-mlx-sudoku), TinyWorld [ncm-mlx-tinyworld](https://huggingface.co/janmusic/ncm-mlx-tinyworld), and the 87M TinyStories NCM and its 91M AR baseline from the scaling study, [ncm-tinystories-87m-x4-mlx](https://huggingface.co/janmusic/ncm-tinystories-87m-x4-mlx) and [ar-tinystories-91m-x4-mlx](https://huggingface.co/janmusic/ar-tinystories-91m-x4-mlx).
+MIT licence, see [`LICENSE`](LICENSE), with provenance notes in [`THIRD_PARTY.md`](THIRD_PARTY.md). The source release contains no model weights or downloaded evaluation data; the weights trained here are on Hugging Face: Sudoku [NCM-Sudoku-6.4M-MLX](https://huggingface.co/janmusic/NCM-Sudoku-6.4M-MLX), TinyWorld [NCM-TinyWorld-5M-MLX](https://huggingface.co/janmusic/NCM-TinyWorld-5M-MLX), and the 87M TinyStories NCM and its 91M AR baseline from the scaling study, [NCM-TinyStories-87M-MLX](https://huggingface.co/janmusic/NCM-TinyStories-87M-MLX) and [AR-TinyStories-91M-MLX](https://huggingface.co/janmusic/AR-TinyStories-91M-MLX).
 
 The method, the released checkpoints and the reference [PyTorch code](https://github.com/HazyResearch/ncm) (MIT) are by Hermann Kumbong, Ishan S. Khare, Iddah Mlauzi, Andrew Woen, Charles Ding, E. Kelly Buchanan, Simran Arora, Azalia Mirhoseini and Christopher Ré. No upstream code is copied here. The XSum and WMT14 codec support and prompt-prefix training in 0.3.0 follow work by Red-fuchs in [ncm-modular](https://github.com/Red-fuchs/ncm-modular). Built with [MLX](https://github.com/ml-explore/mlx).
 
